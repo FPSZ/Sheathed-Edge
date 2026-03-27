@@ -1,0 +1,8 @@
+{
+  "default_tools": [
+    "filesystem/search",
+    "terminal",
+    "retrieval"
+  ]
+}
+

@@ -1,0 +1,7 @@
+{
+  "plugin_tools": [
+    "radare2",
+    "terminal:pwn"
+  ]
+}
+

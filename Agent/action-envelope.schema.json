@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ActionEnvelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "type",
+    "tool",
+    "arguments",
+    "reason"
+  ],
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": [
+        "answer",
+        "tool_call"
+      ]
+    },
+    "tool": {
+      "type": "string",
+      "minLength": 0
+    },
+    "arguments": {
+      "type": "object"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "answer"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "tool": {
+            "const": ""
+          }
+        }
+      }
+    }
+  ]
+}
+

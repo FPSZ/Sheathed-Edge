@@ -1,0 +1,126 @@
+{
+  "servers": [
+    {
+      "name": "filesystem/search",
+      "command": [
+        "python",
+        "-m",
+        "mcp_servers.filesystem_search"
+      ],
+      "workdir": "D:\\AI\\Local",
+      "timeout_ms": 30000,
+      "allowed_paths": [
+        "D:\\AI\\Local\\Core",
+        "D:\\AI\\Local\\Plugins",
+        "D:\\AI\\Local\\Datasets",
+        "D:\\AI\\Local\\Eval",
+        "D:\\AI\\Local\\Logs",
+        "D:\\AI\\Local\\Templates",
+        "D:\\AI\\Local\\Writeups"
+      ],
+      "plugin_scope": [
+        "awdp"
+      ],
+      "transport": "stdio",
+      "enabled": true
+    },
+    {
+      "name": "terminal",
+      "command": [
+        "python",
+        "-m",
+        "mcp_servers.terminal"
+      ],
+      "workdir": "D:\\AI\\Local",
+      "timeout_ms": 60000,
+      "allowed_paths": [
+        "D:\\AI\\Local"
+      ],
+      "plugin_scope": [
+        "awdp"
+      ],
+      "transport": "stdio",
+      "enabled": true
+    },
+    {
+      "name": "retrieval",
+      "command": [
+        "python",
+        "-m",
+        "mcp_servers.retrieval"
+      ],
+      "workdir": "D:\\AI\\Local",
+      "timeout_ms": 30000,
+      "allowed_paths": [
+        "D:\\AI\\Local\\Core",
+        "D:\\AI\\Local\\Plugins",
+        "D:\\AI\\Local\\Datasets",
+        "D:\\AI\\Local\\Eval",
+        "D:\\AI\\Local\\Templates",
+        "D:\\AI\\Local\\Writeups"
+      ],
+      "plugin_scope": [
+        "awdp"
+      ],
+      "transport": "stdio",
+      "enabled": true
+    },
+    {
+      "name": "browser",
+      "command": [
+        "python",
+        "-m",
+        "mcp_servers.browser"
+      ],
+      "workdir": "D:\\AI\\Local",
+      "timeout_ms": 45000,
+      "allowed_paths": [],
+      "plugin_scope": [
+        "web"
+      ],
+      "transport": "stdio",
+      "enabled": true
+    },
+    {
+      "name": "radare2",
+      "command": [
+        "python",
+        "-m",
+        "mcp_servers.radare2"
+      ],
+      "workdir": "D:\\AI\\Local",
+      "timeout_ms": 90000,
+      "allowed_paths": [
+        "D:\\AI\\Local\\Plugins\\pwn",
+        "D:\\AI\\Local\\Datasets",
+        "D:\\AI\\Local\\Eval"
+      ],
+      "plugin_scope": [
+        "pwn"
+      ],
+      "transport": "stdio",
+      "enabled": true
+    },
+    {
+      "name": "docker",
+      "command": [
+        "python",
+        "-m",
+        "mcp_servers.docker"
+      ],
+      "workdir": "D:\\AI\\Local",
+      "timeout_ms": 120000,
+      "allowed_paths": [
+        "D:\\AI\\Local"
+      ],
+      "plugin_scope": [
+        "awdp",
+        "web",
+        "pwn"
+      ],
+      "transport": "stdio",
+      "enabled": false
+    }
+  ]
+}
+

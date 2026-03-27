@@ -1,0 +1,21 @@
+{
+  "name": "awdp",
+  "type": "core",
+  "always_enabled": true,
+  "prompt_files": [
+    "prompts/system.md",
+    "prompts/output_contract.md"
+  ],
+  "skill_files": [
+    "skills/core-skills.md"
+  ],
+  "tool_scope": [
+    "filesystem/search",
+    "terminal",
+    "retrieval"
+  ],
+  "eval_tags": [
+    "awdp"
+  ]
+}
+

@@ -1,0 +1,22 @@
+{
+  "name": "web",
+  "type": "plugin",
+  "extends_core_mode": "awdp",
+  "prompt_files": [
+    "prompts/fragment.md"
+  ],
+  "skill_files": [
+    "skills/web-skills.md"
+  ],
+  "tool_scope": [
+    "browser",
+    "terminal:web"
+  ],
+  "dataset_roots": [
+    "datasets"
+  ],
+  "eval_tags": [
+    "web"
+  ]
+}
+

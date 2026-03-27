@@ -1,0 +1,22 @@
+{
+  "name": "pwn",
+  "type": "plugin",
+  "extends_core_mode": "awdp",
+  "prompt_files": [
+    "prompts/fragment.md"
+  ],
+  "skill_files": [
+    "skills/pwn-skills.md"
+  ],
+  "tool_scope": [
+    "radare2",
+    "terminal:pwn"
+  ],
+  "dataset_roots": [
+    "datasets"
+  ],
+  "eval_tags": [
+    "pwn"
+  ]
+}
+

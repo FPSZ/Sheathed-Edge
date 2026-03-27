@@ -1,0 +1,42 @@
+{
+  "listen_host": "127.0.0.1",
+  "listen_port": 8090,
+  "provider_model_alias": "awdp-r1-70b",
+  "llama_server": {
+    "base_url": "http://127.0.0.1:8080/v1",
+    "timeout_ms": 180000
+  },
+  "tool_router": {
+    "base_url": "http://127.0.0.1:8091",
+    "timeout_ms": 120000
+  },
+  "modes": {
+    "core_root": "D:\\AI\\Local\\Core",
+    "default_mode": "awdp",
+    "plugin_root": "D:\\AI\\Local\\Plugins",
+    "allowed_plugins": [
+      "web",
+      "pwn"
+    ]
+  },
+  "knowledge_roots": [
+    "D:\\AI\\Local\\Core\\awdp",
+    "D:\\AI\\Local\\Plugins\\web\\datasets",
+    "D:\\AI\\Local\\Plugins\\pwn\\datasets",
+    "D:\\AI\\Local\\Eval",
+    "D:\\AI\\Local\\Writeups",
+    "D:\\AI\\Local\\Templates"
+  ],
+  "retrieval": {
+    "sqlite_index": "D:\\AI\\Local\\Datasets\\index\\knowledge.db",
+    "fallback_command": "rg",
+    "max_fragments": 8,
+    "max_fragment_chars": 2400
+  },
+  "action_envelope_schema": "D:\\AI\\Local\\Agent\\action-envelope.schema.json",
+  "logs": {
+    "session_log_dir": "D:\\AI\\Local\\Logs\\sessions",
+    "audit_log_dir": "D:\\AI\\Local\\Logs\\audit"
+  }
+}
+
