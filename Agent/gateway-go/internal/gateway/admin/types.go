@@ -68,7 +68,7 @@ type SwitchModelRequest struct {
 }
 
 type HostIPsResponse struct {
-	IPs           []string `json:"ips"`
-	SharePort     int      `json:"share_port"`
-	ShareURLs     []string `json:"share_urls"`
+	IPs       []string `json:"ips"`
+	SharePort int      `json:"share_port"`
+	ShareURLs []string `json:"share_urls"`
 }
