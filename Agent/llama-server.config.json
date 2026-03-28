@@ -1,0 +1,18 @@
+{
+  "binary_path": "",
+  "binary_candidates": [
+    "D:\\Environment2\\Create\\llama.cpp\\llama-server.exe",
+    "D:\\Environment2\\Create\\llama-cpp\\llama-server.exe",
+    "D:\\Environment2\\Create\\llama.cpp\\bin\\llama-server.exe"
+  ],
+  "model_path": "D:\\AI\\Local\\Models\\Deepseek\\DeepSeek-R1-Distill-Llama-70B-Q4_K_M.gguf",
+  "listen_host": "0.0.0.0",
+  "listen_port": 8080,
+  "ctx_size": 32768,
+  "n_gpu_layers": 999,
+  "flash_attn": true,
+  "parallel": 1,
+  "threads": 16,
+  "cont_batching": true,
+  "log_dir": "D:\\AI\\Local\\Logs\\llama-server"
+}

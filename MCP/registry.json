@@ -1,14 +1,23 @@
 {
-  "servers": [
+  "$schema": "D:\\AI\\Local\\MCP\\registry.schema.json",
+  "tools": [
     {
       "name": "filesystem/search",
+      "description": "Search local files within approved project roots.",
+      "type": "stdio_mcp",
+      "transport": "stdio",
       "command": [
         "python",
         "-m",
         "mcp_servers.filesystem_search"
       ],
+      "env": {},
       "workdir": "D:\\AI\\Local",
       "timeout_ms": 30000,
+      "retry": {
+        "max_attempts": 1,
+        "backoff_ms": 0
+      },
       "allowed_paths": [
         "D:\\AI\\Local\\Core",
         "D:\\AI\\Local\\Plugins",
@@ -18,39 +27,60 @@
         "D:\\AI\\Local\\Templates",
         "D:\\AI\\Local\\Writeups"
       ],
+      "allowed_hosts": [],
+      "allowed_cidrs": [],
+      "allowed_schemes": [],
+      "allowed_ports": [],
       "plugin_scope": [
         "awdp"
       ],
-      "transport": "stdio",
-      "enabled": true
-    },
-    {
-      "name": "terminal",
-      "command": [
-        "python",
-        "-m",
-        "mcp_servers.terminal"
+      "parameter_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "query"
+        ],
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1
+          },
+          "roots": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 10
+          }
+        }
+      },
+      "capabilities": [
+        "tools"
       ],
-      "workdir": "D:\\AI\\Local",
-      "timeout_ms": 60000,
-      "allowed_paths": [
-        "D:\\AI\\Local"
-      ],
-      "plugin_scope": [
-        "awdp"
-      ],
-      "transport": "stdio",
       "enabled": true
     },
     {
       "name": "retrieval",
+      "description": "Retrieve indexed local knowledge snippets for the active scope.",
+      "type": "stdio_mcp",
+      "transport": "stdio",
       "command": [
         "python",
         "-m",
         "mcp_servers.retrieval"
       ],
+      "env": {},
       "workdir": "D:\\AI\\Local",
       "timeout_ms": 30000,
+      "retry": {
+        "max_attempts": 1,
+        "backoff_ms": 0
+      },
       "allowed_paths": [
         "D:\\AI\\Local\\Core",
         "D:\\AI\\Local\\Plugins",
@@ -59,68 +89,321 @@
         "D:\\AI\\Local\\Templates",
         "D:\\AI\\Local\\Writeups"
       ],
+      "allowed_hosts": [],
+      "allowed_cidrs": [],
+      "allowed_schemes": [],
+      "allowed_ports": [],
       "plugin_scope": [
         "awdp"
       ],
-      "transport": "stdio",
+      "parameter_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "query"
+        ],
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1
+          },
+          "roots": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 8
+          }
+        }
+      },
+      "capabilities": [
+        "tools",
+        "resources"
+      ],
       "enabled": true
     },
     {
+      "name": "terminal",
+      "description": "Reserved core terminal template entry. Execution is intentionally disabled until templates are finalized.",
+      "type": "stdio_mcp",
+      "transport": "stdio",
+      "command": [
+        "python",
+        "-m",
+        "mcp_servers.terminal"
+      ],
+      "env": {},
+      "workdir": "D:\\AI\\Local",
+      "timeout_ms": 60000,
+      "retry": {
+        "max_attempts": 1,
+        "backoff_ms": 0
+      },
+      "allowed_paths": [
+        "D:\\AI\\Local"
+      ],
+      "allowed_hosts": [],
+      "allowed_cidrs": [],
+      "allowed_schemes": [],
+      "allowed_ports": [],
+      "plugin_scope": [
+        "awdp"
+      ],
+      "parameter_schema": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "capabilities": [
+        "tools"
+      ],
+      "enabled": false
+    },
+    {
       "name": "browser",
+      "description": "Access approved web targets for web plugin sessions.",
+      "type": "stdio_mcp",
+      "transport": "stdio",
       "command": [
         "python",
         "-m",
         "mcp_servers.browser"
       ],
+      "env": {},
       "workdir": "D:\\AI\\Local",
       "timeout_ms": 45000,
+      "retry": {
+        "max_attempts": 1,
+        "backoff_ms": 0
+      },
       "allowed_paths": [],
+      "allowed_hosts": [
+        "127.0.0.1",
+        "localhost",
+        "awdp-target"
+      ],
+      "allowed_cidrs": [
+        "192.168.0.0/16",
+        "10.0.0.0/8",
+        "172.16.0.0/12"
+      ],
+      "allowed_schemes": [
+        "http",
+        "https"
+      ],
+      "allowed_ports": [
+        80,
+        443,
+        8000,
+        8080
+      ],
       "plugin_scope": [
         "web"
       ],
-      "transport": "stdio",
+      "parameter_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "url"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "minLength": 1
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST"
+            ],
+            "default": "GET"
+          }
+        }
+      },
+      "capabilities": [
+        "tools"
+      ],
       "enabled": true
     },
     {
       "name": "radare2",
+      "description": "Analyze approved binaries for pwn plugin sessions.",
+      "type": "stdio_mcp",
+      "transport": "stdio",
       "command": [
         "python",
         "-m",
         "mcp_servers.radare2"
       ],
+      "env": {},
       "workdir": "D:\\AI\\Local",
       "timeout_ms": 90000,
+      "retry": {
+        "max_attempts": 1,
+        "backoff_ms": 0
+      },
       "allowed_paths": [
         "D:\\AI\\Local\\Plugins\\pwn",
         "D:\\AI\\Local\\Datasets",
         "D:\\AI\\Local\\Eval"
       ],
+      "allowed_hosts": [],
+      "allowed_cidrs": [],
+      "allowed_schemes": [],
+      "allowed_ports": [],
       "plugin_scope": [
         "pwn"
       ],
-      "transport": "stdio",
+      "parameter_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "capabilities": [
+        "tools"
+      ],
       "enabled": true
     },
     {
-      "name": "docker",
+      "name": "terminal:web",
+      "description": "Run approved web templates such as curl against local or session-approved targets.",
+      "type": "stdio_mcp",
+      "transport": "stdio",
       "command": [
         "python",
         "-m",
-        "mcp_servers.docker"
+        "mcp_servers.terminal_web"
       ],
+      "env": {},
       "workdir": "D:\\AI\\Local",
-      "timeout_ms": 120000,
+      "timeout_ms": 60000,
+      "retry": {
+        "max_attempts": 1,
+        "backoff_ms": 0
+      },
       "allowed_paths": [
         "D:\\AI\\Local"
       ],
+      "allowed_hosts": [
+        "127.0.0.1",
+        "localhost",
+        "awdp-target"
+      ],
+      "allowed_cidrs": [
+        "192.168.0.0/16",
+        "10.0.0.0/8",
+        "172.16.0.0/12"
+      ],
+      "allowed_schemes": [
+        "http",
+        "https"
+      ],
+      "allowed_ports": [
+        80,
+        443,
+        8000,
+        8080
+      ],
       "plugin_scope": [
-        "awdp",
-        "web",
+        "web"
+      ],
+      "parameter_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "template"
+        ],
+        "properties": {
+          "template": {
+            "type": "string",
+            "enum": [
+              "curl_head",
+              "curl_get",
+              "curl_post"
+            ]
+          },
+          "url": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          }
+        }
+      },
+      "capabilities": [
+        "tools"
+      ],
+      "enabled": true
+    },
+    {
+      "name": "terminal:pwn",
+      "description": "Run approved pwn templates such as checksec and file against allowed binaries.",
+      "type": "stdio_mcp",
+      "transport": "stdio",
+      "command": [
+        "python",
+        "-m",
+        "mcp_servers.terminal_pwn"
+      ],
+      "env": {},
+      "workdir": "D:\\AI\\Local",
+      "timeout_ms": 60000,
+      "retry": {
+        "max_attempts": 1,
+        "backoff_ms": 0
+      },
+      "allowed_paths": [
+        "D:\\AI\\Local\\Plugins\\pwn",
+        "D:\\AI\\Local\\Datasets",
+        "D:\\AI\\Local\\Eval"
+      ],
+      "allowed_hosts": [],
+      "allowed_cidrs": [],
+      "allowed_schemes": [],
+      "allowed_ports": [],
+      "plugin_scope": [
         "pwn"
       ],
-      "transport": "stdio",
-      "enabled": false
+      "parameter_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "template",
+          "path"
+        ],
+        "properties": {
+          "template": {
+            "type": "string",
+            "enum": [
+              "checksec",
+              "file",
+              "pwntools_runner"
+            ]
+          },
+          "path": {
+            "type": "string"
+          }
+        }
+      },
+      "capabilities": [
+        "tools"
+      ],
+      "enabled": true
     }
-  ]
+  ],
+  "resources": [],
+  "prompts": []
 }
-

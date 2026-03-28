@@ -1,0 +1,1 @@
+{"model":"awdp-r1-70b","messages":[{"role":"user","content":"请先使用 retrieval 工具搜索本地知识库中与 AWDP 有关的内容，再用中文总结 3 条要点。必须优先检索，不要直接凭空回答。"}],"stream":false}

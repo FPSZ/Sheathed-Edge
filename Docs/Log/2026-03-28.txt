@@ -1,23 +1,91 @@
 [00:45]
-任务：同步 WSL2 完成后的项目进度文档
-结果：已新增当前进度总览；已将待办中的 WSL2 主线状态更新为完成；已刷新 WSL2 落地说明中的当前状态
-修改：新增 Docs\Plan\当前进度.md；更新 Docs\Plan\待办事项.md；更新 Docs\Plan\WSL2环境落地说明.md
-发现的问题：当前唯一未闭环项是 Windows 侧 `llama-server` 尚未启动，因此 WSL 验收中的模型服务探测仍为告警
-下一步：导出 WSL baseline 快照；固定主模型路径；编写并验证 Windows 侧 `llama-server` 启动脚本
+任务：同步 WSL2 完成后的项目进度文档。
+结果：已新增当前进度总览；已将待办中的 WSL2 主线状态更新为完成；已刷新 WSL2 落地说明中的当前状态。
+修改：新增 `Docs/Plan/当前进度.md`；更新 `Docs/Plan/待办事项.md`；更新 `Docs/Plan/WSL2环境落地说明.md`
+发现的问题：当前唯一未闭环项是 Windows 侧 `llama-server` 尚未启动，因此 WSL 验收中的模型服务探测仍为告警。
+下一步：导出 WSL baseline 快照；固定主模型路径；编写并验证 Windows 侧 `llama-server` 启动脚本。
 状态：完成
 
 [00:52]
-任务：合并当前进度与待办事项文档
-结果：已将当前进度摘要、阶段结论、阻塞项和下一步合并进待办事项，并删除独立的当前进度文档
-修改：更新 Docs\Plan\待办事项.md；删除 Docs\Plan\当前进度.md
-发现的问题：若继续保留两份并行文档，后续很容易出现状态不一致
-下一步：后续只维护 Docs\Plan\待办事项.md 这一份进度与待办总表
+任务：合并当前进度与待办事项文档。
+结果：已将当前进度摘要、阶段结论、阻塞项和下一步合并进待办事项，并删除独立进度文档。
+修改：更新 `Docs/Plan/待办事项.md`；删除 `Docs/Plan/当前进度.md`
+发现的问题：若继续保留两份并行文档，后续很容易出现状态不一致。
+下一步：后续只维护 `Docs/Plan/待办事项.md` 这一份进度与待办总表。
 状态：完成
 
 [00:58]
-任务：把自动练题学习闭环写入后续计划
-结果：已将自动练题、自动复盘、经验入库、失败样本隔离、人工审查等内容加入待办事项的后续阶段
-修改：更新 Docs\Plan\待办事项.md
-发现的问题：自动练题系统如果没有结果判定和人工审查层，知识库会被错误经验污染
-下一步：当前仍优先完成 llama-server 接通，自动练题学习闭环留待后续阶段实现
+任务：把自动练题学习闭环写入后续计划。
+结果：已将自动练题、自动复盘、经验入库、失败样本隔离、人工审核等内容加入待办事项的后续阶段。
+修改：更新 `Docs/Plan/待办事项.md`
+发现的问题：自动练题系统如果没有结果判定和人工审核层，知识库会被错误经验污染。
+下一步：当前仍优先完成 `llama-server` 接通，自动练题学习闭环留待后续阶段实现。
+状态：完成
+
+[09:20]
+任务：推进“推理后端接通与可扩展插件接口基线”的代码落地。
+结果：已新增 Windows 侧 `llama-server` 配置与启动/检查脚本；已新增 Go Gateway 骨架；已新增 Rust Tool Router 骨架；已补充 `MCP/registry.schema.json`。
+修改：
+- `Agent/llama-server.config.json`
+- `Workflows/windows/start-llama-server.ps1`
+- `Workflows/windows/check-llama-server.ps1`
+- `Agent/gateway-go/`
+- `Agent/tool-router-rs/`
+- `MCP/registry.schema.json`
+- `MCP/registry.json`
+- `Core/awdp/mode.json`
+- `Plugins/web/plugin.json`
+- `Plugins/pwn/plugin.json`
+发现的问题：初版 `action-envelope` 缺少 `answer` 正文承载字段；WSL 当前环境存在 Go 缓存权限问题；Tool Router 首次编译命中 Rust 1.94.1 的 dead-code ICE。
+下一步：补齐 `answer.content` 字段；收紧 WSL 缓存与环境变量；规避 Rust 编译器问题并完成双端编译。
+状态：完成
+
+[09:36]
+任务：修正协议与运行时缺口，并完成后端双端编译。
+结果：已为 `action-envelope` 增加 `content` 字段；Gateway 已支持 `answer` 解包、`llama-server` 真实模型 ID 探测、`127.0.0.1 -> host IP` fallback；Tool Router 已加强路径校验并通过编译；WSL 脚本已补 `GOCACHE`。
+修改：
+- `Agent/action-envelope.schema.json`
+- `Core/awdp/prompts/output_contract.md`
+- `Agent/http-contract.md`
+- `Agent/gateway-go/internal/gateway/provider.go`
+- `Agent/gateway-go/internal/gateway/server.go`
+- `Agent/tool-router-rs/src/main.rs`
+- `Workflows/wsl/bootstrap-ubuntu.sh`
+- `Workflows/wsl/validate-wsl.sh`
+- `MCP/registry.schema.json`
+- `MCP/registry.json`
+发现的问题：PowerShell 向 WSL 写 `/etc/profile.d/sheathed-edge-env.sh` 时存在转义干扰，已改为通过临时文件复制覆盖；`Writeups` 路径当前不存在，`retrieval` 返回会带一条可预期的 `stderr`。
+下一步：启动 Windows 侧 `llama-server`，完成真实推理链路、Gateway 聊天接口和 Open WebUI provider 的 smoke test。
+状态：完成
+
+[09:41]
+任务：验证最小运行闭环。
+结果：`Gateway /healthz`、`Gateway /v1/models`、`Tool Router /healthz`、`Tool Router resolve/execute` 已本地验证通过；`Gateway` 在 `llama-server` 未启动时会返回 provider down 状态，符合当前预期。
+修改：无代码改动，完成运行验证。
+发现的问题：`Gateway /v1/chat/completions` 仍需依赖真实 `llama-server` 才能完成端到端验证；当前尚未接入 Open WebUI，SSE 兼容性仍停留在服务侧准备状态。
+下一步：启动 `llama-server`；做 `/v1/chat/completions` 真实验证；接入 Open WebUI 做 provider smoke test。
+状态：完成
+
+[11:03]
+任务：保存当前阶段进度，避免在 `llama-server` 下载期间丢失上下文。
+结果：已把“Gateway 模块化完成、Tool Router 模块化完成、Open WebUI 已在 WSL 安装、真实推理链路仍待 `llama-server` 接通”的状态回写到进度总表；已校正过时的阻塞项描述。
+修改：更新 `Docs/Plan/待办事项.md`；更新 `Docs/Log/2026-03-28.txt`
+发现的问题：当前唯一关键阻塞仍是 Windows 侧 `llama-server` 未安装完成，导致 `Gateway -> llama-server -> Open WebUI` 的真实闭环无法继续验收。
+下一步：确认 `llama-server.exe` 落点；启动并检查 `llama-server`；随后启动 `Tool Router`、`Gateway`、`Open WebUI`，完成 provider 与单轮 `tool_call` smoke test。
+状态：完成
+
+[11:48]
+任务：接通 Windows 推理后端，并把 `Gateway / Tool Router / Open WebUI` 跑到同一条本地链路上。
+结果：已将 `llama-b8560-bin-win-hip-radeon-x64.zip` 解压并安装到 `D:\Environment2\Create\llama.cpp`；已确认 `llama-server.exe` 可识别 HIP/ROCm 与 `AMD Radeon 8060S`；已修复 Windows 启动脚本中的 PowerShell 变量插值与参数兼容问题；已将 `llama-server` 调整为 `0.0.0.0:8080` 监听以适配当前 `WSL2 NAT`；已验证 Windows 侧 `/health`、`/v1/models`、`/v1/chat/completions`；已修复 Gateway provider fallback 端口丢失 bug，`Gateway /healthz` 已显示 `provider=ok`；已验证无工具聊天可经 `Gateway` 调用真实模型；已修复 action envelope 代码块解析；`Tool Router` 已实际执行 `retrieval`；Open WebUI 已通过离线参数集与独立 `DATA_DIR` 在 `127.0.0.1:3000` 启动并通过 `/health`。
+修改：
+- 更新 `Agent/llama-server.config.json`
+- 更新 `Agent/gateway.config.json`
+- 更新 `Agent/gateway-go/internal/gateway/provider/client.go`
+- 更新 `Agent/gateway-go/internal/gateway/envelope/envelope.go`
+- 更新 `Workflows/windows/start-llama-server.ps1`
+- 更新 `Workflows/wsl/start-open-webui.sh`
+- 更新 `Docs/Plan/待办事项.md`
+- 更新 `Docs/Log/2026-03-28.txt`
+发现的问题：单轮 `tool_call` 仍未完全闭环。当前状态是：模型能输出 `tool_call`，Gateway 能识别，Tool Router 能执行 `retrieval` 并记录工具日志，但客户端仍会收到空回复，最终答复写回存在服务端异常；另一个问题是 70B Q4 下二次推理非常慢，原 `180000ms` 上游超时不足，已提升到 `420000ms`，但空回复问题仍独立存在。
+下一步：前台复现并抓取 `Gateway` 在 `tool_call` 分支里的服务端异常；修复 `Tool Router -> 二次推理 -> 最终答复` 写回；随后再做 Open WebUI provider 配置与聊天 smoke test。
 状态：完成

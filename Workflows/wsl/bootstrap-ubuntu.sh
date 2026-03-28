@@ -85,15 +85,20 @@ default=${LINUX_USER}
 EOF
 
 echo "==> 创建缓存和工具目录"
+install -d -o "${LINUX_USER}" -g "${LINUX_USER}" "/home/${LINUX_USER}/.cache"
 install -d -o "${LINUX_USER}" -g "${LINUX_USER}" "/home/${LINUX_USER}/.cache/sheathed-edge"
+install -d -o "${LINUX_USER}" -g "${LINUX_USER}" "/home/${LINUX_USER}/.cache/go-build"
+install -d -o "${LINUX_USER}" -g "${LINUX_USER}" "/home/${LINUX_USER}/.cache/uv"
 install -d -o "${LINUX_USER}" -g "${LINUX_USER}" "/home/${LINUX_USER}/.venvs"
 install -d -o "${LINUX_USER}" -g "${LINUX_USER}" "/home/${LINUX_USER}/go"
 install -d -o "${LINUX_USER}" -g "${LINUX_USER}" "/home/${LINUX_USER}/.cargo"
 install -d -o "${LINUX_USER}" -g "${LINUX_USER}" "/home/${LINUX_USER}/.local/bin"
+chown -R "${LINUX_USER}:${LINUX_USER}" "/home/${LINUX_USER}/.cache" "/home/${LINUX_USER}/.venvs" "/home/${LINUX_USER}/go" "/home/${LINUX_USER}/.cargo" "/home/${LINUX_USER}/.local"
 
 echo "==> 写入环境变量"
 cat > "${PROFILE_SNIPPET}" <<'EOF'
 export CARGO_TARGET_DIR="$HOME/.cache/sheathed-edge/cargo-target"
+export GOCACHE="$HOME/.cache/go-build"
 export GOPATH="$HOME/go"
 export GOMODCACHE="$HOME/go/pkg/mod"
 export UV_CACHE_DIR="$HOME/.cache/uv"

@@ -1,7 +1,15 @@
 # Output Contract
 
-默认输出结构：
+Default output must follow `action-envelope.schema.json`.
 
+When no tool is needed, emit:
+- `type="answer"`
+- `tool=""`
+- `arguments={}`
+- `reason`
+- `content`
+
+`content` is the final user-facing answer body and should be organized as:
 1. `attack_surface`
 2. `evidence`
 3. `recommended_action`
@@ -9,5 +17,9 @@
 5. `regression_risks`
 6. `next_needed_inputs`
 
-当需要调用工具时，只能输出 `action-envelope.schema.json` 规定的 JSON。
-
+When a tool is needed, emit:
+- `type="tool_call"`
+- `tool`
+- `arguments`
+- `reason`
+- `content=""`

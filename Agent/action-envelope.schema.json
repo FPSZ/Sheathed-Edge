@@ -7,7 +7,8 @@
     "type",
     "tool",
     "arguments",
-    "reason"
+    "reason",
+    "content"
   ],
   "properties": {
     "type": {
@@ -27,6 +28,10 @@
     "reason": {
       "type": "string",
       "minLength": 1
+    },
+    "content": {
+      "type": "string",
+      "minLength": 0
     }
   },
   "allOf": [
@@ -42,10 +47,29 @@
         "properties": {
           "tool": {
             "const": ""
+          },
+          "content": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "tool_call"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "content": {
+            "const": ""
           }
         }
       }
     }
   ]
 }
-

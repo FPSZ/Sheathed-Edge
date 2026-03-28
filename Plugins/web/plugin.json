@@ -12,11 +12,15 @@
     "browser",
     "terminal:web"
   ],
-  "dataset_roots": [
-    "datasets"
+  "retrieval_roots": [
+    "D:\\AI\\Local\\Plugins\\web\\datasets"
   ],
   "eval_tags": [
     "web"
+  ],
+  "plugin_capabilities": [
+    "web_attack_surface",
+    "payload_iteration",
+    "web_patch_review"
   ]
 }
-

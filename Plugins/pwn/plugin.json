@@ -12,11 +12,15 @@
     "radare2",
     "terminal:pwn"
   ],
-  "dataset_roots": [
-    "datasets"
+  "retrieval_roots": [
+    "D:\\AI\\Local\\Plugins\\pwn\\datasets"
   ],
   "eval_tags": [
     "pwn"
+  ],
+  "plugin_capabilities": [
+    "binary_triage",
+    "exploit_reasoning",
+    "pwn_patch_review"
   ]
 }
-

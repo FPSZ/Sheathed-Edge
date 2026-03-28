@@ -4,7 +4,7 @@
   "provider_model_alias": "awdp-r1-70b",
   "llama_server": {
     "base_url": "http://127.0.0.1:8080/v1",
-    "timeout_ms": 180000
+    "timeout_ms": 420000
   },
   "tool_router": {
     "base_url": "http://127.0.0.1:8091",
@@ -39,4 +39,3 @@
     "audit_log_dir": "D:\\AI\\Local\\Logs\\audit"
   }
 }
-

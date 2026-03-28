@@ -58,6 +58,7 @@ done
 
 echo "==> 缓存变量"
 [[ "${CARGO_TARGET_DIR:-}" == "$HOME/.cache/sheathed-edge/cargo-target" ]] || warn "CARGO_TARGET_DIR 未生效"
+[[ "${GOCACHE:-}" == "$HOME/.cache/go-build" ]] || warn "GOCACHE 未生效"
 [[ "${GOPATH:-}" == "$HOME/go" ]] || warn "GOPATH 未生效"
 [[ "${GOMODCACHE:-}" == "$HOME/go/pkg/mod" ]] || warn "GOMODCACHE 未生效"
 [[ "${UV_CACHE_DIR:-}" == "$HOME/.cache/uv" ]] || warn "UV_CACHE_DIR 未生效"

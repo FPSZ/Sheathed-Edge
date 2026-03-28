@@ -1,9 +1,5 @@
 # Writeups
 
-本目录用于保存：
+This directory stores local writeups, retrospectives, and reusable solving notes.
 
-- 题解
-- 失败案例
-- 利用过程记录
-- 回归分析
-
+Keep the directory itself versioned even when the contents are private or temporary.

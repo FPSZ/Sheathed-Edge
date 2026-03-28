@@ -90,5 +90,6 @@ release/
 debug/
 tmp/
 temp/
+tools/
 
 # Keep source, plans, configs, and templates versioned by default.

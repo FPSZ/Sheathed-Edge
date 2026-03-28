@@ -14,8 +14,18 @@
     "terminal",
     "retrieval"
   ],
+  "retrieval_roots": [
+    "D:\\AI\\Local\\Core\\awdp",
+    "D:\\AI\\Local\\Eval",
+    "D:\\AI\\Local\\Templates",
+    "D:\\AI\\Local\\Writeups"
+  ],
   "eval_tags": [
     "awdp"
+  ],
+  "plugin_capabilities": [
+    "core_reasoning",
+    "patch_planning",
+    "regression_review"
   ]
 }
-
