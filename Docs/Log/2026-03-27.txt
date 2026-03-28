@@ -1,0 +1,95 @@
+[18:20]
+任务：建立 AI 操作指南与待办体系
+结果：已新增 AI 操作指南，已建立首版待办事项清单
+修改：新增 Docs\Plan\AI操作指南.md；补全 Docs\Plan\待办事项.md；写入日志模板和首条记录
+发现的问题：当前项目执行纪律和日志沉淀机制此前为空，后续若不持续维护会再次断裂
+下一步：按待办继续推进模型、WSL2、Gateway、Tool Router 和 Open WebUI smoke test
+状态：完成
+
+[23:24]
+任务：落地 WSL2 环境安装基线
+结果：已生成 Windows 安装脚本、WSL 初始化脚本和验收脚本；已补充 WSL 落地说明；已细化待办中的 WSL 节点；已下载 Ubuntu 24.04 官方 rootfs 并完成校验
+修改：新增 Workflows\wsl\install-wsl.ps1、Workflows\wsl\bootstrap-ubuntu.sh、Workflows\wsl\validate-wsl.sh、Workflows\wsl\validate-wsl.ps1、Docs\Plan\WSL2环境落地说明.md；更新 Docs\Plan\待办事项.md；写入 `%UserProfile%\.wslconfig`；创建 D:\Environment2\WSL 目录骨架
+发现的问题：当前会话无管理员权限，无法直接启用 WSL 系统功能；Windows 本地不能先解包 Linux rootfs 再重打包，否则会破坏符号链接和设备节点，因此安装流程已调整为直接导入官方 root.tar.xz；完整安装仍需要管理员 PowerShell 和一次 Windows 重启
+下一步：以管理员身份运行 Workflows\wsl\install-wsl.ps1，重启后用 -SkipFeatureInstall 继续导入和初始化 Ubuntu-24.04
+状态：进行中
+
+[23:40]
+任务：修正 WSL 功能启用脚本的返回码处理
+结果：已将 DISM 返回码 `3010` 识别为“成功但需要重启”，不再误报失败
+修改：更新 Workflows\wsl\install-wsl.ps1 的 WSL 功能启用逻辑
+发现的问题：Windows 功能启用阶段的实际成功返回码可能是 `3010`，如果按普通非零码直接抛错，会中断正常安装流程
+下一步：重启 Windows 后执行 `.\Workflows\wsl\install-wsl.ps1 -SkipFeatureInstall`
+状态：完成
+
+[23:52]
+任务：修正 WSL runtime 缺失时的安装流程
+结果：已为安装脚本补充 WSL runtime 自检与自动安装逻辑
+修改：更新 Workflows\wsl\install-wsl.ps1；补充 Docs\Plan\WSL2环境落地说明.md
+发现的问题：仅启用 Windows 可选功能并不等于 WSL runtime 已可用；当前机器的 `wsl.exe --status` 在功能开启后仍要求执行 `wsl --install`
+下一步：以管理员 PowerShell 重新执行 `.\Workflows\wsl\install-wsl.ps1 -SkipFeatureInstall`
+状态：完成
+
+[时间]
+任务：
+结果：
+修改：
+发现的问题：
+下一步：
+状态：完成 / 进行中 / 阻塞
+
+[23:58]
+任务：为 WSL runtime 安装增加离线友好回退路径
+结果：安装脚本已改为先尝试 web-download，再回退到 inbox 模式
+修改：更新 Workflows\wsl\install-wsl.ps1
+发现的问题：当前机器访问 WSL 在线更新源会返回 403，单一路径会阻塞安装
+下一步：以管理员 PowerShell 重新执行 .\Workflows\wsl\install-wsl.ps1 -SkipFeatureInstall
+状态：完成
+
+[00:04]
+任务：为 WSL runtime 安装增加 MSI 兜底
+结果：安装脚本已增加官方 GitHub WSL MSI 下载与本地安装回退路径
+修改：更新 Workflows\wsl\install-wsl.ps1；补充 Docs\Plan\WSL2环境落地说明.md
+发现的问题：当前机器的 `wsl.exe --install --web-download` 和 `--inbox` 都返回 `403`，说明仅依赖 `wsl.exe` 的安装链路不可用
+下一步：以管理员 PowerShell 重新执行 .\Workflows\wsl\install-wsl.ps1 -SkipFeatureInstall
+状态：完成
+
+[00:18]
+任务：修正 WSL 网络模式
+结果：已将 .wslconfig 从 mirrored 调整为 nat，并保留 localhostForwarding 与宿主机 IP fallback 设计
+修改：更新 C:\Users\32236\.wslconfig、Workflows\wsl\install-wsl.ps1、Docs\Plan\WSL2环境落地说明.md
+发现的问题：当前机器在 mirrored 模式下 WSL 内公网 HTTPS 全部超时，无法完成 apt、curl、镜像访问
+下一步：重新启动 WSL 实例，验证 nat 模式下的公网访问，再继续 bootstrap
+状态：完成
+
+[00:21]
+任务：清理无效的 WSL 配置项
+结果：已移除 .wslconfig 中当前版本不识别的 sparseVhd 配置
+修改：更新 C:\Users\32236\.wslconfig、Workflows\wsl\install-wsl.ps1
+发现的问题：当前安装的 WSL runtime 会对 sparseVhd 选项给出无效键告警，保留会持续污染输出
+下一步：在 nat 模式下继续执行 bootstrap
+状态：完成
+
+[00:29]
+任务：修正 WSL 内 Go 下载源与 bootstrap 幂等性
+结果：bootstrap 已改为默认使用阿里云 Go 镜像，并对 uv、Rust、Go 增加已安装跳过逻辑
+修改：更新 Workflows\wsl\bootstrap-ubuntu.sh
+发现的问题：当前机器可以访问 Ubuntu 镜像和 Rust/uv 安装源，但无法访问 go.dev，因此 Go 下载必须单独换源
+下一步：重跑 bootstrap 完成 Go 和收尾配置
+状态：完成
+
+[00:31]
+任务：修正 bootstrap 重跑时的用户身份
+结果：安装脚本已固定使用 root 用户执行 bootstrap-ubuntu.sh
+修改：更新 Workflows\wsl\install-wsl.ps1
+发现的问题：前一次初始化已写入 /etc/wsl.conf 默认用户 awdp，导致重跑 bootstrap 时不再具备 root 权限
+下一步：继续重跑初始化脚本完成剩余配置
+状态：完成
+
+[00:35]
+任务：收口 WSL 验收脚本与镜像源
+结果：已将 Ubuntu 默认镜像切到阿里云；验收脚本已加载环境变量并放宽 systemd 状态判断
+修改：更新 Workflows\wsl\bootstrap-ubuntu.sh、Workflows\wsl\validate-wsl.sh；修正 WSL 内 /etc/apt/sources.list
+发现的问题：清华镜像在当前机器上存在间歇性超时；验收脚本未 source 环境变量会误判 cargo 缺失
+下一步：执行最终环境验收并导出 baseline 快照
+状态：完成

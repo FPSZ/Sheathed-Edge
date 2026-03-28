@@ -13,6 +13,7 @@ Thumbs.db
 *.secret
 *.key
 *.pem
+/Feed
 
 # Runtime logs and local state
 Logs/**
