@@ -22,6 +22,7 @@ type Server struct {
 	cfg          *config.Config
 	provider     *provider.Client
 	orchestrator *orchestrator.Orchestrator
+	stageLogger  *logging.StageLogger
 	httpServer   *http.Server
 }
 
@@ -33,6 +34,7 @@ func NewServer(configPath string) (*Server, error) {
 
 	providerClient := provider.NewClient(cfg)
 	sessionLogger := logging.NewSessionLogger(cfg.Logs.SessionLogDir)
+	stageLogger := logging.NewStageLogger(cfg.Logs.AuditLogDir)
 	orch := orchestrator.New(
 		mode.NewLoader(cfg),
 		retrieval.NewService(cfg),
@@ -46,6 +48,7 @@ func NewServer(configPath string) (*Server, error) {
 		cfg:          cfg,
 		provider:     providerClient,
 		orchestrator: orch,
+		stageLogger:  stageLogger,
 	}
 
 	mux := http.NewServeMux()
@@ -95,23 +98,66 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
+	requestID := newRequestID()
+	trace := s.stageLogger.NewTrace(requestID)
+	finalSpan := trace.Begin("final_writeback")
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			finalSpan.End(false, fmt.Sprintf("panic: %v", recovered))
+			writeErrorWithRequestID(w, http.StatusBadGateway, "provider_error", fmt.Sprintf("gateway panic: %v", recovered), requestID)
+		}
+	}()
+
 	var req types.ChatCompletionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+		finalSpan.End(false, err.Error())
+		writeErrorWithRequestID(w, http.StatusBadRequest, "invalid_request", err.Error(), requestID)
 		return
 	}
 
-	resp, _, _, err := s.orchestrator.RunTurn(r.Context(), req)
+	if req.Stream {
+		streamReq, ok, err := s.orchestrator.PrepareStreamingRequest(req)
+		if err != nil {
+			finalSpan.End(false, err.Error())
+			writeErrorWithRequestID(w, http.StatusBadGateway, "provider_error", err.Error(), requestID)
+			return
+		}
+		if ok {
+			flusher, ok := w.(http.Flusher)
+			if !ok {
+				finalSpan.End(false, "response writer does not support streaming")
+				writeErrorWithRequestID(w, http.StatusInternalServerError, "stream_unsupported", "response writer does not support streaming", requestID)
+				return
+			}
+			writeSSEHeaders(w)
+			if err := s.provider.StreamChatCompletion(r.Context(), streamReq, s.cfg.ProviderModelAlias, w, flusher.Flush); err != nil {
+				finalSpan.End(false, err.Error())
+				return
+			}
+			finalSpan.End(true, "")
+			return
+		}
+	}
+
+	resp, _, _, err := s.orchestrator.RunTurn(r.Context(), requestID, req, trace)
 	if err != nil {
-		writeError(w, http.StatusBadGateway, "provider_error", err.Error())
+		finalSpan.End(false, err.Error())
+		writeErrorWithRequestID(w, http.StatusBadGateway, "provider_error", err.Error(), requestID)
+		return
+	}
+	if err := validateChatResponse(resp); err != nil {
+		finalSpan.End(false, err.Error())
+		writeErrorWithRequestID(w, http.StatusBadGateway, "provider_error", err.Error(), requestID)
 		return
 	}
 
 	resp.Model = s.cfg.ProviderModelAlias
 	if req.Stream {
+		finalSpan.End(true, "")
 		writeSSEChatCompletion(w, s.cfg.ProviderModelAlias, envelope.FirstContent(resp))
 		return
 	}
+	finalSpan.End(true, "")
 	writeJSON(w, http.StatusOK, resp)
 }
 
@@ -122,18 +168,21 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 }
 
 func writeError(w http.ResponseWriter, status int, code, message string) {
+	writeErrorWithRequestID(w, status, code, message, "")
+}
+
+func writeErrorWithRequestID(w http.ResponseWriter, status int, code, message, requestID string) {
 	writeJSON(w, status, map[string]any{
 		"error": map[string]any{
-			"code":    code,
-			"message": message,
+			"code":       code,
+			"message":    message,
+			"request_id": requestID,
 		},
 	})
 }
 
 func writeSSEChatCompletion(w http.ResponseWriter, model, content string) {
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
+	writeSSEHeaders(w)
 
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -181,4 +230,10 @@ func writeSSEChatCompletion(w http.ResponseWriter, model, content string) {
 	}
 	_, _ = fmt.Fprint(w, "data: [DONE]\n\n")
 	flusher.Flush()
+}
+
+func writeSSEHeaders(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
 }

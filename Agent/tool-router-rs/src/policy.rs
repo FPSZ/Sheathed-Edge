@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use serde_json::Value;
+use serde_json::{Map, Value};
 
 use crate::models::{AppState, ToolDef};
 
@@ -40,6 +40,20 @@ pub fn check_tool_access<'a>(
     Ok(def)
 }
 
+pub fn normalize_tool_arguments(tool: &str, arguments: &Value) -> Value {
+    let Value::Object(object) = arguments else {
+        return arguments.clone();
+    };
+
+    let mut normalized = object.clone();
+    match tool {
+        "retrieval" | "filesystem/search" => normalize_search_arguments(&mut normalized),
+        _ => {}
+    }
+
+    Value::Object(normalized)
+}
+
 pub fn is_within_allowed_path(candidate: &str, allowed: &str) -> bool {
     let candidate_path = PathBuf::from(candidate);
     let allowed_path = PathBuf::from(allowed);
@@ -49,4 +63,16 @@ pub fn is_within_allowed_path(candidate: &str, allowed: &str) -> bool {
 pub fn timeout_with_retry(timeout_ms: u64, retry_max_attempts: u32, retry_backoff_ms: u64) -> u64 {
     let extra = retry_backoff_ms.saturating_mul(retry_max_attempts.saturating_sub(1) as u64);
     timeout_ms.saturating_add(extra)
+}
+
+fn normalize_search_arguments(arguments: &mut Map<String, Value>) {
+    if !arguments.contains_key("limit") {
+        if let Some(max_docs) = arguments.remove("max_docs") {
+            arguments.insert("limit".into(), max_docs);
+        }
+    } else {
+        arguments.remove("max_docs");
+    }
+
+    arguments.remove("source");
 }

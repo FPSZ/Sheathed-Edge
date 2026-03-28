@@ -1,4 +1,7 @@
-use std::{collections::{BTreeMap, HashMap}, sync::Arc};
+use std::{
+    collections::{BTreeMap, HashMap},
+    sync::Arc,
+};
 
 use jsonschema::Validator;
 use serde::{Deserialize, Serialize};

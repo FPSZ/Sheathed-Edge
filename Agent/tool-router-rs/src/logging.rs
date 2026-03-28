@@ -9,9 +9,14 @@ use serde_json::json;
 
 use crate::models::{AppState, ExecuteRequest, ExecuteResponse};
 
-pub fn append_tool_log(state: &AppState, req: &ExecuteRequest, resp: &ExecuteResponse, duration_ms: u128) {
-    let log_path = Path::new(&state.config.logs.tool_log_dir)
-        .join(format!("{}.jsonl", chrono_like_date()));
+pub fn append_tool_log(
+    state: &AppState,
+    req: &ExecuteRequest,
+    resp: &ExecuteResponse,
+    duration_ms: u128,
+) {
+    let log_path =
+        Path::new(&state.config.logs.tool_log_dir).join(format!("{}.jsonl", chrono_like_date()));
     let entry = json!({
         "time": now_ms(),
         "session_id": req.session_id,

@@ -9,7 +9,10 @@ mod policy;
 mod registry;
 
 use anyhow::Result;
-use axum::{routing::{get, post}, Router};
+use axum::{
+    Router,
+    routing::{get, post},
+};
 use clap::Parser;
 use models::AppState;
 use tokio::net::TcpListener;
@@ -44,7 +47,8 @@ async fn main() -> Result<()> {
         .route("/internal/tools/execute", post(api::execute_tool))
         .with_state(state);
 
-    let listener = TcpListener::bind(format!("{}:{}", config.listen_host, config.listen_port)).await?;
+    let listener =
+        TcpListener::bind(format!("{}:{}", config.listen_host, config.listen_port)).await?;
     axum::serve(listener, app).await?;
     Ok(())
 }

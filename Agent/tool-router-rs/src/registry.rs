@@ -2,7 +2,10 @@ use std::{collections::HashMap, fs, sync::Arc};
 
 use anyhow::{Context, Result};
 
-use crate::{config::normalize_runtime_path, models::{Registry, ToolDef}};
+use crate::{
+    config::normalize_runtime_path,
+    models::{Registry, ToolDef},
+};
 
 pub fn load_registry(path: &str) -> Result<Registry> {
     let data = fs::read_to_string(path).with_context(|| format!("read registry {path}"))?;
@@ -21,8 +24,8 @@ pub fn load_registry(path: &str) -> Result<Registry> {
 pub fn build_tool_map(registry: Registry) -> Result<HashMap<String, ToolDef>> {
     let mut map = HashMap::new();
     for entry in registry.tools {
-        let validator =
-            jsonschema::validator_for(&entry.parameter_schema).context("compile parameter schema")?;
+        let validator = jsonschema::validator_for(&entry.parameter_schema)
+            .context("compile parameter schema")?;
         map.insert(
             entry.name.clone(),
             ToolDef {

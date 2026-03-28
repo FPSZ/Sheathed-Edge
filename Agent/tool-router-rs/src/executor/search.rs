@@ -3,7 +3,11 @@ use std::{collections::BTreeMap, process::Stdio};
 use serde_json::Value;
 use tokio::process::Command;
 
-use crate::{config::normalize_runtime_path, models::{ExecuteResponse, ToolEntry}, policy::{is_within_allowed_path, timeout_with_retry}};
+use crate::{
+    config::normalize_runtime_path,
+    models::{ExecuteResponse, ToolEntry},
+    policy::{is_within_allowed_path, timeout_with_retry},
+};
 
 pub async fn run_rg_search(
     tool: &ToolEntry,
@@ -61,10 +65,19 @@ pub async fn run_rg_search(
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
     cmd.current_dir(&tool.workdir);
 
-    let timeout_ms = timeout_with_retry(tool.timeout_ms, tool.retry.max_attempts, tool.retry.backoff_ms);
+    let timeout_ms = timeout_with_retry(
+        tool.timeout_ms,
+        tool.retry.max_attempts,
+        tool.retry.backoff_ms,
+    );
     let output = tokio::time::timeout(std::time::Duration::from_millis(timeout_ms), cmd.output())
         .await
-        .map_err(|_| ("tool_timeout".into(), format!("tool timed out: {}", tool.name)))?
+        .map_err(|_| {
+            (
+                "tool_timeout".into(),
+                format!("tool timed out: {}", tool.name),
+            )
+        })?
         .map_err(|err| ("tool_exec_failed".into(), err.to_string()))?;
 
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
@@ -94,11 +107,23 @@ pub async fn run_rg_search(
     result.insert("matches".into(), Value::Array(matches.clone()));
     result.insert(
         "scope".into(),
-        Value::Array(tool.plugin_scope.iter().cloned().map(Value::String).collect()),
+        Value::Array(
+            tool.plugin_scope
+                .iter()
+                .cloned()
+                .map(Value::String)
+                .collect(),
+        ),
     );
     result.insert(
         "capabilities".into(),
-        Value::Array(tool.capabilities.iter().cloned().map(Value::String).collect()),
+        Value::Array(
+            tool.capabilities
+                .iter()
+                .cloned()
+                .map(Value::String)
+                .collect(),
+        ),
     );
     if !stderr.is_empty() {
         result.insert("stderr".into(), Value::String(stderr.clone()));

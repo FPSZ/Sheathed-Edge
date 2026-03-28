@@ -6,6 +6,9 @@
     "prompts/system.md",
     "prompts/output_contract.md"
   ],
+  "conversation_prompt_files": [
+    "prompts/system.md"
+  ],
   "skill_files": [
     "skills/core-skills.md"
   ],

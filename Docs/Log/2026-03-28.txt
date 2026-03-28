@@ -89,3 +89,67 @@
 发现的问题：单轮 `tool_call` 仍未完全闭环。当前状态是：模型能输出 `tool_call`，Gateway 能识别，Tool Router 能执行 `retrieval` 并记录工具日志，但客户端仍会收到空回复，最终答复写回存在服务端异常；另一个问题是 70B Q4 下二次推理非常慢，原 `180000ms` 上游超时不足，已提升到 `420000ms`，但空回复问题仍独立存在。
 下一步：前台复现并抓取 `Gateway` 在 `tool_call` 分支里的服务端异常；修复 `Tool Router -> 二次推理 -> 最终答复` 写回；随后再做 Open WebUI provider 配置与聊天 smoke test。
 状态：完成
+
+[13:26]
+任务：修复 Gateway 比赛档单轮 `tool_call` 闭环，并完成 Open WebUI provider smoke test。
+结果：已为 `Gateway` 增加 `panic recovery`、响应校验与结构化 `provider_error` 返回；已新增按 `request_id` 落盘的阶段日志，覆盖 `provider_first / envelope_parse / tool_resolve / tool_execute / provider_second / final_writeback`；已把 `retrieval` 的 `max_docs -> limit` 参数归一化补到 `Tool Router resolve/execute`；已增强 envelope 解析，支持提取首个 fenced JSON 和前导 JSON 对象，避免 `tool_call` 原文漏回客户端；已收紧二次推理提示块，避免再次递归；已将 `tmp-gateway-toolcall.json` 固化为强制工具回放样本。当前固定回放已验证 `tool_resolve`、`tool_execute`、`provider_second`、`final_writeback` 全部成功，工具日志已记录 `retrieval returned 3 snippets`。Open WebUI 侧已通过 `/api/v1/auths/signin` + `/openai/config/update` 接入 `Gateway`，`/openai/models` 已识别到唯一模型 `awdp-r1-70b`，`/openai/chat/completions` 已可经 WebUI 代理到 Gateway 返回结果。
+修改：
+- 更新 `Agent/gateway-go/internal/gateway/logging/session.go`
+- 新增 `Agent/gateway-go/internal/gateway/logging/stage.go`
+- 更新 `Agent/gateway-go/internal/gateway/orchestrator/orchestrator.go`
+- 更新 `Agent/gateway-go/internal/gateway/transport/openai/server.go`
+- 新增 `Agent/gateway-go/internal/gateway/transport/openai/runtime.go`
+- 更新 `Agent/gateway-go/internal/gateway/envelope/envelope.go`
+- 更新 `Agent/tool-router-rs/src/api.rs`
+- 更新 `Agent/tool-router-rs/src/policy.rs`
+- 更新 `Core/awdp/prompts/output_contract.md`
+- 更新 `Workflows/wsl/start-open-webui.sh`
+- 更新 `tmp-gateway-toolcall.json`
+发现的问题：70B Q4 下二次推理耗时仍高，当前真实单轮工具回放总时长仍在 4 分钟量级；另外，模型在二次推理阶段仍存在输出质量波动，虽然闭环已通，但答案内容偶尔会偏保守或偏离用户要求，这属于提示词与评测样本继续打磨的问题，不再是链路级故障。
+下一步：继续收敛 `awdp` 输出契约和回放样本，补 Open WebUI 流式聊天回归，再决定是否进入多轮工具状态机。
+状态：完成
+
+[13:48]
+任务：补完 `stream=true` 兼容性回归，确认比赛档前端链路支持流式输出。
+结果：已验证 `Gateway /v1/chat/completions` 在 `stream=true` 下可返回标准 OpenAI 风格 SSE：首块 `assistant role`、正文 `content delta`、结尾 `finish_reason=stop` 与 `[DONE]` 均正常；已验证 `Open WebUI /openai/chat/completions` 代理 `Gateway` 时也能稳定返回同样的 SSE 分块；已确认重启 Open WebUI 后，通过 `Workflows/wsl/start-open-webui.sh` 内置的 `ENABLE_OPENAI_API`、`OPENAI_API_BASE_URLS=http://127.0.0.1:8090/v1`、`OPENAI_API_KEYS=disabled` 仍可识别唯一模型 `awdp-r1-70b`。
+修改：
+- 更新 `Workflows/wsl/start-open-webui.sh`
+- 更新 `Docs/Log/2026-03-28.txt`
+- 更新 `Docs/Plan/待办事项.md`
+发现的问题：当前 `stream=true` 路径虽然兼容，但仍是“一次完整推理后再切成 3 个 SSE 事件”的简化实现，不是真正的上游逐 token 转发；如果后续要进一步优化前端体验，需要单独做 provider 流式透传与工具中断状态机。
+下一步：进入答案质量与评测样本收敛，优先修正 `awdp` 输出契约、回放样本和二次推理提示，使工具闭环后的最终答案更贴近比赛要求。
+状态：完成
+
+[14:39]
+任务：修复“正常对话也被强制 AWDP 模板化”的交互问题。
+结果：已在 `Gateway` 增加基础闲聊直答分支，`你好`、`中文回复我`、`你是谁`、`谢谢`、`在吗`、`ping/测试` 不再走 AWDP 分析链路，也不再输出 JSON 结构；已确认通过 `Gateway` 直连和 `Open WebUI -> Gateway` 代理两条路径都能返回自然语言短答。这个修复先保证“正常聊天可用”，避免前端继续出现书呆子式模板回复。
+修改：
+- 更新 `Agent/gateway-go/internal/gateway/orchestrator/orchestrator.go`
+- 更新 `Docs/Log/2026-03-28.txt`
+发现的问题：这只是第一层兜底。更本质的问题仍然是当前 `awdp` prompt 过于强调结构化输出，导致非基础闲聊但也非攻防任务的消息，仍可能被模型拉回模板化表达。
+下一步：继续把“AWDP 能力层”和“表达层”拆开，默认自然对话，只在真正进入分析/工具/报告场景时再启用结构化约束。
+状态：完成
+[15:10]
+任务：修正 AWDP prompt 设计方向，避免把 AWDP 变成默认输出束缚。
+结果：已重写 `Core/awdp/prompts/system.md` 与 `Core/awdp/prompts/output_contract.md`，改为“身份 + 能力 + 工具使用 + 输出模式”结构；已把 `Gateway` 从问候词硬编码改成“conversation / task”意图分流；已验证普通聊天 `今天心情怎么样` 可自然回答，已验证工作型请求 `给我一个简洁的AWDP题目WP框架，不用工具` 可进入任务模式并正常输出；已验证单轮 `tool_call` 链路仍可走通 `tool_resolve -> tool_execute -> provider_second -> final_writeback`。
+修改：
+- 更新 `Core/awdp/prompts/system.md`
+- 更新 `Core/awdp/prompts/output_contract.md`
+- 更新 `Agent/gateway-go/internal/gateway/orchestrator/orchestrator.go`
+- 更新 `Docs/Log/2026-03-28.txt`
+发现的问题：提示方向已修正，但 70B Q4 下任务型请求和二次推理仍然偏慢；另外，`tool_call` 能闭环，但最终答案质量仍需继续打磨，属于 prompt 与评测样本问题，不是链路故障。
+下一步：继续优化任务模式下的回答质量；补一轮 Open WebUI 端真实聊天回归；再决定是否增加更细的意图分类或 few-shot 样例。
+状态：完成
+[16:00]
+任务：收口 Open WebUI 可观测性与慢请求问题，补齐 usage/timing 与实时流。
+结果：已在 `Gateway` 非流式响应中透传 `usage` 与 `timings`；已实现普通对话场景下的真实 SSE 透传，`Gateway` 现可逐块转发 `reasoning_content`、最终 `usage`、最终 `timings`；已关闭 Open WebUI 的后台生成任务，包括 `follow_up`、`title`、`tags`、`search query`、`retrieval query`、`autocomplete`，避免一次聊天后再额外触发 70B 请求；已验证 `Open WebUI -> Gateway -> llama-server` 链路的流式尾块包含 `usage/timings`。
+修改：
+- 更新 `Agent/gateway-go/internal/gateway/types/chat.go`
+- 更新 `Agent/gateway-go/internal/gateway/orchestrator/orchestrator.go`
+- 更新 `Agent/gateway-go/internal/gateway/provider/client.go`
+- 更新 `Agent/gateway-go/internal/gateway/transport/openai/server.go`
+- 更新 `Workflows/wsl/start-open-webui.sh`
+- 更新 `Docs/Log/2026-03-28.txt`
+发现的问题：当前真实 SSE 透传只覆盖普通对话型请求；涉及工具调用或任务编排的请求仍走原有非流式控制路径。另一个问题是旧会话带着旧历史和旧辅助请求结果，体感时延会被放大，验证时应使用新会话。
+下一步：在全新会话里回归 Open WebUI 的展示效果；如仍需完善，再扩展到任务型请求的流式与工具中断状态展示。
+状态：完成

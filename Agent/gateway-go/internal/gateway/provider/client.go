@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -82,7 +83,62 @@ func (p *Client) ChatCompletion(ctx context.Context, reqBody types.ChatCompletio
 	if err := json.Unmarshal(body, &parsed); err != nil {
 		return nil, fmt.Errorf("decode provider response: %w", err)
 	}
+	normalizeResponseMetrics(&parsed)
 	return &parsed, nil
+}
+
+func (p *Client) StreamChatCompletion(ctx context.Context, reqBody types.ChatCompletionRequest, alias string, w io.Writer, flush func()) error {
+	reqBody.Stream = true
+	reqBody.StreamOptions = ensureIncludeUsage(reqBody.StreamOptions)
+
+	base, err := p.resolveBaseURL(ctx)
+	if err != nil {
+		return err
+	}
+	if modelID, err := p.resolveUpstreamModel(ctx, base); err == nil && modelID != "" {
+		reqBody.Model = modelID
+	}
+
+	data, err := json.Marshal(reqBody)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, base+"/chat/completions", bytes.NewReader(data))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "text/event-stream")
+
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("provider stream failed: %s", strings.TrimSpace(string(body)))
+	}
+
+	reader := bufio.NewReader(resp.Body)
+	for {
+		line, err := reader.ReadString('\n')
+		if len(line) > 0 {
+			rewritten := rewriteStreamLine(line, alias)
+			if _, writeErr := io.WriteString(w, rewritten); writeErr != nil {
+				return writeErr
+			}
+			flush()
+		}
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return err
+		}
+	}
 }
 
 func (p *Client) resolveBaseURL(ctx context.Context) (string, error) {
@@ -218,4 +274,219 @@ func dedupeStrings(items []string) []string {
 		out = append(out, item)
 	}
 	return out
+}
+
+func ensureIncludeUsage(options map[string]any) map[string]any {
+	if options == nil {
+		return map[string]any{"include_usage": true}
+	}
+
+	cloned := make(map[string]any, len(options)+1)
+	for k, v := range options {
+		cloned[k] = v
+	}
+	if _, ok := cloned["include_usage"]; !ok {
+		cloned["include_usage"] = true
+	}
+	return cloned
+}
+
+func rewriteStreamLine(line, alias string) string {
+	trimmed := strings.TrimSpace(line)
+	if !strings.HasPrefix(trimmed, "data: ") {
+		return line
+	}
+	payload := strings.TrimPrefix(trimmed, "data: ")
+	if payload == "[DONE]" {
+		return line
+	}
+
+	var data map[string]any
+	if err := json.Unmarshal([]byte(payload), &data); err != nil {
+		return line
+	}
+	if strings.TrimSpace(alias) != "" {
+		data["model"] = alias
+	}
+	normalizeStreamMetrics(data)
+	rewritten, err := json.Marshal(data)
+	if err != nil {
+		return line
+	}
+	return "data: " + string(rewritten) + "\n\n"
+}
+
+func normalizeResponseMetrics(resp *types.ChatCompletionResponse) {
+	if resp == nil {
+		return
+	}
+	resp.Usage = normalizeUsage(resp.Usage, resp.Timings)
+}
+
+func normalizeStreamMetrics(data map[string]any) {
+	usage, _ := data["usage"].(map[string]any)
+	timings, _ := data["timings"].(map[string]any)
+	if usage == nil && timings == nil {
+		return
+	}
+	data["usage"] = normalizeUsage(usage, timings)
+}
+
+func normalizeUsage(usage map[string]any, timings map[string]any) map[string]any {
+	if usage == nil {
+		usage = map[string]any{}
+	} else {
+		usage = cloneMap(usage)
+	}
+
+	inputTokens := intFromAny(usage["input_tokens"])
+	if inputTokens == 0 {
+		inputTokens = intFromAny(usage["prompt_tokens"])
+	}
+	outputTokens := intFromAny(usage["output_tokens"])
+	if outputTokens == 0 {
+		outputTokens = intFromAny(usage["completion_tokens"])
+	}
+	totalTokens := intFromAny(usage["total_tokens"])
+	if totalTokens == 0 {
+		totalTokens = inputTokens + outputTokens
+	}
+
+	usage["input_tokens"] = inputTokens
+	usage["output_tokens"] = outputTokens
+	usage["total_tokens"] = totalTokens
+
+	if _, ok := usage["prompt_tokens"]; !ok && inputTokens > 0 {
+		usage["prompt_tokens"] = inputTokens
+	}
+	if _, ok := usage["completion_tokens"]; !ok && outputTokens > 0 {
+		usage["completion_tokens"] = outputTokens
+	}
+
+	if timings != nil {
+		if _, ok := usage["response_token/s"]; !ok {
+			if v, ok := floatFromAny(timings["predicted_per_second"]); ok {
+				usage["response_token/s"] = roundTo(v, 2)
+			}
+		}
+		if _, ok := usage["prompt_token/s"]; !ok {
+			if v, ok := floatFromAny(timings["prompt_per_second"]); ok {
+				usage["prompt_token/s"] = roundTo(v, 2)
+			}
+		}
+		if _, ok := usage["approximate_total"]; !ok {
+			totalMS := intFromAny(timings["prompt_ms"]) + intFromAny(timings["predicted_ms"])
+			if totalMS > 0 {
+				usage["approximate_total"] = formatDurationMS(totalMS)
+			}
+		}
+	}
+
+	if _, ok := usage["completion_tokens_details"]; !ok {
+		usage["completion_tokens_details"] = map[string]any{
+			"reasoning_tokens":           0,
+			"accepted_prediction_tokens": 0,
+			"rejected_prediction_tokens": 0,
+		}
+	}
+
+	return usage
+}
+
+func cloneMap(src map[string]any) map[string]any {
+	dst := make(map[string]any, len(src))
+	for k, v := range src {
+		dst[k] = v
+	}
+	return dst
+}
+
+func intFromAny(value any) int {
+	switch v := value.(type) {
+	case int:
+		return v
+	case int32:
+		return int(v)
+	case int64:
+		return int(v)
+	case float32:
+		return int(v)
+	case float64:
+		return int(v)
+	case json.Number:
+		i, err := v.Int64()
+		if err == nil {
+			return int(i)
+		}
+		f, err := v.Float64()
+		if err == nil {
+			return int(f)
+		}
+	case string:
+		if strings.TrimSpace(v) == "" {
+			return 0
+		}
+		var num json.Number = json.Number(v)
+		i, err := num.Int64()
+		if err == nil {
+			return int(i)
+		}
+		f, err := num.Float64()
+		if err == nil {
+			return int(f)
+		}
+	}
+	return 0
+}
+
+func floatFromAny(value any) (float64, bool) {
+	switch v := value.(type) {
+	case float64:
+		return v, true
+	case float32:
+		return float64(v), true
+	case int:
+		return float64(v), true
+	case int32:
+		return float64(v), true
+	case int64:
+		return float64(v), true
+	case json.Number:
+		f, err := v.Float64()
+		return f, err == nil
+	case string:
+		if strings.TrimSpace(v) == "" {
+			return 0, false
+		}
+		var num json.Number = json.Number(v)
+		f, err := num.Float64()
+		return f, err == nil
+	default:
+		return 0, false
+	}
+}
+
+func roundTo(value float64, digits int) float64 {
+	pow := 1.0
+	for i := 0; i < digits; i++ {
+		pow *= 10
+	}
+	return float64(int(value*pow+0.5)) / pow
+}
+
+func formatDurationMS(totalMS int) string {
+	if totalMS <= 0 {
+		return "0s"
+	}
+	totalSeconds := totalMS / 1000
+	hours := totalSeconds / 3600
+	minutes := (totalSeconds % 3600) / 60
+	seconds := totalSeconds % 60
+	if hours > 0 {
+		return fmt.Sprintf("%dh%dm%ds", hours, minutes, seconds)
+	}
+	if minutes > 0 {
+		return fmt.Sprintf("%dm%ds", minutes, seconds)
+	}
+	return fmt.Sprintf("%ds", seconds)
 }

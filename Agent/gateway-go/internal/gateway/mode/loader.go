@@ -13,22 +13,24 @@ import (
 )
 
 type Config struct {
-	Name               string   `json:"name"`
-	Type               string   `json:"type"`
-	AlwaysEnabled      bool     `json:"always_enabled"`
-	ExtendsCoreMode    string   `json:"extends_core_mode"`
-	PromptFiles        []string `json:"prompt_files"`
-	SkillFiles         []string `json:"skill_files"`
-	ToolScope          []string `json:"tool_scope"`
-	RetrievalRoots     []string `json:"retrieval_roots"`
-	EvalTags           []string `json:"eval_tags"`
-	PluginCapabilities []string `json:"plugin_capabilities"`
+	Name                    string   `json:"name"`
+	Type                    string   `json:"type"`
+	AlwaysEnabled           bool     `json:"always_enabled"`
+	ExtendsCoreMode         string   `json:"extends_core_mode"`
+	PromptFiles             []string `json:"prompt_files"`
+	ConversationPromptFiles []string `json:"conversation_prompt_files"`
+	SkillFiles              []string `json:"skill_files"`
+	ToolScope               []string `json:"tool_scope"`
+	RetrievalRoots          []string `json:"retrieval_roots"`
+	EvalTags                []string `json:"eval_tags"`
+	PluginCapabilities      []string `json:"plugin_capabilities"`
 }
 
 type Active struct {
 	Name               string
 	Plugins            []string
 	SystemPrompt       string
+	ConversationPrompt string
 	ToolScope          []string
 	RetrievalRoots     []string
 	EvalTags           []string
@@ -59,6 +61,7 @@ func (l *Loader) Load(plugins []string) (*Active, error) {
 	}
 
 	var promptParts []string
+	var conversationPromptParts []string
 	coreDir := filepath.Dir(corePath)
 	for _, rel := range core.PromptFiles {
 		content, err := os.ReadFile(filepath.Join(coreDir, rel))
@@ -66,6 +69,17 @@ func (l *Loader) Load(plugins []string) (*Active, error) {
 			return nil, fmt.Errorf("read core prompt %s: %w", rel, err)
 		}
 		promptParts = append(promptParts, strings.TrimSpace(string(content)))
+	}
+	conversationFiles := core.ConversationPromptFiles
+	if len(conversationFiles) == 0 {
+		conversationFiles = core.PromptFiles
+	}
+	for _, rel := range conversationFiles {
+		content, err := os.ReadFile(filepath.Join(coreDir, rel))
+		if err != nil {
+			return nil, fmt.Errorf("read core conversation prompt %s: %w", rel, err)
+		}
+		conversationPromptParts = append(conversationPromptParts, strings.TrimSpace(string(content)))
 	}
 
 	for _, plugin := range plugins {
@@ -91,9 +105,21 @@ func (l *Loader) Load(plugins []string) (*Active, error) {
 			}
 			promptParts = append(promptParts, strings.TrimSpace(string(content)))
 		}
+		pluginConversationFiles := pcfg.ConversationPromptFiles
+		if len(pluginConversationFiles) == 0 {
+			pluginConversationFiles = pcfg.PromptFiles
+		}
+		for _, rel := range pluginConversationFiles {
+			content, err := os.ReadFile(filepath.Join(pluginDir, rel))
+			if err != nil {
+				return nil, fmt.Errorf("read plugin conversation prompt %s: %w", rel, err)
+			}
+			conversationPromptParts = append(conversationPromptParts, strings.TrimSpace(string(content)))
+		}
 	}
 
 	active.SystemPrompt = strings.Join(promptParts, "\n\n")
+	active.ConversationPrompt = strings.Join(conversationPromptParts, "\n\n")
 	return active, nil
 }
 

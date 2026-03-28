@@ -92,4 +92,7 @@ tmp/
 temp/
 tools/
 
+# Local workflow helpers
+Workflows/**
+
 # Keep source, plans, configs, and templates versioned by default.

@@ -1,0 +1,89 @@
+name: backend-ci
+
+on:
+  push:
+    paths:
+      - "Agent/gateway-go/**"
+      - "Agent/tool-router-rs/**"
+      - ".github/workflows/backend-ci.yml"
+  pull_request:
+    paths:
+      - "Agent/gateway-go/**"
+      - "Agent/tool-router-rs/**"
+      - ".github/workflows/backend-ci.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gateway-go:
+    name: gateway-go
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: Agent/gateway-go
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: Agent/gateway-go/go.mod
+
+      - name: Cache Go modules and build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('Agent/gateway-go/go.mod') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Check gofmt
+        run: |
+          unformatted="$(find . -name '*.go' -type f -print0 | xargs -0 gofmt -l)"
+          if [[ -n "${unformatted}" ]]; then
+            printf '%s\n' "${unformatted}"
+            exit 1
+          fi
+
+      - name: Run go vet
+        run: go vet ./...
+
+      - name: Run go test
+        run: go test ./...
+
+  tool-router-rs:
+    name: tool-router-rs
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: Agent/tool-router-rs
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: Agent/tool-router-rs
+
+      - name: Check cargo fmt
+        run: cargo fmt --check
+
+      - name: Run cargo clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Run cargo test
+        run: cargo test
