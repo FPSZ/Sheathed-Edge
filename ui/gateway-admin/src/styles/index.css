@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+:root {
+  --app-bg: #f4f7f9;
+  --panel-muted: #ecf1f4;
+  --line-soft: #d6dde2;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family:
+    "Segoe UI",
+    "SF Pro Text",
+    "Noto Sans SC",
+    sans-serif;
+  background: var(--app-bg);
+}
+
+button {
+  font: inherit;
+}
+
+.admin-button {
+  border-radius: 999px;
+  border: 1px solid #cfd8de;
+  background: white;
+  color: #0f172a;
+  padding: 0.65rem 1rem;
+  font-size: 0.875rem;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.admin-button:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #b8c4cc;
+}
+
+.admin-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.admin-button.danger {
+  border-color: #f1c5c5;
+  color: #b42318;
+  background: #fff5f5;
+}

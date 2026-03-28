@@ -1,0 +1,28 @@
+{
+  "profiles": [
+    {
+      "id": "deepseek-r1-70b-q4-competition",
+      "label": "DeepSeek R1 70B Q4 Competition",
+      "model_path": "D:\\AI\\Local\\Models\\Deepseek\\DeepSeek-R1-Distill-Llama-70B-Q4_K_M.gguf",
+      "quant": "Q4_K_M",
+      "ctx_size": 32768,
+      "parallel": 1,
+      "threads": 16,
+      "n_gpu_layers": 999,
+      "flash_attn": true,
+      "enabled": true
+    },
+    {
+      "id": "qwen3.5-35b-a3b-q8-experimental",
+      "label": "Qwen3.5 35B A3B Q8 Experimental",
+      "model_path": "D:\\AI\\Local\\Models\\Qwen\\Qwen3.5-35B-A3B-Q8_0.gguf",
+      "quant": "Q8_0",
+      "ctx_size": 32768,
+      "parallel": 1,
+      "threads": 16,
+      "n_gpu_layers": 999,
+      "flash_attn": true,
+      "enabled": false
+    }
+  ]
+}

@@ -69,6 +69,7 @@ node_modules/
 .pnpm-store/
 .yarn/
 dist/
+*.tsbuildinfo
 
 # Go
 bin/
@@ -79,6 +80,7 @@ coverage.*
 profile.cov
 go.work
 go.work.sum
+gateway-go/gateway
 
 # Rust
 target/

@@ -37,5 +37,14 @@
   "logs": {
     "session_log_dir": "D:\\AI\\Local\\Logs\\sessions",
     "audit_log_dir": "D:\\AI\\Local\\Logs\\audit"
+  },
+  "admin": {
+    "host_agent_url": "http://127.0.0.1:8098",
+    "open_webui_url": "http://127.0.0.1:3000",
+    "webui_share_port": 3001,
+    "tool_log_dir": "D:\\AI\\Local\\Logs\\tools",
+    "model_profiles_path": "D:\\AI\\Local\\Agent\\model-profiles.json",
+    "ui_dist_dir": "D:\\AI\\Local\\ui\\gateway-admin\\dist",
+    "timeout_ms": 5000
   }
 }

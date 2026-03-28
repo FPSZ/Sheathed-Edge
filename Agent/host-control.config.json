@@ -1,0 +1,8 @@
+{
+  "listen_host": "127.0.0.1",
+  "listen_port": 8098,
+  "llama_server_config_path": "D:\\AI\\Local\\Agent\\llama-server.config.json",
+  "model_profiles_path": "D:\\AI\\Local\\Agent\\model-profiles.json",
+  "default_profile_id": "deepseek-r1-70b-q4-competition",
+  "timeout_ms": 5000
+}

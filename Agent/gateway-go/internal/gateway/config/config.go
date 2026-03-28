@@ -47,6 +47,16 @@ type Config struct {
 		SessionLogDir string `json:"session_log_dir"`
 		AuditLogDir   string `json:"audit_log_dir"`
 	} `json:"logs"`
+
+	Admin struct {
+		HostAgentURL      string `json:"host_agent_url"`
+		OpenWebUIURL      string `json:"open_webui_url"`
+		WebUISharePort    int    `json:"webui_share_port"`
+		ToolLogDir        string `json:"tool_log_dir"`
+		ModelProfilesPath string `json:"model_profiles_path"`
+		UIDistDir         string `json:"ui_dist_dir"`
+		TimeoutMS         int    `json:"timeout_ms"`
+	} `json:"admin"`
 }
 
 func Load(path string) (*Config, error) {
@@ -66,6 +76,9 @@ func Load(path string) (*Config, error) {
 	cfg.ActionEnvelopeSchema = pathutil.NormalizeRuntimePath(cfg.ActionEnvelopeSchema)
 	cfg.Logs.SessionLogDir = pathutil.NormalizeRuntimePath(cfg.Logs.SessionLogDir)
 	cfg.Logs.AuditLogDir = pathutil.NormalizeRuntimePath(cfg.Logs.AuditLogDir)
+	cfg.Admin.ToolLogDir = pathutil.NormalizeRuntimePath(cfg.Admin.ToolLogDir)
+	cfg.Admin.ModelProfilesPath = pathutil.NormalizeRuntimePath(cfg.Admin.ModelProfilesPath)
+	cfg.Admin.UIDistDir = pathutil.NormalizeRuntimePath(cfg.Admin.UIDistDir)
 	for i, root := range cfg.KnowledgeRoots {
 		cfg.KnowledgeRoots[i] = pathutil.NormalizeRuntimePath(root)
 	}
@@ -79,8 +92,20 @@ func Load(path string) (*Config, error) {
 	if cfg.Retrieval.MaxFragmentChars <= 0 {
 		cfg.Retrieval.MaxFragmentChars = 2400
 	}
+	if cfg.Admin.HostAgentURL == "" {
+		cfg.Admin.HostAgentURL = "http://127.0.0.1:8098"
+	}
+	if cfg.Admin.OpenWebUIURL == "" {
+		cfg.Admin.OpenWebUIURL = "http://127.0.0.1:3000"
+	}
+	if cfg.Admin.WebUISharePort <= 0 {
+		cfg.Admin.WebUISharePort = 3001
+	}
+	if cfg.Admin.TimeoutMS <= 0 {
+		cfg.Admin.TimeoutMS = 5000
+	}
 
-	for _, dir := range []string{cfg.Logs.SessionLogDir, cfg.Logs.AuditLogDir} {
+	for _, dir := range []string{cfg.Logs.SessionLogDir, cfg.Logs.AuditLogDir, cfg.Admin.ToolLogDir} {
 		if dir == "" {
 			continue
 		}

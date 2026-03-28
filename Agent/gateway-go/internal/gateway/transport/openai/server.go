@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/FPSZ/Sheathed-Edge/Agent/gateway-go/internal/gateway/admin"
 	"github.com/FPSZ/Sheathed-Edge/Agent/gateway-go/internal/gateway/config"
 	"github.com/FPSZ/Sheathed-Edge/Agent/gateway-go/internal/gateway/envelope"
 	"github.com/FPSZ/Sheathed-Edge/Agent/gateway-go/internal/gateway/logging"
@@ -23,6 +24,7 @@ type Server struct {
 	provider     *provider.Client
 	orchestrator *orchestrator.Orchestrator
 	stageLogger  *logging.StageLogger
+	admin        *admin.Service
 	httpServer   *http.Server
 }
 
@@ -49,12 +51,26 @@ func NewServer(configPath string) (*Server, error) {
 		provider:     providerClient,
 		orchestrator: orch,
 		stageLogger:  stageLogger,
+		admin:        admin.NewService(cfg, providerClient),
 	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", s.handleHealthz)
 	mux.HandleFunc("/v1/models", s.handleModels)
 	mux.HandleFunc("/v1/chat/completions", s.handleChatCompletions)
+	mux.HandleFunc("/internal/admin/overview", s.handleAdminOverview)
+	mux.HandleFunc("/internal/admin/services", s.handleAdminServices)
+	mux.HandleFunc("/internal/admin/models", s.handleAdminModels)
+	mux.HandleFunc("/internal/admin/modes", s.handleAdminModes)
+	mux.HandleFunc("/internal/admin/logs/sessions", s.handleAdminSessionLogs)
+	mux.HandleFunc("/internal/admin/logs/tools", s.handleAdminToolLogs)
+	mux.HandleFunc("/internal/admin/models/switch", s.handleAdminModelSwitch)
+	mux.HandleFunc("/internal/admin/llama/start", s.handleAdminLlamaStart)
+	mux.HandleFunc("/internal/admin/llama/stop", s.handleAdminLlamaStop)
+	mux.HandleFunc("/internal/admin/llama/restart", s.handleAdminLlamaRestart)
+	mux.HandleFunc("/internal/admin/host-ips", s.handleAdminHostIPs)
+	mux.HandleFunc("/admin", s.handleAdminUI)
+	mux.HandleFunc("/admin/", s.handleAdminUI)
 
 	s.httpServer = &http.Server{
 		Addr:              fmt.Sprintf("%s:%d", cfg.ListenHost, cfg.ListenPort),

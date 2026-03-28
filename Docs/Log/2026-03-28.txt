@@ -153,3 +153,28 @@
 发现的问题：当前真实 SSE 透传只覆盖普通对话型请求；涉及工具调用或任务编排的请求仍走原有非流式控制路径。另一个问题是旧会话带着旧历史和旧辅助请求结果，体感时延会被放大，验证时应使用新会话。
 下一步：在全新会话里回归 Open WebUI 的展示效果；如仍需完善，再扩展到任务型请求的流式与工具中断状态展示。
 状态：完成
+[18:55]
+任务：开始实施 Gateway Admin GUI V1，打通 Gateway Admin API、前端管理台骨架与 Windows Host Control Agent 工程。结果：已在 `Gateway` 新增 `/internal/admin/*` 路由组与 `/admin` 静态托管；已新增 `internal/gateway/admin` 服务层，完成服务状态、模型 profile、模式/插件、会话日志、工具日志聚合；已新增 `Agent/model-profiles.json` 与 `Agent/host-control.config.json`；已创建 `Agent/host-control-rs` Rust 工程骨架，包含 `healthz/status/start/stop/restart/switch` 接口；已创建 `ui/gateway-admin` 前端工程，完成 Dashboard / Models / Modes / Logs / Settings 页面骨架，且 `npm run build` 已通过；`go build ./...` 与 `go test ./...` 已通过。
+修改：
+- 更新 `Agent/gateway-go/internal/gateway/config/config.go`
+- 新增 `Agent/gateway-go/internal/gateway/admin/`
+- 新增 `Agent/gateway-go/internal/gateway/transport/openai/admin.go`
+- 更新 `Agent/gateway-go/internal/gateway/transport/openai/server.go`
+- 更新 `Agent/gateway.config.json`
+- 新增 `Agent/model-profiles.json`
+- 新增 `Agent/host-control.config.json`
+- 新增 `Agent/host-control-rs/`
+- 新增 `ui/gateway-admin/`
+- 更新 `.gitignore`
+发现的问题：`host-control-rs` 本机构建被 Windows SDK / MSVC 链接库缺失阻塞，当前错误为缺少 `kernel32.lib`、`advapi32.lib` 等系统库；这不是源码语法错误，而是宿主机 Rust Windows 链接环境不完整。
+下一步：安装或补齐 Windows Build Tools / Windows SDK 后验证 `host-control-rs` 本机构建；随后启动 Host Agent，与 Gateway 和 `/admin` 前端做本机联调。
+状态：进行中
+
+[19:08]
+任务：收口当前阶段进度，并关闭本地模型进程。结果：已确认运行中的 `llama-server.exe` 进程退出，`0.0.0.0:8080` 监听已释放；已明确后续运行环境、工具链、缓存与宿主机侧可执行文件统一放在 `D:\Environment2`，仓库 `D:\AI\Local` 继续只保留代码、配置、文档与前端源码。
+修改：
+- 更新 `Docs/Plan/待办事项.md`
+- 更新 `Docs/Log/2026-03-28.txt`
+发现的问题：`host-control-rs` 当前仍因 Windows SDK / MSVC 系统库缺失无法完成本机构建，因此 Admin GUI 还不能进入真实模型启停联调阶段。
+下一步：补齐 Windows Build Tools / Windows SDK；随后重新编译并启动 `host-control-rs`，再联调 `Gateway /internal/admin/*` 与 `/admin` 页面。
+状态：进行中
