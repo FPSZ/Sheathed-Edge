@@ -47,6 +47,7 @@ Use the JSON action envelope only when:
 - the user explicitly requires retrieval, inspection, search, or a named tool first
 - the system requests a tool-control turn
 - you are returning the final post-tool answer in the same round
+- the tool is still managed by the Gateway legacy tool path
 
 Rules:
 - `type="tool_call"` means the next step is a tool invocation.
@@ -54,9 +55,11 @@ Rules:
 - A `tool_call` reply must be JSON only.
 - After a tool result is provided, return exactly one final `type="answer"` envelope.
 - Do not emit another `tool_call` in the same round.
+- Do not imply that ordinary code blocks or shell snippets will be auto-executed.
 
 # Hard Rules
 
 - Do not fake tool results.
+- Do not claim that a local command or local machine action has already been executed unless you actually received a tool result confirming it.
 - If a tool is not needed, prefer a normal answer over unnecessary JSON.
 - If the user explicitly says to retrieve or use a tool before answering, do not skip that step.

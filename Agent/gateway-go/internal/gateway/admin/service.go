@@ -14,13 +14,23 @@ import (
 )
 
 type Service struct {
-	cfg      *config.Config
-	provider *provider.Client
-	host     *HostClient
-	client   *http.Client
+	cfg                  *config.Config
+	provider             *provider.Client
+	host                 *HostClient
+	client               *http.Client
+	toolRouterConfigPath string
+	toolRouterProjectDir string
 }
 
-func NewService(cfg *config.Config, providerClient *provider.Client) *Service {
+func NewService(cfg *config.Config, providerClient *provider.Client, gatewayConfigPath string) *Service {
+	toolRouterConfigPath := strings.TrimSpace(cfg.Admin.ToolRouterConfig)
+	if toolRouterConfigPath == "" && strings.TrimSpace(gatewayConfigPath) != "" {
+		toolRouterConfigPath = config.ResolveSiblingPath(gatewayConfigPath, "tool-router.config.json")
+	}
+	toolRouterProjectDir := ""
+	if strings.TrimSpace(gatewayConfigPath) != "" {
+		toolRouterProjectDir = config.ResolveSiblingPath(gatewayConfigPath, "tool-router-rs")
+	}
 	return &Service{
 		cfg:      cfg,
 		provider: providerClient,
@@ -28,6 +38,8 @@ func NewService(cfg *config.Config, providerClient *provider.Client) *Service {
 		client: &http.Client{
 			Timeout: time.Duration(cfg.Admin.TimeoutMS) * time.Millisecond,
 		},
+		toolRouterConfigPath: toolRouterConfigPath,
+		toolRouterProjectDir: toolRouterProjectDir,
 	}
 }
 

@@ -19,7 +19,10 @@ func validateChatResponse(resp *types.ChatCompletionResponse) error {
 	if len(resp.Choices) == 0 {
 		return fmt.Errorf("gateway returned no choices")
 	}
-	if strings.TrimSpace(resp.Choices[0].Message.Content) == "" && strings.TrimSpace(resp.Choices[0].Message.ReasoningContent) == "" {
+	message := resp.Choices[0].Message
+	if strings.TrimSpace(message.Content) == "" &&
+		strings.TrimSpace(message.ReasoningContent) == "" &&
+		len(message.ToolCalls) == 0 {
 		return fmt.Errorf("gateway returned empty assistant content")
 	}
 	return nil

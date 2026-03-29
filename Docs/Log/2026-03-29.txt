@@ -19,3 +19,73 @@
 - 启动 `host-control-rs`，验证 `/internal/host/llama/status`、`/internal/admin/models`、`/internal/admin/llama/*` 联调。
 - 用 Open WebUI 新建 provider 会话，确认模型下拉框同时显示 `deepseek-r1-70b-q4-competition` 与 `qwen3.5-35b-a3b-q8-experimental`，并验证选择后实际切换底层模型。
 状态：代码完成，运行联调待 Windows SDK 环境补齐。
+
+[17:25]
+任务：同步授权比赛态提示词进展，并让 AWDP 模式具备第一版本地受控通用 Shell 能力。
+结果：已确认 `Core/awdp/prompts/system.md` 切换为“授权比赛态”提示词，明确 AWDP/CTF 竞赛环境内的预授权边界；已在 `Tool Router` 补上 `terminal` 真正执行器，不再停留在保留能力位。当前 `terminal` 支持结构化入参 `shell / command / workdir / timeout_ms`，默认走 `PowerShell`，按参数可切到 `WSL bash`；执行结果会结构化返回 `exit_code / stdout / stderr / timed_out / duration_ms / summary`。访问边界固定为项目工作区与 `D:\Environment2`，不开放整机自由 shell。
+修改：
+- 更新 `Core/awdp/prompts/system.md`
+- 更新 `Agent/tool-router-rs/src/api.rs`
+- 更新 `Agent/tool-router-rs/src/logging.rs`
+- 更新 `Agent/tool-router-rs/src/main.rs`
+- 更新 `Agent/tool-router-rs/src/models.rs`
+- 更新 `Agent/tool-router-rs/src/policy.rs`
+- 更新 `Agent/tool-router-rs/src/executor/mod.rs`
+- 新增 `Agent/tool-router-rs/src/executor/terminal.rs`
+- 更新 `MCP/registry.json`
+- 更新 `Agent/tool-router.config.json`
+- 更新 `Docs/Plan/待办事项.md`
+验证：
+- `cargo test` 通过
+- `cargo build` 通过
+- 已在临时端口启动 `tool-router-rs` 验证 `/internal/tools/resolve` 与 `/internal/tools/execute`
+- `terminal` 已通过 `PowerShell` 与 `WSL bash` 只读命令验证
+- `terminal` 已通过非法 `workdir` 拒绝与超时回传验证
+下一步：
+- 验证模型在“查看目录 / git 状态 / 服务监听端口”等任务中，能够主动产出 `terminal` 调用
+- 最后再继续做 Open WebUI 与 Host Agent 的整体联调
+状态：代码与基础接口验证已完成，等待 agent 闭环联调。
+
+[19:40]
+任务：移除 Gateway 的 terminal 代码块自动执行 fallback，并把现有 terminal executor 标准化为 Open WebUI 可接入的 OpenAPI Tool Server。
+结果：已在 `tool-router-rs` 同一端口新增 `GET /openapi.json` 与 `POST /api/tools/terminal`，OpenAPI 路由复用了现有 terminal 的参数归一化、白名单校验、超时控制、PowerShell/WSL 映射、日志落盘与执行器；返回值已整理为适合 Open WebUI External Tools 的扁平结构。已从 `Gateway orchestrator` 删除 `inferTerminalCallFromContent` 与 `extractCommandFence`，不再根据 fenced code block 或普通文本猜测执行本机命令；同时将 `terminal` 从 Gateway legacy tool path 显式隔离，避免与 Open WebUI 外部工具形成双重执行路径。`Admin UI / Settings` 已新增 Tool Server 展示区，用于显示 Tool Router 地址、OpenAPI spec 地址与 terminal endpoint。
+修改：
+- 更新 `Agent/tool-router-rs/src/api.rs`
+- 更新 `Agent/tool-router-rs/src/main.rs`
+- 更新 `Agent/tool-router-rs/src/models.rs`
+- 更新 `Agent/gateway-go/internal/gateway/orchestrator/orchestrator.go`
+- 更新 `Core/awdp/prompts/output_contract.md`
+- 更新 `Core/awdp/prompts/system.md`
+- 更新 `Agent/http-contract.md`
+- 更新 `ui/gateway-admin/src/pages/SettingsPage.tsx`
+- 更新 `Docs/Plan/待办事项.md`
+验证：
+- 待执行 `cargo test` / `cargo build`
+- 待执行 `go test ./...` / `go build ./...`
+- 待执行 `npm run build`
+- 待用 Open WebUI External Tools 实际接入 `openapi.json` 做终端调用回归
+下一步：
+- 先验证 `tool-router-rs` 的 OpenAPI spec 与 `/api/tools/terminal`
+- 再验证 Gateway 不再触发代码块自动执行
+- 最后在 Open WebUI 配置 OpenAPI Tool Server，验证终端调用闭环
+状态：代码已改完，等待本地构建和集成回归。
+
+[20:35]
+任务：为 `Gateway -> llama-server` 接通原生 OpenAI tool calling，替代当前不稳定的 Open WebUI Default/legacy 工具调用路径。
+结果：已在 `Gateway` 补上 `tools / tool_choice / parallel_tool_calls / tool_calls / tool_call_id` 结构，支持将 Open WebUI 发来的原生工具请求透传到 `llama-server`，并将原生 `tool_calls` 原样返回给客户端；同时新增 native tool 分流逻辑，使带 `tools` 或 `tool` 消息的请求不再进入 legacy envelope 编排，而是走新的 native path。已用真实 `Gateway` 验证三段闭环：第一轮返回 `finish_reason=tool_calls`、第二轮携带 tool result 后返回自然语言最终答复、流式模式下可输出标准 SSE `tool_calls` 增量。另已将 Open WebUI 的 `qwen3.5-35b-a3b-q8` 模型参数强制写为 `{\"function_calling\":\"native\"}`，避免继续走默认 legacy 模式。
+修改：
+- 更新 `Agent/gateway-go/internal/gateway/types/chat.go`
+- 更新 `Agent/gateway-go/internal/gateway/orchestrator/orchestrator.go`
+- 更新 `Agent/gateway-go/internal/gateway/transport/openai/server.go`
+- 更新 `Agent/gateway-go/internal/gateway/transport/openai/runtime.go`
+- 更新 Open WebUI 数据库中的模型参数：`qwen3.5-35b-a3b-q8 -> function_calling=native`
+验证：
+- `go test ./...` 通过
+- `go build ./...` 通过
+- 直连 `Gateway /v1/chat/completions` 的 native tools 请求已返回标准 `tool_calls`
+- 携带 tool result 的第二轮请求已返回最终自然语言答复
+- `stream=true` 的 native tools 请求已返回 SSE `tool_calls` 增量
+下一步：
+- 让浏览器刷新 Open WebUI 前端缓存，重新进入新聊天验证 native terminal 调用
+- 若前端仍未切到 native 模式，再排查 Open WebUI 前端模型缓存与聊天控件参数
+状态：后端链路已打通，等待前端重新加载 native function calling 配置。

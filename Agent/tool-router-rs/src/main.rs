@@ -16,6 +16,7 @@ use axum::{
 use clap::Parser;
 use models::AppState;
 use tokio::net::TcpListener;
+use tower_http::cors::{Any, CorsLayer};
 
 #[derive(Parser, Debug)]
 struct Cli {
@@ -37,14 +38,23 @@ async fn main() -> Result<()> {
     let state = AppState {
         config: config.clone(),
         tools: std::sync::Arc::new(tools),
+        workspace_root: std::env::current_dir()?.to_string_lossy().replace('\\', "/"),
         resources_count,
         prompts_count,
     };
 
     let app = Router::new()
         .route("/healthz", get(api::healthz))
+        .route("/openapi.json", get(api::openapi_spec))
+        .route("/api/tools/terminal", post(api::openapi_terminal))
         .route("/internal/tools/resolve", post(api::resolve_tool))
         .route("/internal/tools/execute", post(api::execute_tool))
+        .layer(
+            CorsLayer::new()
+                .allow_origin(Any)
+                .allow_methods(Any)
+                .allow_headers(Any),
+        )
         .with_state(state);
 
     let listener =

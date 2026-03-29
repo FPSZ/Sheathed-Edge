@@ -242,6 +242,8 @@ fn build_args(config: &crate::models::LlamaServerConfig, profile: &ModelProfile)
         args.push("--flash-attn".into());
         args.push("on".into());
     }
+    args.push("--reasoning-format".into());
+    args.push("deepseek".into());
     if config.cont_batching {
         args.push("--cont-batching".into());
     }

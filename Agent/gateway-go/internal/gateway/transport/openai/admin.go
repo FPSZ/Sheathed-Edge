@@ -86,6 +86,33 @@ func (s *Server) handleAdminToolLogs(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"items": resp})
 }
 
+func (s *Server) handleAdminTerminalPaths(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		resp, err := s.admin.TerminalPathSettings()
+		if err != nil {
+			writeError(w, http.StatusBadGateway, "admin_error", err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, resp)
+	case http.MethodPost:
+		var req admin.UpdateTerminalPathsRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+			return
+		}
+		resp, err := s.admin.UpdateTerminalPathSettings(r.Context(), req.AllowedPaths, req.RestartNow)
+		if err != nil {
+			writeError(w, http.StatusBadGateway, "admin_error", err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, resp)
+	default:
+		w.Header().Set("Allow", strings.Join([]string{http.MethodGet, http.MethodPost}, ", "))
+		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
+	}
+}
+
 func (s *Server) handleAdminServiceStart(w http.ResponseWriter, r *http.Request) {
 	if !requireMethod(w, r, http.MethodPost) {
 		return

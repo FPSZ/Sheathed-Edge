@@ -129,7 +129,7 @@
     },
     {
       "name": "terminal",
-      "description": "Reserved core terminal template entry. Execution is intentionally disabled until templates are finalized.",
+      "description": "Run controlled local shell commands for AWDP agent workflows using PowerShell or WSL bash.",
       "type": "stdio_mcp",
       "transport": "stdio",
       "command": [
@@ -145,7 +145,8 @@
         "backoff_ms": 0
       },
       "allowed_paths": [
-        "D:\\AI\\Local"
+        "D:\\AI\\Local",
+        "D:\\Environment2"
       ],
       "allowed_hosts": [],
       "allowed_cidrs": [],
@@ -156,12 +157,37 @@
       ],
       "parameter_schema": {
         "type": "object",
-        "additionalProperties": true
+        "additionalProperties": false,
+        "required": [
+          "command"
+        ],
+        "properties": {
+          "shell": {
+            "type": "string",
+            "enum": [
+              "powershell",
+              "wsl-bash"
+            ],
+            "default": "powershell"
+          },
+          "command": {
+            "type": "string",
+            "minLength": 1
+          },
+          "workdir": {
+            "type": "string",
+            "minLength": 1
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
       },
       "capabilities": [
         "tools"
       ],
-      "enabled": false
+      "enabled": true
     },
     {
       "name": "browser",

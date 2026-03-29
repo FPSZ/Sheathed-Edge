@@ -18,14 +18,16 @@ type Action struct {
 }
 
 func Parse(content string) (Action, bool) {
+	original := content
 	content = normalizePayload(content)
 	if !LooksLikeJSONObject(content) {
 		return Action{}, false
 	}
-	var env Action
-	if err := json.Unmarshal([]byte(content), &env); err != nil {
+	var raw map[string]any
+	if err := json.Unmarshal([]byte(content), &raw); err != nil {
 		return Action{}, false
 	}
+	env := normalizeAction(raw, content, original)
 	if env.Type == "" {
 		return Action{}, false
 	}
@@ -57,14 +59,31 @@ func UnwrapAnswer(resp *types.ChatCompletionResponse, env Action) *types.ChatCom
 
 func normalizePayload(content string) string {
 	content = strings.TrimSpace(content)
-	if strings.HasPrefix(content, "```") {
-		if fenced, ok := extractFencedBlock(content); ok {
-			content = fenced
-		}
+	content = strings.TrimSpace(stripThinkingBlocks(content))
+	if fenced, ok := extractFencedBlock(content); ok {
+		content = fenced
 	}
 
-	if object, ok := extractLeadingJSONObject(content); ok {
+	if object, ok := extractJSONObject(content); ok {
 		return object
+	}
+	return content
+}
+
+// stripThinkingBlocks removes <think>...</think> blocks so that JSON envelope
+// extraction is not confused by reasoning prefixes emitted by the model.
+func stripThinkingBlocks(content string) string {
+	for {
+		start := strings.Index(content, "<think>")
+		if start == -1 {
+			break
+		}
+		end := strings.Index(content[start:], "</think>")
+		if end == -1 {
+			content = content[:start]
+			break
+		}
+		content = content[:start] + content[start+end+len("</think>"):]
 	}
 	return content
 }
@@ -89,25 +108,32 @@ func renderContent(content any) string {
 
 func extractFencedBlock(content string) (string, bool) {
 	lines := strings.Split(content, "\n")
-	if len(lines) < 2 || !strings.HasPrefix(strings.TrimSpace(lines[0]), "```") {
-		return "", false
-	}
-
 	var body []string
-	for _, line := range lines[1:] {
-		if strings.TrimSpace(line) == "```" {
+	inFence := false
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "```") {
+			if !inFence {
+				inFence = true
+				body = body[:0]
+				continue
+			}
 			return strings.TrimSpace(strings.Join(body, "\n")), true
 		}
-		body = append(body, line)
+		if inFence {
+			body = append(body, line)
+		}
 	}
 	return "", false
 }
 
-func extractLeadingJSONObject(content string) (string, bool) {
+func extractJSONObject(content string) (string, bool) {
 	content = strings.TrimSpace(content)
-	if !strings.HasPrefix(content, "{") {
+	start := strings.Index(content, "{")
+	if start == -1 {
 		return "", false
 	}
+	content = content[start:]
 
 	depth := 0
 	inString := false
@@ -130,6 +156,113 @@ func extractLeadingJSONObject(content string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func normalizeAction(raw map[string]any, normalizedContent string, originalContent string) Action {
+	env := Action{
+		Type:      getString(raw["type"]),
+		Tool:      getString(raw["tool"]),
+		Arguments: firstNonNilMap(raw["arguments"], raw["params"], raw["parameters"]),
+		Reason:    getString(raw["reason"]),
+		Content:   raw["content"],
+	}
+	if env.Tool == "" {
+		env.Tool = getString(raw["name"])
+	}
+
+	if action, ok := raw["action"].(map[string]any); ok {
+		if env.Tool == "" {
+			env.Tool = firstNonEmptyString(action["name"], action["tool"], action["action"])
+		}
+		if len(env.Arguments) == 0 {
+			env.Arguments = firstNonNilMap(action["arguments"], action["params"], action["parameters"])
+		}
+	}
+	if function, ok := raw["function"].(map[string]any); ok {
+		if env.Tool == "" {
+			env.Tool = firstNonEmptyString(function["name"], function["tool"])
+		}
+		if len(env.Arguments) == 0 {
+			env.Arguments = firstNonNilMap(function["arguments"], function["params"], function["parameters"])
+		}
+	}
+
+	if env.Type == "" && env.Tool != "" {
+		env.Type = "tool_call"
+	}
+	if env.Tool == "" && looksLikeTerminalArguments(env.Arguments) {
+		env.Tool = "terminal"
+		if env.Type == "" {
+			env.Type = "tool_call"
+		}
+	}
+	if env.Tool == "" && env.Type == "tool_call" && mentionsTerminal(normalizedContent, originalContent) {
+		env.Tool = "terminal"
+	}
+
+	if env.Arguments == nil {
+		env.Arguments = map[string]any{}
+	}
+	return env
+}
+
+func getString(value any) string {
+	str, _ := value.(string)
+	return str
+}
+
+func getMap(value any) map[string]any {
+	if value == nil {
+		return nil
+	}
+	if mapped, ok := value.(map[string]any); ok {
+		return mapped
+	}
+	return nil
+}
+
+func firstNonEmptyString(values ...any) string {
+	for _, value := range values {
+		if str := getString(value); str != "" {
+			return str
+		}
+	}
+	return ""
+}
+
+func firstNonNilMap(values ...any) map[string]any {
+	for _, value := range values {
+		if mapped := getMap(value); mapped != nil {
+			return mapped
+		}
+	}
+	return nil
+}
+
+func looksLikeTerminalArguments(arguments map[string]any) bool {
+	if len(arguments) == 0 {
+		return false
+	}
+	terminalKeys := []string{"command", "shell", "workdir", "timeout_ms"}
+	for _, key := range terminalKeys {
+		if _, ok := arguments[key]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func mentionsTerminal(contents ...string) bool {
+	for _, content := range contents {
+		lowered := strings.ToLower(content)
+		if strings.Contains(lowered, "\"tool\": \"terminal\"") ||
+			strings.Contains(lowered, "\"name\": \"terminal\"") ||
+			strings.Contains(lowered, "<tool_call>") && strings.Contains(lowered, "terminal") ||
+			strings.Contains(lowered, "`terminal`") {
+			return true
+		}
+	}
+	return false
 }
 
 func renderStructuredAnswer(content map[string]any) (string, bool) {

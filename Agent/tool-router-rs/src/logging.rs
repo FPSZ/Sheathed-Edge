@@ -6,12 +6,14 @@ use std::{
 };
 
 use serde_json::json;
+use serde_json::Value;
 
 use crate::models::{AppState, ExecuteRequest, ExecuteResponse};
 
 pub fn append_tool_log(
     state: &AppState,
     req: &ExecuteRequest,
+    arguments: &Value,
     resp: &ExecuteResponse,
     duration_ms: u128,
 ) {
@@ -22,7 +24,7 @@ pub fn append_tool_log(
         "session_id": req.session_id,
         "mode": req.mode,
         "tool": req.tool,
-        "arguments": req.arguments,
+        "arguments": arguments,
         "duration_ms": duration_ms,
         "ok": resp.ok,
         "summary": resp.summary,

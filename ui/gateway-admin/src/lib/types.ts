@@ -79,3 +79,9 @@ export type HostIPsResponse = {
   share_port: number;
   share_urls: string[];
 };
+
+export type TerminalPathsSettings = {
+  allowed_paths: string[];
+  config_path: string;
+  restart_required: boolean;
+};

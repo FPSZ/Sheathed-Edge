@@ -40,7 +40,7 @@ func (s *Service) StartService(ctx context.Context, name string) error {
 	case serviceLlama:
 		return s.host.Start(ctx)
 	case serviceToolRouter:
-		return s.startDetached(ctx, "tool-router", "/mnt/d/AI/Local/Workflows/wsl/start-tool-router.sh")
+		return s.startToolRouter(ctx)
 	case serviceOpenWebUI:
 		return s.startDetached(ctx, "open-webui", "/mnt/d/AI/Local/Workflows/wsl/start-open-webui.sh")
 	case serviceGateway:
@@ -57,7 +57,7 @@ func (s *Service) StopService(ctx context.Context, name string) error {
 	case serviceLlama:
 		return s.host.Stop(ctx)
 	case serviceToolRouter:
-		return s.stopProcess(ctx, "tool-router-rs")
+		return s.stopToolRouter(ctx)
 	case serviceOpenWebUI:
 		return s.stopProcess(ctx, "open-webui")
 	case serviceGateway:
@@ -67,6 +67,40 @@ func (s *Service) StopService(ctx context.Context, name string) error {
 	default:
 		return fmt.Errorf("unsupported service: %s", name)
 	}
+}
+
+func (s *Service) startToolRouter(ctx context.Context) error {
+	configPath := strings.TrimSpace(s.toolRouterConfigPath)
+	projectDir := strings.TrimSpace(s.toolRouterProjectDir)
+	if configPath == "" {
+		return fmt.Errorf("tool-router config path is not configured")
+	}
+	if projectDir == "" {
+		return fmt.Errorf("tool-router project directory is not configured")
+	}
+
+	psCmd := fmt.Sprintf(
+		`Start-Process -FilePath 'cargo.exe' -ArgumentList 'run','--','--config','%s' -WorkingDirectory '%s' -WindowStyle Hidden`,
+		strings.ReplaceAll(configPath, `'`, `''`),
+		strings.ReplaceAll(projectDir, `'`, `''`),
+	)
+	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", psCmd)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("start tool-router: %w: %s", err, strings.TrimSpace(string(output)))
+	}
+	return nil
+}
+
+func (s *Service) stopToolRouter(ctx context.Context) error {
+	psCmd := `[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; ` +
+		`$targets = Get-CimInstance Win32_Process | Where-Object { ` +
+		`$_.Name -match 'tool-router-rs(\.exe)?|cargo(\.exe)?' -and ($_.CommandLine -like '*tool-router-rs*' -or $_.CommandLine -like '*tool-router.config.json*') }; ` +
+		`foreach ($proc in $targets) { Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue }`
+	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", psCmd)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("stop tool-router: %w: %s", err, strings.TrimSpace(string(output)))
+	}
+	return nil
 }
 
 func (s *Service) startDetached(ctx context.Context, logName, scriptPath string) error {

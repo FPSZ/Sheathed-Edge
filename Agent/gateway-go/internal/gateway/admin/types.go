@@ -88,3 +88,14 @@ type UpdateModelProfileRequest struct {
 	Profile  ModelProfile `json:"profile"`
 	ApplyNow bool         `json:"apply_now"`
 }
+
+type TerminalPathsSettingsResponse struct {
+	AllowedPaths    []string `json:"allowed_paths"`
+	ConfigPath      string   `json:"config_path"`
+	RestartRequired bool     `json:"restart_required"`
+}
+
+type UpdateTerminalPathsRequest struct {
+	AllowedPaths []string `json:"allowed_paths"`
+	RestartNow   bool     `json:"restart_now"`
+}

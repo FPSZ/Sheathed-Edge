@@ -78,6 +78,7 @@ pub struct ToolEntry {
 pub struct AppState {
     pub config: Config,
     pub tools: Arc<HashMap<String, ToolDef>>,
+    pub workspace_root: String,
     pub resources_count: usize,
     pub prompts_count: usize,
 }
@@ -124,6 +125,29 @@ pub struct ExecuteResponse {
     pub tool: String,
     pub result: BTreeMap<String, Value>,
     pub summary: String,
+    pub truncated: bool,
+    pub error: Option<ErrorEnvelope>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OpenAPITerminalRequest {
+    pub command: String,
+    pub shell: Option<String>,
+    pub workdir: Option<String>,
+    pub timeout_ms: Option<u64>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct OpenAPITerminalResponse {
+    pub ok: bool,
+    pub summary: String,
+    pub exit_code: i32,
+    pub stdout: String,
+    pub stderr: String,
+    pub timed_out: bool,
+    pub duration_ms: u64,
+    pub shell: String,
+    pub workdir: String,
     pub truncated: bool,
     pub error: Option<ErrorEnvelope>,
 }

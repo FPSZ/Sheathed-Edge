@@ -57,6 +57,24 @@ func (o *Orchestrator) PrepareStreamingRequest(req types.ChatCompletionRequest, 
 	return upstreamReq, true, nil
 }
 
+func (o *Orchestrator) PrepareNativeStreamingRequest(req types.ChatCompletionRequest, responseModel string) (types.ChatCompletionRequest, error) {
+	active, fragments, turnPrompt, err := o.loadTurnContext(context.Background(), req)
+	if err != nil {
+		return types.ChatCompletionRequest{}, err
+	}
+
+	upstreamReq := req
+	upstreamReq.Model = responseModel
+	upstreamReq.Stream = true
+	upstreamReq.StreamOptions = mergeStreamOptions(req.StreamOptions, map[string]any{
+		"include_usage": true,
+	})
+	upstreamReq.Messages = prependSystemContext(req.Messages, buildNativeToolPrompt(turnPrompt), fragments)
+
+	_ = active
+	return upstreamReq, nil
+}
+
 func (o *Orchestrator) RunTurn(ctx context.Context, requestID string, responseModel string, req types.ChatCompletionRequest, trace *logging.StageTrace) (*types.ChatCompletionResponse, *mode.Active, []retrieval.Fragment, error) {
 	var (
 		active        *mode.Active
@@ -130,6 +148,59 @@ func (o *Orchestrator) RunTurn(ctx context.Context, requestID string, responseMo
 	return finalResp, active, fragments, nil
 }
 
+func (o *Orchestrator) RunNativeToolTurn(ctx context.Context, requestID string, responseModel string, req types.ChatCompletionRequest, trace *logging.StageTrace) (*types.ChatCompletionResponse, *mode.Active, []retrieval.Fragment, error) {
+	var (
+		active        *mode.Active
+		fragments     []retrieval.Fragment
+		finalResp     *types.ChatCompletionResponse
+		runErr        error
+		answerPreview string
+	)
+	defer func() {
+		if o.logger == nil {
+			return
+		}
+		status := "ok"
+		failure := ""
+		if runErr != nil {
+			status = "failed"
+			failure = runErr.Error()
+		}
+		if finalResp != nil {
+			answerPreview = envelope.FirstContent(finalResp)
+		}
+		o.logger.Append(logging.NewSessionEntry(requestID, active, req, fragments, answerPreview, status, failure))
+	}()
+
+	var turnPrompt string
+	var err error
+	active, fragments, turnPrompt, err = o.loadTurnContext(ctx, req)
+	if err != nil {
+		runErr = err
+		return nil, nil, nil, err
+	}
+	if trace != nil {
+		trace.SetContext(mode.BuildLabel(active), active.Plugins)
+	}
+
+	upstreamReq := req
+	upstreamReq.Model = responseModel
+	upstreamReq.Stream = false
+	upstreamReq.Messages = prependSystemContext(req.Messages, buildNativeToolPrompt(turnPrompt), fragments)
+
+	firstSpan := trace.Begin("provider_first")
+	finalResp, err = o.provider.ChatCompletion(ctx, upstreamReq)
+	if err != nil {
+		firstSpan.End(false, err.Error())
+		runErr = err
+		return nil, active, fragments, err
+	}
+	firstSpan.End(true, "")
+
+	finalResp.Model = responseModel
+	return finalResp, active, fragments, nil
+}
+
 func (o *Orchestrator) resolveEnvelope(ctx context.Context, responseModel string, originalReq types.ChatCompletionRequest, active *mode.Active, turnPrompt string, providerResp *types.ChatCompletionResponse, trace *logging.StageTrace) (*types.ChatCompletionResponse, error) {
 	content := envelope.FirstContent(providerResp)
 	if env, ok := envelope.Parse(content); ok {
@@ -149,6 +220,19 @@ func (o *Orchestrator) resolveEnvelope(ctx context.Context, responseModel string
 }
 
 func (o *Orchestrator) handleToolCall(ctx context.Context, responseModel string, originalReq types.ChatCompletionRequest, active *mode.Active, turnPrompt string, env envelope.Action, providerResp *types.ChatCompletionResponse, trace *logging.StageTrace) (*types.ChatCompletionResponse, error) {
+	if env.Tool == "terminal" {
+		return o.fallbackWithoutTools(
+			ctx,
+			responseModel,
+			originalReq,
+			turnPrompt,
+			providerResp,
+			env.Tool,
+			"terminal is handled by the Open WebUI external OpenAPI tool path, not the Gateway legacy tool path",
+			trace,
+		)
+	}
+
 	sessionID := providerResp.ID
 	resolveSpan := trace.Begin("tool_resolve")
 	resolveResp, err := o.toolClient.Resolve(ctx, toolclient.ResolveRequest{
@@ -198,8 +282,8 @@ func (o *Orchestrator) handleToolCall(ctx context.Context, responseModel string,
 	nextReq.Messages = append(
 		prependSystemContext(originalReq.Messages, turnPrompt, nil),
 		types.ChatMessage{Role: "assistant", Content: envelope.FirstContent(providerResp)},
-		types.ChatMessage{Role: "system", Content: buildToolResultBlock(execResp)},
-		types.ChatMessage{Role: "system", Content: "You have exactly one tool result block. Do not request more tools. Return only a final answer envelope JSON with type=answer. Use the tool result to answer the latest user request directly. Do not echo raw tool JSON unless the user explicitly asked for raw JSON. If the user asked for a summary, produce concise natural-language summary points instead of copying the result object."},
+		types.ChatMessage{Role: "user", Content: buildToolResultBlock(execResp)},
+		types.ChatMessage{Role: "user", Content: "You have exactly one tool result block. Do not request more tools. Return only a final answer envelope JSON with type=answer. Use the tool result to answer the latest user request directly. Do not echo raw tool JSON unless the user explicitly asked for raw JSON. If the user asked for a summary, produce concise natural-language summary points instead of copying the result object."},
 	)
 
 	secondSpan := trace.Begin("provider_second")
@@ -212,7 +296,7 @@ func (o *Orchestrator) handleToolCall(ctx context.Context, responseModel string,
 
 	secondEnv, ok := envelope.Parse(envelope.FirstContent(resp))
 	if !ok {
-		return nil, fmt.Errorf("provider second pass returned invalid final envelope")
+		return resp, nil
 	}
 	if secondEnv.Type == "tool_call" {
 		return failClosedToolResponse(responseModel, env.Tool, execResp.Summary), nil
@@ -230,8 +314,8 @@ func (o *Orchestrator) fallbackWithoutTools(ctx context.Context, responseModel s
 	req.Messages = append(
 		prependSystemContext(originalReq.Messages, turnPrompt, nil),
 		types.ChatMessage{Role: "assistant", Content: envelope.FirstContent(providerResp)},
-		types.ChatMessage{Role: "system", Content: buildFailClosedBlock(toolName, cause)},
-		types.ChatMessage{Role: "system", Content: "Do not call any more tools. Return only a final answer envelope JSON with type=answer. Answer the latest user request directly in natural language. Do not echo raw failure JSON. If evidence is insufficient, say so explicitly and answer conservatively."},
+		types.ChatMessage{Role: "user", Content: buildFailClosedBlock(toolName, cause)},
+		types.ChatMessage{Role: "user", Content: "Do not call any more tools. Return only a final answer envelope JSON with type=answer. Answer the latest user request directly in natural language. Do not echo raw failure JSON. If evidence is insufficient, say so explicitly and answer conservatively."},
 	)
 
 	secondSpan := trace.Begin("provider_second")
@@ -244,7 +328,7 @@ func (o *Orchestrator) fallbackWithoutTools(ctx context.Context, responseModel s
 
 	env, ok := envelope.Parse(envelope.FirstContent(resp))
 	if !ok {
-		return failClosedToolResponse(responseModel, toolName, cause), nil
+		return resp, nil
 	}
 	if env.Type == "answer" {
 		return envelope.UnwrapAnswer(resp, env), nil
@@ -259,7 +343,7 @@ func (o *Orchestrator) repairEnvelope(ctx context.Context, responseModel string,
 	req.Messages = append(
 		prependSystemContext(originalReq.Messages, turnPrompt, nil),
 		types.ChatMessage{Role: "assistant", Content: envelope.FirstContent(providerResp)},
-		types.ChatMessage{Role: "system", Content: "Your previous output looked like malformed JSON. If you need a tool, emit a valid action envelope JSON. Otherwise answer normally under the output contract without partial JSON."},
+		types.ChatMessage{Role: "user", Content: "Your previous output looked like malformed JSON. If you need a tool, emit a valid action envelope JSON. Otherwise answer normally under the output contract without partial JSON."},
 	)
 	resp, err := o.provider.ChatCompletion(ctx, req)
 	if err != nil {
@@ -308,6 +392,28 @@ func prependSystemContext(messages []types.ChatMessage, systemPrompt string, fra
 		Content: strings.Join(parts, "\n\n"),
 	}
 	return append([]types.ChatMessage{system}, messages...)
+}
+
+func (o *Orchestrator) loadTurnContext(ctx context.Context, req types.ChatCompletionRequest) (*mode.Active, []retrieval.Fragment, string, error) {
+	plugins := extractPlugins(req)
+	active, err := o.modeLoader.Load(plugins)
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	query := latestUserMessage(req.Messages)
+	turnKind := classifyTurn(query)
+	turnPrompt := active.SystemPrompt
+	var fragments []retrieval.Fragment
+	if turnKind == turnKindConversation {
+		turnPrompt = buildConversationPrompt(active.ConversationPrompt)
+	} else {
+		retrievalCtx, cancel := context.WithCancel(ctx)
+		fragments, _ = o.retrieval.Search(retrievalCtx, query, active.RetrievalRoots)
+		cancel()
+	}
+
+	return active, fragments, turnPrompt, nil
 }
 
 func extractPlugins(req types.ChatCompletionRequest) []string {
@@ -376,7 +482,7 @@ func classifyTurn(query string) turnClassification {
 	if normalized == "" {
 		return turnKindConversation
 	}
-	if isTaskOrAnalysisTurn(normalized) {
+	if isTaskOrAnalysisTurn(normalized) || isLocalActionTurn(normalized) {
 		return turnKindTask
 	}
 	return turnKindConversation
@@ -412,6 +518,36 @@ func isTaskOrAnalysisTurn(normalized string) bool {
 	return false
 }
 
+func isLocalActionTurn(normalized string) bool {
+	actionHints := []string{
+		"open", "launch", "start", "stop", "restart", "run", "execute",
+		"打开", "启动", "运行", "关闭", "停止", "重启", "执行",
+	}
+	targetHints := []string{
+		"calculator", "calc", "notepad", "terminal", "powershell", "cmd", "explorer", "task manager", "service", "process", "port", "local", "computer",
+		"计算器", "记事本", "终端", "powershell", "cmd", "文件夹", "目录", "资源管理器", "任务管理器", "程序", "应用", "服务", "端口", "进程", "本地", "电脑",
+	}
+
+	hasAction := false
+	for _, hint := range actionHints {
+		if strings.Contains(normalized, hint) {
+			hasAction = true
+			break
+		}
+	}
+	if !hasAction {
+		return false
+	}
+
+	for _, hint := range targetHints {
+		if strings.Contains(normalized, hint) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func conversationSystemPrompt() string {
 	return strings.TrimSpace(`
 You are replying in normal conversation mode.
@@ -422,7 +558,8 @@ Rules for this turn:
 - AWDP is part of your expertise, not a mandatory output format.
 - If the user asks what you do, who you are, or what you are good at, answer concretely as a local security assistant focused on AWDP, web security, pwn, patching, writeups, and tool-assisted analysis.
 - Do not force security-analysis headings, audit structure, or JSON.
-- Do not call tools unless the user explicitly asks for tool-driven work.
+- Do not call tools for casual chat, greetings, or meta questions.
+- If the user asks you to operate the local machine or inspect local state, that is tool-driven work.
 `)
 }
 
@@ -432,6 +569,16 @@ func buildConversationPrompt(base string) string {
 		return conversationSystemPrompt()
 	}
 	return base + "\n\n" + conversationSystemPrompt()
+}
+
+func buildNativeToolPrompt(base string) string {
+	const nativeToolDirective = "Native OpenAI tools are available in this request. Do not emit the legacy action-envelope JSON. When a tool is needed, use the native tool calling interface provided by the client. Do not wrap tool calls in markdown or code fences. After receiving tool result messages, answer normally in natural language."
+
+	base = strings.TrimSpace(base)
+	if base == "" {
+		return nativeToolDirective
+	}
+	return base + "\n\n" + nativeToolDirective
 }
 
 func buildToolResultBlock(resp *toolclient.ExecuteResponse) string {

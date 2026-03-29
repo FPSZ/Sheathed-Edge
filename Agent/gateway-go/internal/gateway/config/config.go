@@ -52,6 +52,7 @@ type Config struct {
 		HostAgentURL      string `json:"host_agent_url"`
 		HostAgentBinary   string `json:"host_agent_binary"`
 		HostAgentConfig   string `json:"host_agent_config"`
+		ToolRouterConfig  string `json:"tool_router_config_path"`
 		OpenWebUIURL      string `json:"open_webui_url"`
 		WebUISharePort    int    `json:"webui_share_port"`
 		ToolLogDir        string `json:"tool_log_dir"`
@@ -81,6 +82,7 @@ func Load(path string) (*Config, error) {
 	cfg.Admin.ToolLogDir = pathutil.NormalizeRuntimePath(cfg.Admin.ToolLogDir)
 	cfg.Admin.ModelProfilesPath = pathutil.NormalizeRuntimePath(cfg.Admin.ModelProfilesPath)
 	cfg.Admin.UIDistDir = pathutil.NormalizeRuntimePath(cfg.Admin.UIDistDir)
+	cfg.Admin.ToolRouterConfig = pathutil.NormalizeRuntimePath(cfg.Admin.ToolRouterConfig)
 	for i, root := range cfg.KnowledgeRoots {
 		cfg.KnowledgeRoots[i] = pathutil.NormalizeRuntimePath(root)
 	}
@@ -99,6 +101,9 @@ func Load(path string) (*Config, error) {
 	}
 	if cfg.Admin.OpenWebUIURL == "" {
 		cfg.Admin.OpenWebUIURL = "http://127.0.0.1:3000"
+	}
+	if cfg.Admin.ToolRouterConfig == "" {
+		cfg.Admin.ToolRouterConfig = pathutil.NormalizeRuntimePath(ResolveSiblingPath(path, "tool-router.config.json"))
 	}
 	if cfg.Admin.WebUISharePort <= 0 {
 		cfg.Admin.WebUISharePort = 3001

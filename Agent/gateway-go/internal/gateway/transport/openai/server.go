@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/FPSZ/Sheathed-Edge/Agent/gateway-go/internal/gateway/admin"
@@ -50,7 +52,7 @@ func NewServer(configPath string) (*Server, error) {
 		provider:     providerClient,
 		orchestrator: orch,
 		stageLogger:  stageLogger,
-		admin:        admin.NewService(cfg, providerClient),
+		admin:        admin.NewService(cfg, providerClient, configPath),
 	}
 
 	mux := http.NewServeMux()
@@ -66,6 +68,7 @@ func NewServer(configPath string) (*Server, error) {
 	mux.HandleFunc("/internal/admin/modes", s.handleAdminModes)
 	mux.HandleFunc("/internal/admin/logs/sessions", s.handleAdminSessionLogs)
 	mux.HandleFunc("/internal/admin/logs/tools", s.handleAdminToolLogs)
+	mux.HandleFunc("/internal/admin/settings/terminal-paths", s.handleAdminTerminalPaths)
 	mux.HandleFunc("/internal/admin/models/switch", s.handleAdminModelSwitch)
 	mux.HandleFunc("/internal/admin/llama/start", s.handleAdminLlamaStart)
 	mux.HandleFunc("/internal/admin/llama/stop", s.handleAdminLlamaStop)
@@ -149,6 +152,7 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		writeErrorWithRequestID(w, http.StatusBadRequest, "invalid_request", err.Error(), requestID)
 		return
 	}
+	trace.Begin("request_received").End(true, summarizeChatRequest(req))
 
 	selectedModel, err := s.admin.EnsureModelReady(r.Context(), req.Model)
 	if err != nil {
@@ -157,6 +161,48 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.Model = selectedModel.ModelID
+
+	if req.UsesNativeTools() {
+		if req.Stream {
+			upstreamReq, err := s.orchestrator.PrepareNativeStreamingRequest(req, selectedModel.ModelID)
+			if err != nil {
+				finalSpan.End(false, err.Error())
+				writeErrorWithRequestID(w, http.StatusBadGateway, "provider_error", err.Error(), requestID)
+				return
+			}
+
+			flusher, ok := w.(http.Flusher)
+			if !ok {
+				finalSpan.End(false, "response writer does not support streaming")
+				writeErrorWithRequestID(w, http.StatusInternalServerError, "stream_unsupported", "response writer does not support streaming", requestID)
+				return
+			}
+			writeSSEHeaders(w)
+			if err := s.provider.StreamChatCompletion(r.Context(), upstreamReq, selectedModel.ModelID, w, flusher.Flush); err != nil {
+				finalSpan.End(false, err.Error())
+				return
+			}
+			finalSpan.End(true, "")
+			return
+		}
+
+		resp, _, _, err := s.orchestrator.RunNativeToolTurn(r.Context(), requestID, selectedModel.ModelID, req, trace)
+		if err != nil {
+			finalSpan.End(false, err.Error())
+			writeErrorWithRequestID(w, http.StatusBadGateway, "provider_error", err.Error(), requestID)
+			return
+		}
+		if err := validateChatResponse(resp); err != nil {
+			finalSpan.End(false, err.Error())
+			writeErrorWithRequestID(w, http.StatusBadGateway, "provider_error", err.Error(), requestID)
+			return
+		}
+
+		resp.Model = selectedModel.ModelID
+		finalSpan.End(true, "")
+		writeJSON(w, http.StatusOK, resp)
+		return
+	}
 
 	if req.Stream {
 		streamReq, ok, err := s.orchestrator.PrepareStreamingRequest(req, selectedModel.ModelID)
@@ -279,4 +325,58 @@ func writeSSEHeaders(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
+}
+
+func summarizeChatRequest(req types.ChatCompletionRequest) string {
+	toolNames := make([]string, 0, len(req.Tools))
+	for _, tool := range req.Tools {
+		name := strings.TrimSpace(tool.Function.Name)
+		if name != "" {
+			toolNames = append(toolNames, name)
+		}
+	}
+	sort.Strings(toolNames)
+
+	toolChoice := "unset"
+	switch value := req.ToolChoice.(type) {
+	case nil:
+	case string:
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			toolChoice = fmt.Sprintf("string:%s", trimmed)
+		}
+	case map[string]any:
+		if len(value) == 0 {
+			toolChoice = "object:{}"
+			break
+		}
+		if raw, err := json.Marshal(value); err == nil {
+			toolChoice = "object:" + string(raw)
+		} else {
+			toolChoice = "object"
+		}
+	default:
+		if raw, err := json.Marshal(value); err == nil {
+			toolChoice = fmt.Sprintf("%T:%s", value, string(raw))
+		} else {
+			toolChoice = fmt.Sprintf("%T", value)
+		}
+	}
+
+	parallel := "unset"
+	if req.ParallelToolCalls != nil {
+		parallel = fmt.Sprintf("%t", *req.ParallelToolCalls)
+	}
+
+	return fmt.Sprintf(
+		"model=%s stream=%t messages=%d native_tools=%t tools=%d tool_names=%s tool_choice=%s parallel_tool_calls=%s plugins=%s",
+		req.Model,
+		req.Stream,
+		len(req.Messages),
+		req.UsesNativeTools(),
+		len(req.Tools),
+		strings.Join(toolNames, ","),
+		toolChoice,
+		parallel,
+		strings.Join(req.XPlugins, ","),
+	)
 }

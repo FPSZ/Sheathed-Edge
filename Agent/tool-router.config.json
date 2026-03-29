@@ -1,14 +1,4 @@
 {
-  "listen_host": "127.0.0.1",
-  "listen_port": 8091,
-  "registry_path": "D:\\AI\\Local\\MCP\\registry.json",
-  "logs": {
-    "tool_log_dir": "D:\\AI\\Local\\Logs\\tools"
-  },
-  "timeouts": {
-    "default_ms": 60000,
-    "max_ms": 180000
-  },
   "allowed_paths": [
     "D:\\AI\\Local\\Core",
     "D:\\AI\\Local\\Plugins",
@@ -16,22 +6,32 @@
     "D:\\AI\\Local\\Eval",
     "D:\\AI\\Local\\Logs",
     "D:\\AI\\Local\\Templates",
-    "D:\\AI\\Local\\Writeups"
+    "D:\\AI\\Local\\Writeups",
+    "D:\\Environment2"
   ],
+  "listen_host": "127.0.0.1",
+  "listen_port": 8091,
+  "logs": {
+    "tool_log_dir": "D:\\AI\\Local\\Logs\\tools"
+  },
   "plugin_scope_defaults": {
     "awdp": [
       "filesystem/search",
       "terminal",
       "retrieval"
     ],
-    "web": [
-      "browser",
-      "terminal:web"
-    ],
     "pwn": [
       "radare2",
       "terminal:pwn"
+    ],
+    "web": [
+      "browser",
+      "terminal:web"
     ]
+  },
+  "registry_path": "D:\\AI\\Local\\MCP\\registry.json",
+  "timeouts": {
+    "default_ms": 60000,
+    "max_ms": 180000
   }
 }
-
