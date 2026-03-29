@@ -178,3 +178,29 @@
 发现的问题：`host-control-rs` 当前仍因 Windows SDK / MSVC 系统库缺失无法完成本机构建，因此 Admin GUI 还不能进入真实模型启停联调阶段。
 下一步：补齐 Windows Build Tools / Windows SDK；随后重新编译并启动 `host-control-rs`，再联调 `Gateway /internal/admin/*` 与 `/admin` 页面。
 状态：进行中
+
+[19:36]
+任务：将 Qwen3.5 模型 profile 改为可用状态，供后续在 Admin GUI 中切换。结果：已确认 `D:\AI\Local\Models\Qwen\Qwen3.5-35B-A3B-Q8_0.gguf` 落盘，并将 `Agent/model-profiles.json` 中的 `qwen3.5-35b-a3b-q8-experimental` 从禁用改为启用；现有 Admin GUI 模型页会据此允许切换到该 profile。
+修改：
+- 更新 `Agent/model-profiles.json`
+- 更新 `Docs/Log/2026-03-28.txt`
+发现的问题：Qwen profile 虽已启用，但 `host-control-rs` 仍未完成本机构建，因此当前还不能通过 Host Agent 实际执行模型切换联调。
+下一步：补齐 Windows SDK / MSVC 链接环境，启动 `host-control-rs` 后验证 Admin GUI 模型切换。
+状态：进行中
+
+[23:04]
+任务：让当前 Open WebUI 经 Gateway 链路直接显示并试用 Qwen。结果：已确认 `llama-server:8080` 当前实际加载的是 `Qwen3.5-35B-A3B-Q8_0.gguf`，但 `Gateway:8090` 仍只向 Open WebUI 暴露固定别名 `awdp-r1-70b`；已将 `Agent/gateway.config.json` 中的 `provider_model_alias` 切换为 `qwen3.5-35b-a3b-q8`，准备重启 Gateway 使 WebUI 看到新的模型名。
+修改：
+- 更新 `Agent/gateway.config.json`
+- 更新 `Docs/Log/2026-03-28.txt`
+发现的问题：Open WebUI 当前看到的模型列表来自 `Gateway /v1/models`，不是直接来自 `llama-server /v1/models`，因此只启动 Qwen 并不会自动出现在 WebUI 模型列表中。
+下一步：重启 Gateway，刷新 Open WebUI 模型列表，确认界面中显示 `qwen3.5-35b-a3b-q8`。
+状态：进行中
+
+[23:10]
+任务：定位 Open WebUI 仍显示旧模型名 `awdp-r1-70b` 的原因。结果：已确认 `Gateway:8090/v1/models` 现在返回的是 `qwen3.5-35b-a3b-q8`，但 Open WebUI 本地数据库仍保留旧配置与旧模型记录：`config.data.openai.api_configs[0].model_ids=["awdp-r1-70b"]`，且 `model` 表中存在 `awdp-r1-70b` 的自定义模型项，因此前端继续显示旧模型名。
+修改：
+- 更新 `Docs/Log/2026-03-28.txt`
+发现的问题：Open WebUI 不是单纯刷新模型列表，而是优先读取本地数据库中保存的 provider 绑定模型与自定义模型记录。
+下一步：直接修正 Open WebUI 的 SQLite 配置，将旧模型名替换为 `qwen3.5-35b-a3b-q8` 后重启前端服务。
+状态：进行中

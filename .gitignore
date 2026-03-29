@@ -13,6 +13,7 @@ Thumbs.db
 *.secret
 *.key
 *.pem
+**/.webui_secret_key
 /Feed
 
 # Runtime logs and local state
@@ -81,10 +82,12 @@ profile.cov
 go.work
 go.work.sum
 gateway-go/gateway
+Agent/gateway-go/gateway
 
 # Rust
 target/
 Cargo.lock
+.cargo/
 
 # Build / release artifacts
 build/

@@ -40,7 +40,7 @@ pub struct ModelProfile {
     pub enabled: bool,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct ModelProfilesFile {
     pub profiles: Vec<ModelProfile>,
 }
@@ -60,6 +60,11 @@ pub struct SwitchRequest {
     pub profile_id: String,
 }
 
+#[derive(Debug, Deserialize, Clone)]
+pub struct UpdateProfileRequest {
+    pub profile: ModelProfile,
+}
+
 pub struct ManagedProcess {
     pub child: Child,
 }
@@ -67,7 +72,7 @@ pub struct ManagedProcess {
 pub struct RuntimeState {
     pub config: Config,
     pub llama: LlamaServerConfig,
-    pub profiles: HashMap<String, ModelProfile>,
+    pub profiles: Mutex<HashMap<String, ModelProfile>>,
     pub active_profile_id: Mutex<String>,
     pub process: Mutex<Option<ManagedProcess>>,
     pub http_client: reqwest::Client,

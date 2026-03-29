@@ -1,0 +1,21 @@
+[09:55]
+任务：实现 Admin 面板模型启停/切换基础能力，并让 Open WebUI 看到两个可选模型。
+结果：已在 `Gateway` 新增模型选择辅助层，`/v1/models` 现在会基于 `Agent/model-profiles.json` 暴露全部启用的 profile；已把 `POST /v1/chat/completions` 改为按请求里的 `model` 解析目标 profile，并在需要时通过 Host Agent 执行 `stop -> switch -> start` 或 `switch -> start`；已将 `orchestrator` 的响应模型别名从全局单值改为按请求传入，避免 WebUI 选了 A 模型但响应里仍写死 B 模型；已重写 `ui/gateway-admin/src/pages/ModelsPage.tsx`，当前页面可区分“当前活动”“正在运行”“切换并启动”“停止此模型”等状态。
+修改：
+- 新增 `Agent/gateway-go/internal/gateway/admin/model_selection.go`
+- 更新 `Agent/gateway-go/internal/gateway/orchestrator/orchestrator.go`
+- 更新 `Agent/gateway-go/internal/gateway/transport/openai/server.go`
+- 更新 `Agent/gateway.config.json`
+- 更新 `ui/gateway-admin/src/pages/ModelsPage.tsx`
+验证：
+- `go build ./...` 通过
+- `go test ./...` 通过
+- `npm run build` 通过
+发现的问题：
+- `Agent/host-control-rs` 当前仍被 Windows 链接环境阻塞，不是源码编译错误，而是缺少 `kernel32.lib`、`advapi32.lib`、`userenv.lib`、`ws2_32.lib`、`dbghelp.lib` 等 Windows SDK / MSVC 系统库，因此本机还不能真正跑起 Host Agent 完成模型切换联调。
+- 这意味着仓库代码已经具备“双模型对外暴露 + 按请求切换”的控制面，但要实际在 `/admin` 点击按钮或在 WebUI 选模型后自动切换，仍需先补齐宿主机 Rust Windows 构建环境。
+下一步：
+- 补齐 Windows Build Tools / Windows SDK，先让 `Agent/host-control-rs` 可成功构建。
+- 启动 `host-control-rs`，验证 `/internal/host/llama/status`、`/internal/admin/models`、`/internal/admin/llama/*` 联调。
+- 用 Open WebUI 新建 provider 会话，确认模型下拉框同时显示 `deepseek-r1-70b-q4-competition` 与 `qwen3.5-35b-a3b-q8-experimental`，并验证选择后实际切换底层模型。
+状态：代码完成，运行联调待 Windows SDK 环境补齐。

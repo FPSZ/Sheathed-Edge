@@ -22,21 +22,19 @@ type Orchestrator struct {
 	provider   *provider.Client
 	toolClient *toolclient.Client
 	logger     *logging.SessionLogger
-	modelAlias string
 }
 
-func New(modeLoader *mode.Loader, retrievalSvc *retrieval.Service, providerClient *provider.Client, toolClient *toolclient.Client, logger *logging.SessionLogger, modelAlias string) *Orchestrator {
+func New(modeLoader *mode.Loader, retrievalSvc *retrieval.Service, providerClient *provider.Client, toolClient *toolclient.Client, logger *logging.SessionLogger) *Orchestrator {
 	return &Orchestrator{
 		modeLoader: modeLoader,
 		retrieval:  retrievalSvc,
 		provider:   providerClient,
 		toolClient: toolClient,
 		logger:     logger,
-		modelAlias: modelAlias,
 	}
 }
 
-func (o *Orchestrator) PrepareStreamingRequest(req types.ChatCompletionRequest) (types.ChatCompletionRequest, bool, error) {
+func (o *Orchestrator) PrepareStreamingRequest(req types.ChatCompletionRequest, responseModel string) (types.ChatCompletionRequest, bool, error) {
 	plugins := extractPlugins(req)
 	active, err := o.modeLoader.Load(plugins)
 	if err != nil {
@@ -49,7 +47,7 @@ func (o *Orchestrator) PrepareStreamingRequest(req types.ChatCompletionRequest) 
 	}
 
 	upstreamReq := req
-	upstreamReq.Model = o.modelAlias
+	upstreamReq.Model = responseModel
 	upstreamReq.Stream = true
 	upstreamReq.StreamOptions = mergeStreamOptions(req.StreamOptions, map[string]any{
 		"include_usage": true,
@@ -59,7 +57,7 @@ func (o *Orchestrator) PrepareStreamingRequest(req types.ChatCompletionRequest) 
 	return upstreamReq, true, nil
 }
 
-func (o *Orchestrator) RunTurn(ctx context.Context, requestID string, req types.ChatCompletionRequest, trace *logging.StageTrace) (*types.ChatCompletionResponse, *mode.Active, []retrieval.Fragment, error) {
+func (o *Orchestrator) RunTurn(ctx context.Context, requestID string, responseModel string, req types.ChatCompletionRequest, trace *logging.StageTrace) (*types.ChatCompletionResponse, *mode.Active, []retrieval.Fragment, error) {
 	var (
 		active        *mode.Active
 		fragments     []retrieval.Fragment
@@ -106,7 +104,7 @@ func (o *Orchestrator) RunTurn(ctx context.Context, requestID string, req types.
 	}
 
 	upstreamReq := req
-	upstreamReq.Model = o.modelAlias
+	upstreamReq.Model = responseModel
 	upstreamReq.Messages = prependSystemContext(req.Messages, turnPrompt, fragments)
 	upstreamReq.Stream = false
 
@@ -120,7 +118,7 @@ func (o *Orchestrator) RunTurn(ctx context.Context, requestID string, req types.
 	firstSpan.End(true, "")
 
 	parseSpan := trace.Begin("envelope_parse")
-	finalResp, err = o.resolveEnvelope(ctx, req, active, turnPrompt, result, trace)
+	finalResp, err = o.resolveEnvelope(ctx, responseModel, req, active, turnPrompt, result, trace)
 	if err != nil {
 		parseSpan.End(false, err.Error())
 		runErr = err
@@ -128,29 +126,29 @@ func (o *Orchestrator) RunTurn(ctx context.Context, requestID string, req types.
 	}
 	parseSpan.End(true, "")
 
-	finalResp.Model = o.modelAlias
+	finalResp.Model = responseModel
 	return finalResp, active, fragments, nil
 }
 
-func (o *Orchestrator) resolveEnvelope(ctx context.Context, originalReq types.ChatCompletionRequest, active *mode.Active, turnPrompt string, providerResp *types.ChatCompletionResponse, trace *logging.StageTrace) (*types.ChatCompletionResponse, error) {
+func (o *Orchestrator) resolveEnvelope(ctx context.Context, responseModel string, originalReq types.ChatCompletionRequest, active *mode.Active, turnPrompt string, providerResp *types.ChatCompletionResponse, trace *logging.StageTrace) (*types.ChatCompletionResponse, error) {
 	content := envelope.FirstContent(providerResp)
 	if env, ok := envelope.Parse(content); ok {
 		switch env.Type {
 		case "answer":
 			return envelope.UnwrapAnswer(providerResp, env), nil
 		case "tool_call":
-			return o.handleToolCall(ctx, originalReq, active, turnPrompt, env, providerResp, trace)
+			return o.handleToolCall(ctx, responseModel, originalReq, active, turnPrompt, env, providerResp, trace)
 		default:
 			return nil, fmt.Errorf("unsupported envelope type: %s", env.Type)
 		}
 	}
 	if envelope.LooksLikeJSONObject(content) {
-		return o.repairEnvelope(ctx, originalReq, turnPrompt, providerResp)
+		return o.repairEnvelope(ctx, responseModel, originalReq, turnPrompt, providerResp)
 	}
 	return providerResp, nil
 }
 
-func (o *Orchestrator) handleToolCall(ctx context.Context, originalReq types.ChatCompletionRequest, active *mode.Active, turnPrompt string, env envelope.Action, providerResp *types.ChatCompletionResponse, trace *logging.StageTrace) (*types.ChatCompletionResponse, error) {
+func (o *Orchestrator) handleToolCall(ctx context.Context, responseModel string, originalReq types.ChatCompletionRequest, active *mode.Active, turnPrompt string, env envelope.Action, providerResp *types.ChatCompletionResponse, trace *logging.StageTrace) (*types.ChatCompletionResponse, error) {
 	sessionID := providerResp.ID
 	resolveSpan := trace.Begin("tool_resolve")
 	resolveResp, err := o.toolClient.Resolve(ctx, toolclient.ResolveRequest{
@@ -161,7 +159,7 @@ func (o *Orchestrator) handleToolCall(ctx context.Context, originalReq types.Cha
 	})
 	if err != nil {
 		resolveSpan.End(false, err.Error())
-		return o.fallbackWithoutTools(ctx, originalReq, turnPrompt, providerResp, env.Tool, fmt.Sprintf("tool resolve failed: %v", err), trace)
+		return o.fallbackWithoutTools(ctx, responseModel, originalReq, turnPrompt, providerResp, env.Tool, fmt.Sprintf("tool resolve failed: %v", err), trace)
 	}
 	if !resolveResp.Allowed {
 		reason := strings.TrimSpace(resolveResp.Reason)
@@ -169,7 +167,7 @@ func (o *Orchestrator) handleToolCall(ctx context.Context, originalReq types.Cha
 			reason = "tool resolve denied"
 		}
 		resolveSpan.End(false, reason)
-		return o.fallbackWithoutTools(ctx, originalReq, turnPrompt, providerResp, env.Tool, reason, trace)
+		return o.fallbackWithoutTools(ctx, responseModel, originalReq, turnPrompt, providerResp, env.Tool, reason, trace)
 	}
 	resolveSpan.End(true, "")
 
@@ -182,7 +180,7 @@ func (o *Orchestrator) handleToolCall(ctx context.Context, originalReq types.Cha
 	})
 	if err != nil {
 		execSpan.End(false, err.Error())
-		return o.fallbackWithoutTools(ctx, originalReq, turnPrompt, providerResp, env.Tool, fmt.Sprintf("tool execute failed: %v", err), trace)
+		return o.fallbackWithoutTools(ctx, responseModel, originalReq, turnPrompt, providerResp, env.Tool, fmt.Sprintf("tool execute failed: %v", err), trace)
 	}
 	if !execResp.OK {
 		reason := "tool execute failed"
@@ -190,11 +188,12 @@ func (o *Orchestrator) handleToolCall(ctx context.Context, originalReq types.Cha
 			reason = execResp.Error.Message
 		}
 		execSpan.End(false, reason)
-		return o.fallbackWithoutTools(ctx, originalReq, turnPrompt, providerResp, env.Tool, reason, trace)
+		return o.fallbackWithoutTools(ctx, responseModel, originalReq, turnPrompt, providerResp, env.Tool, reason, trace)
 	}
 	execSpan.End(true, "")
 
 	nextReq := originalReq
+	nextReq.Model = responseModel
 	nextReq.Stream = false
 	nextReq.Messages = append(
 		prependSystemContext(originalReq.Messages, turnPrompt, nil),
@@ -207,7 +206,7 @@ func (o *Orchestrator) handleToolCall(ctx context.Context, originalReq types.Cha
 	resp, err := o.provider.ChatCompletion(ctx, nextReq)
 	if err != nil {
 		secondSpan.End(false, err.Error())
-		return o.fallbackWithoutTools(ctx, originalReq, turnPrompt, providerResp, env.Tool, fmt.Sprintf("provider second pass failed: %v", err), trace)
+		return o.fallbackWithoutTools(ctx, responseModel, originalReq, turnPrompt, providerResp, env.Tool, fmt.Sprintf("provider second pass failed: %v", err), trace)
 	}
 	secondSpan.End(true, "")
 
@@ -216,7 +215,7 @@ func (o *Orchestrator) handleToolCall(ctx context.Context, originalReq types.Cha
 		return nil, fmt.Errorf("provider second pass returned invalid final envelope")
 	}
 	if secondEnv.Type == "tool_call" {
-		return failClosedToolResponse(o.modelAlias, env.Tool, execResp.Summary), nil
+		return failClosedToolResponse(responseModel, env.Tool, execResp.Summary), nil
 	}
 	if secondEnv.Type != "answer" {
 		return nil, fmt.Errorf("provider second pass returned unsupported envelope type: %s", secondEnv.Type)
@@ -224,8 +223,9 @@ func (o *Orchestrator) handleToolCall(ctx context.Context, originalReq types.Cha
 	return envelope.UnwrapAnswer(resp, secondEnv), nil
 }
 
-func (o *Orchestrator) fallbackWithoutTools(ctx context.Context, originalReq types.ChatCompletionRequest, turnPrompt string, providerResp *types.ChatCompletionResponse, toolName, cause string, trace *logging.StageTrace) (*types.ChatCompletionResponse, error) {
+func (o *Orchestrator) fallbackWithoutTools(ctx context.Context, responseModel string, originalReq types.ChatCompletionRequest, turnPrompt string, providerResp *types.ChatCompletionResponse, toolName, cause string, trace *logging.StageTrace) (*types.ChatCompletionResponse, error) {
 	req := originalReq
+	req.Model = responseModel
 	req.Stream = false
 	req.Messages = append(
 		prependSystemContext(originalReq.Messages, turnPrompt, nil),
@@ -244,16 +244,17 @@ func (o *Orchestrator) fallbackWithoutTools(ctx context.Context, originalReq typ
 
 	env, ok := envelope.Parse(envelope.FirstContent(resp))
 	if !ok {
-		return failClosedToolResponse(o.modelAlias, toolName, cause), nil
+		return failClosedToolResponse(responseModel, toolName, cause), nil
 	}
 	if env.Type == "answer" {
 		return envelope.UnwrapAnswer(resp, env), nil
 	}
-	return failClosedToolResponse(o.modelAlias, toolName, cause), nil
+	return failClosedToolResponse(responseModel, toolName, cause), nil
 }
 
-func (o *Orchestrator) repairEnvelope(ctx context.Context, originalReq types.ChatCompletionRequest, turnPrompt string, providerResp *types.ChatCompletionResponse) (*types.ChatCompletionResponse, error) {
+func (o *Orchestrator) repairEnvelope(ctx context.Context, responseModel string, originalReq types.ChatCompletionRequest, turnPrompt string, providerResp *types.ChatCompletionResponse) (*types.ChatCompletionResponse, error) {
 	req := originalReq
+	req.Model = responseModel
 	req.Stream = false
 	req.Messages = append(
 		prependSystemContext(originalReq.Messages, turnPrompt, nil),

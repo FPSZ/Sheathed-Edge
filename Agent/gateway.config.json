@@ -1,7 +1,7 @@
 {
   "listen_host": "127.0.0.1",
   "listen_port": 8090,
-  "provider_model_alias": "awdp-r1-70b",
+  "provider_model_alias": "qwen3.5-35b-a3b-q8-experimental",
   "llama_server": {
     "base_url": "http://127.0.0.1:8080/v1",
     "timeout_ms": 420000
@@ -39,7 +39,9 @@
     "audit_log_dir": "D:\\AI\\Local\\Logs\\audit"
   },
   "admin": {
-    "host_agent_url": "http://127.0.0.1:8098",
+    "host_agent_url": "http://127.0.0.1:8099",
+    "host_agent_binary": "D:\\AI\\Local\\Agent\\host-control-rs\\target\\release\\host-control-rs.exe",
+    "host_agent_config": "D:\\AI\\Local\\Agent\\host-control.config.json",
     "open_webui_url": "http://127.0.0.1:3000",
     "webui_share_port": 3001,
     "tool_log_dir": "D:\\AI\\Local\\Logs\\tools",

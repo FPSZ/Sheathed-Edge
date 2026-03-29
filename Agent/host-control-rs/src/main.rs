@@ -30,7 +30,7 @@ async fn main() -> Result<()> {
 
     let state: SharedState = Arc::new(RuntimeState {
         llama,
-        profiles,
+        profiles: Mutex::new(profiles),
         http_client: reqwest::Client::builder()
             .timeout(std::time::Duration::from_millis(cfg.timeout_ms))
             .build()?,
@@ -46,6 +46,7 @@ async fn main() -> Result<()> {
         .route("/internal/host/llama/stop", post(api::llama_stop))
         .route("/internal/host/llama/restart", post(api::llama_restart))
         .route("/internal/host/llama/switch", post(api::llama_switch))
+        .route("/internal/host/profiles/update", post(api::profile_update))
         .with_state(state);
 
     let listener = TcpListener::bind(format!("{}:{}", cfg.listen_host, cfg.listen_port)).await?;

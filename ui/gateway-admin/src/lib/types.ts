@@ -4,6 +4,11 @@ export type ServiceStatus = {
   address?: string;
   last_check_at: string;
   message?: string;
+  control: {
+    can_start: boolean;
+    can_stop: boolean;
+    unsupported_reason?: string;
+  };
 };
 
 export type ModelProfile = {

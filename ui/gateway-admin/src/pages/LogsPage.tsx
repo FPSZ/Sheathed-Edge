@@ -25,7 +25,7 @@ export function LogsPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="日志与审计" description="查看最近会话日志与工具调用摘要。" />
-      {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</div> : null}
+      {error ? <div className="admin-surface rounded-3xl bg-rose-50 p-4 text-sm text-rose-700">{error}</div> : null}
 
       <div className="grid gap-4 xl:grid-cols-2">
         <LogColumn title="会话日志" items={sessions} />
@@ -37,11 +37,11 @@ export function LogsPage() {
 
 function LogColumn({ title, items }: { title: string; items: Record<string, unknown>[] }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <section className="admin-surface rounded-3xl p-5">
       <div className="text-sm font-semibold text-slate-900">{title}</div>
       <div className="mt-4 space-y-3">
         {items.map((item, index) => (
-          <div key={index} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div key={index} className="admin-surface-muted rounded-3xl p-4">
             <div className="text-xs text-slate-500">{formatTime(item.time)}</div>
             <pre className="mt-2 whitespace-pre-wrap break-words text-xs leading-6 text-slate-700">
               {formatJson(item)}

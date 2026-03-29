@@ -43,7 +43,6 @@ func NewServer(configPath string) (*Server, error) {
 		providerClient,
 		toolclient.NewClient(cfg),
 		sessionLogger,
-		cfg.ProviderModelAlias,
 	)
 
 	s := &Server{
@@ -60,7 +59,10 @@ func NewServer(configPath string) (*Server, error) {
 	mux.HandleFunc("/v1/chat/completions", s.handleChatCompletions)
 	mux.HandleFunc("/internal/admin/overview", s.handleAdminOverview)
 	mux.HandleFunc("/internal/admin/services", s.handleAdminServices)
+	mux.HandleFunc("/internal/admin/services/start", s.handleAdminServiceStart)
+	mux.HandleFunc("/internal/admin/services/stop", s.handleAdminServiceStop)
 	mux.HandleFunc("/internal/admin/models", s.handleAdminModels)
+	mux.HandleFunc("/internal/admin/models/update", s.handleAdminModelUpdate)
 	mux.HandleFunc("/internal/admin/modes", s.handleAdminModes)
 	mux.HandleFunc("/internal/admin/logs/sessions", s.handleAdminSessionLogs)
 	mux.HandleFunc("/internal/admin/logs/tools", s.handleAdminToolLogs)
@@ -99,16 +101,33 @@ func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
+	models, err := s.admin.ExposedModels()
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "admin_error", err.Error())
+		return
+	}
+
+	data := make([]map[string]any, 0, len(models))
+	for _, model := range models {
+		data = append(data, map[string]any{
+			"id":       model.ModelID,
+			"object":   "model",
+			"created":  time.Now().Unix(),
+			"owned_by": "local",
+		})
+	}
+	if len(data) == 0 {
+		data = append(data, map[string]any{
+			"id":       s.cfg.ProviderModelAlias,
+			"object":   "model",
+			"created":  time.Now().Unix(),
+			"owned_by": "local",
+		})
+	}
+
 	resp := map[string]any{
 		"object": "list",
-		"data": []map[string]any{
-			{
-				"id":       s.cfg.ProviderModelAlias,
-				"object":   "model",
-				"created":  time.Now().Unix(),
-				"owned_by": "local",
-			},
-		},
+		"data":   data,
 	}
 	writeJSON(w, http.StatusOK, resp)
 }
@@ -131,8 +150,16 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	selectedModel, err := s.admin.EnsureModelReady(r.Context(), req.Model)
+	if err != nil {
+		finalSpan.End(false, err.Error())
+		writeErrorWithRequestID(w, http.StatusBadGateway, "model_switch_failed", err.Error(), requestID)
+		return
+	}
+	req.Model = selectedModel.ModelID
+
 	if req.Stream {
-		streamReq, ok, err := s.orchestrator.PrepareStreamingRequest(req)
+		streamReq, ok, err := s.orchestrator.PrepareStreamingRequest(req, selectedModel.ModelID)
 		if err != nil {
 			finalSpan.End(false, err.Error())
 			writeErrorWithRequestID(w, http.StatusBadGateway, "provider_error", err.Error(), requestID)
@@ -146,7 +173,7 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			writeSSEHeaders(w)
-			if err := s.provider.StreamChatCompletion(r.Context(), streamReq, s.cfg.ProviderModelAlias, w, flusher.Flush); err != nil {
+			if err := s.provider.StreamChatCompletion(r.Context(), streamReq, selectedModel.ModelID, w, flusher.Flush); err != nil {
 				finalSpan.End(false, err.Error())
 				return
 			}
@@ -155,7 +182,7 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	resp, _, _, err := s.orchestrator.RunTurn(r.Context(), requestID, req, trace)
+	resp, _, _, err := s.orchestrator.RunTurn(r.Context(), requestID, selectedModel.ModelID, req, trace)
 	if err != nil {
 		finalSpan.End(false, err.Error())
 		writeErrorWithRequestID(w, http.StatusBadGateway, "provider_error", err.Error(), requestID)
@@ -167,10 +194,10 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp.Model = s.cfg.ProviderModelAlias
+	resp.Model = selectedModel.ModelID
 	if req.Stream {
 		finalSpan.End(true, "")
-		writeSSEChatCompletion(w, s.cfg.ProviderModelAlias, envelope.FirstContent(resp))
+		writeSSEChatCompletion(w, selectedModel.ModelID, envelope.FirstContent(resp))
 		return
 	}
 	finalSpan.End(true, "")

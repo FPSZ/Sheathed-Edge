@@ -50,6 +50,8 @@ type Config struct {
 
 	Admin struct {
 		HostAgentURL      string `json:"host_agent_url"`
+		HostAgentBinary   string `json:"host_agent_binary"`
+		HostAgentConfig   string `json:"host_agent_config"`
 		OpenWebUIURL      string `json:"open_webui_url"`
 		WebUISharePort    int    `json:"webui_share_port"`
 		ToolLogDir        string `json:"tool_log_dir"`

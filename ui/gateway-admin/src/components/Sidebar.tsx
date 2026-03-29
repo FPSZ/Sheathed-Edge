@@ -11,7 +11,7 @@ const items = [
 
 export function Sidebar() {
   return (
-    <aside className="flex h-full w-64 flex-col border-r border-slate-200 bg-[var(--panel-muted)] px-4 py-5">
+    <aside className="flex h-full w-64 flex-col bg-[var(--panel-muted)] px-4 py-5 shadow-[inset_-1px_0_0_rgba(255,255,255,0.55)]">
       <div className="mb-8 px-2">
         <div className="text-xs uppercase tracking-[0.24em] text-slate-400">Sheathed Edge</div>
         <div className="mt-2 text-lg font-semibold text-slate-950">Gateway Admin</div>
@@ -26,10 +26,10 @@ export function Sidebar() {
               end={item.end}
               className={({ isActive }) =>
                 [
-                  "flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition-colors",
+                  "flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition-all",
                   isActive
-                    ? "bg-white text-slate-950 shadow-sm"
-                    : "text-slate-600 hover:bg-white/70 hover:text-slate-900",
+                    ? "bg-white text-slate-950 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_24px_rgba(15,23,42,0.06)]"
+                    : "text-slate-600 hover:bg-white/70 hover:text-slate-900 hover:shadow-[0_1px_2px_rgba(15,23,42,0.03),0_6px_16px_rgba(15,23,42,0.04)]",
                 ].join(" ")
               }
             >

@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/FPSZ/Sheathed-Edge/Agent/gateway-go/internal/gateway/config"
@@ -31,14 +32,46 @@ func NewService(cfg *config.Config, providerClient *provider.Client) *Service {
 }
 
 func (s *Service) Overview(ctx context.Context) (*OverviewResponse, error) {
-	services, _ := s.Services(ctx)
-	models, _ := s.Models(ctx)
-	sessions, _ := readRecentEntries(s.cfg.Logs.SessionLogDir, 10, nil)
-	tools, _ := readRecentEntries(s.cfg.Admin.ToolLogDir, 10, nil)
-	failures, _ := readRecentEntries(s.cfg.Logs.AuditLogDir, 10, func(item map[string]any) bool {
-		ok, exists := item["ok"].(bool)
-		return exists && !ok
-	})
+	var (
+		services []ServiceStatus
+		models   *ModelsResponse
+		sessions []map[string]any
+		tools    []map[string]any
+		failures []map[string]any
+	)
+
+	var wg sync.WaitGroup
+	wg.Add(5)
+
+	go func() {
+		defer wg.Done()
+		services, _ = s.Services(ctx)
+	}()
+
+	go func() {
+		defer wg.Done()
+		models, _ = s.Models(ctx)
+	}()
+
+	go func() {
+		defer wg.Done()
+		sessions, _ = readRecentEntries(s.cfg.Logs.SessionLogDir, 10, nil)
+	}()
+
+	go func() {
+		defer wg.Done()
+		tools, _ = readRecentEntries(s.cfg.Admin.ToolLogDir, 10, nil)
+	}()
+
+	go func() {
+		defer wg.Done()
+		failures, _ = readRecentEntries(s.cfg.Logs.AuditLogDir, 10, func(item map[string]any) bool {
+			ok, exists := item["ok"].(bool)
+			return exists && !ok
+		})
+	}()
+
+	wg.Wait()
 
 	resp := &OverviewResponse{
 		Services:               services,
@@ -56,11 +89,46 @@ func (s *Service) Overview(ctx context.Context) (*OverviewResponse, error) {
 func (s *Service) Services(ctx context.Context) ([]ServiceStatus, error) {
 	now := time.Now().Format(time.RFC3339)
 
-	hostStatus, hostErr := s.host.Status(ctx)
-	providerStatus := s.checkStatus(ctx, "llama-server", strings.TrimRight(s.cfg.LlamaServer.BaseURL, "/"), s.provider.Health)
-	hostAgentStatus := s.checkStatus(ctx, "host-agent", s.cfg.Admin.HostAgentURL, s.host.Health)
-	toolRouterStatus := s.checkHTTPStatus(ctx, "tool-router", strings.TrimRight(s.cfg.ToolRouter.BaseURL, "/")+"/healthz")
-	openWebUIStatus := s.checkHTTPStatus(ctx, "open-webui", strings.TrimRight(s.cfg.Admin.OpenWebUIURL, "/")+"/health")
+	var (
+		hostStatus       *hostStatusResponse
+		hostErr          error
+		providerStatus   ServiceStatus
+		hostAgentStatus  ServiceStatus
+		toolRouterStatus ServiceStatus
+		openWebUIStatus  ServiceStatus
+	)
+
+	var wg sync.WaitGroup
+	wg.Add(5)
+
+	go func() {
+		defer wg.Done()
+		checkCtx, cancel := s.newCheckContext(ctx)
+		defer cancel()
+		hostStatus, hostErr = s.host.Status(checkCtx)
+	}()
+
+	go func() {
+		defer wg.Done()
+		providerStatus = s.checkStatus(ctx, "llama-server", strings.TrimRight(s.cfg.LlamaServer.BaseURL, "/"), s.provider.Health)
+	}()
+
+	go func() {
+		defer wg.Done()
+		hostAgentStatus = s.checkStatus(ctx, "host-agent", s.cfg.Admin.HostAgentURL, s.host.Health)
+	}()
+
+	go func() {
+		defer wg.Done()
+		toolRouterStatus = s.checkHTTPStatus(ctx, "tool-router", strings.TrimRight(s.cfg.ToolRouter.BaseURL, "/")+"/healthz")
+	}()
+
+	go func() {
+		defer wg.Done()
+		openWebUIStatus = s.checkHTTPStatus(ctx, "open-webui", strings.TrimRight(s.cfg.Admin.OpenWebUIURL, "/")+"/health")
+	}()
+
+	wg.Wait()
 
 	gatewayStatus := ServiceStatus{
 		Name:        "gateway",
@@ -68,6 +136,7 @@ func (s *Service) Services(ctx context.Context) ([]ServiceStatus, error) {
 		Address:     fmt.Sprintf("http://%s:%d", s.cfg.ListenHost, s.cfg.ListenPort),
 		LastCheckAt: now,
 		Message:     "gateway is running",
+		Control:     defaultControl(serviceGateway),
 	}
 
 	if hostErr == nil && hostStatus != nil && hostStatus.Running {
@@ -92,7 +161,10 @@ func (s *Service) Models(ctx context.Context) (*ModelsResponse, error) {
 		return nil, err
 	}
 
-	status, err := s.host.Status(ctx)
+	checkCtx, cancel := s.newCheckContext(ctx)
+	defer cancel()
+
+	status, err := s.host.Status(checkCtx)
 	if err != nil {
 		return &ModelsResponse{Profiles: profiles}, nil
 	}
@@ -164,6 +236,44 @@ func (s *Service) RestartModel(ctx context.Context) error {
 	return s.host.Restart(ctx)
 }
 
+func (s *Service) UpdateModelProfile(ctx context.Context, profile ModelProfile, applyNow bool) error {
+	if strings.TrimSpace(profile.ID) == "" {
+		return fmt.Errorf("profile id is required")
+	}
+	if strings.TrimSpace(profile.ModelPath) == "" {
+		return fmt.Errorf("model path is required")
+	}
+	if profile.CtxSize <= 0 {
+		return fmt.Errorf("ctx_size must be greater than 0")
+	}
+	if profile.Threads <= 0 {
+		return fmt.Errorf("threads must be greater than 0")
+	}
+	if profile.Parallel <= 0 {
+		return fmt.Errorf("parallel must be greater than 0")
+	}
+	if profile.NGPULayers < 0 {
+		return fmt.Errorf("n_gpu_layers must be 0 or greater")
+	}
+
+	if err := s.host.UpdateProfile(ctx, profile); err != nil {
+		return err
+	}
+
+	if !applyNow {
+		return nil
+	}
+
+	status, err := s.host.Status(ctx)
+	if err != nil {
+		return err
+	}
+	if status.ActiveProfileID == profile.ID && status.Running {
+		return s.host.Restart(ctx)
+	}
+	return nil
+}
+
 func (s *Service) HostIPs() (*HostIPsResponse, error) {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
@@ -204,8 +314,12 @@ func (s *Service) checkStatus(ctx context.Context, name, address string, fn func
 		Address:     address,
 		LastCheckAt: time.Now().Format(time.RFC3339),
 		Status:      "down",
+		Control:     defaultControl(name),
 	}
-	if err := fn(ctx); err != nil {
+	checkCtx, cancel := s.newCheckContext(ctx)
+	defer cancel()
+
+	if err := fn(checkCtx); err != nil {
 		status.Message = err.Error()
 		return status
 	}
@@ -220,9 +334,13 @@ func (s *Service) checkHTTPStatus(ctx context.Context, name, address string) Ser
 		Address:     address,
 		LastCheckAt: time.Now().Format(time.RFC3339),
 		Status:      "down",
+		Control:     defaultControl(name),
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, address, nil)
+	checkCtx, cancel := s.newCheckContext(ctx)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(checkCtx, http.MethodGet, address, nil)
 	if err != nil {
 		status.Message = err.Error()
 		return status
@@ -240,4 +358,13 @@ func (s *Service) checkHTTPStatus(ctx context.Context, name, address string) Ser
 	status.Status = "ok"
 	status.Message = "healthy"
 	return status
+}
+
+func (s *Service) newCheckContext(parent context.Context) (context.Context, context.CancelFunc) {
+	timeout := 1500 * time.Millisecond
+	if configured := time.Duration(s.cfg.Admin.TimeoutMS) * time.Millisecond; configured > 0 && configured < timeout {
+		timeout = configured
+	}
+
+	return context.WithTimeout(parent, timeout)
 }

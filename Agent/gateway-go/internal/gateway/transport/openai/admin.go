@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/FPSZ/Sheathed-Edge/Agent/gateway-go/internal/gateway/admin"
 )
 
 func (s *Server) handleAdminOverview(w http.ResponseWriter, r *http.Request) {
@@ -84,6 +86,48 @@ func (s *Server) handleAdminToolLogs(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"items": resp})
 }
 
+func (s *Server) handleAdminServiceStart(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodPost) {
+		return
+	}
+
+	var req admin.ServiceActionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	if strings.TrimSpace(req.Name) == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "name is required")
+		return
+	}
+	if err := s.admin.StartService(r.Context(), req.Name); err != nil {
+		writeError(w, http.StatusBadGateway, "admin_error", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "name": req.Name})
+}
+
+func (s *Server) handleAdminServiceStop(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodPost) {
+		return
+	}
+
+	var req admin.ServiceActionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	if strings.TrimSpace(req.Name) == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "name is required")
+		return
+	}
+	if err := s.admin.StopService(r.Context(), req.Name); err != nil {
+		writeError(w, http.StatusBadGateway, "admin_error", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "name": req.Name})
+}
+
 func (s *Server) handleAdminModelSwitch(w http.ResponseWriter, r *http.Request) {
 	if !requireMethod(w, r, http.MethodPost) {
 		return
@@ -104,6 +148,31 @@ func (s *Server) handleAdminModelSwitch(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "profile_id": req.ProfileID})
+}
+
+func (s *Server) handleAdminModelUpdate(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodPost) {
+		return
+	}
+
+	var req admin.UpdateModelProfileRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	if strings.TrimSpace(req.Profile.ID) == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "profile.id is required")
+		return
+	}
+	if err := s.admin.UpdateModelProfile(r.Context(), req.Profile, req.ApplyNow); err != nil {
+		writeError(w, http.StatusBadGateway, "admin_error", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":        true,
+		"profile":   req.Profile,
+		"apply_now": req.ApplyNow,
+	})
 }
 
 func (s *Server) handleAdminLlamaStart(w http.ResponseWriter, r *http.Request) {

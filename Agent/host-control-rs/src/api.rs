@@ -2,7 +2,7 @@ use axum::{Json, extract::State, http::StatusCode};
 
 use crate::{
     llama,
-    models::{SharedState, SwitchRequest},
+    models::{SharedState, SwitchRequest, UpdateProfileRequest},
 };
 
 pub async fn healthz() -> Json<serde_json::Value> {
@@ -39,6 +39,16 @@ pub async fn llama_switch(
     Json(req): Json<SwitchRequest>,
 ) -> Result<Json<crate::models::StatusResponse>, (StatusCode, Json<serde_json::Value>)> {
     llama::switch_profile(&state, &req.profile_id)
+        .await
+        .map(Json)
+        .map_err(internal_error)
+}
+
+pub async fn profile_update(
+    State(state): State<SharedState>,
+    Json(req): Json<UpdateProfileRequest>,
+) -> Result<Json<crate::models::ModelProfile>, (StatusCode, Json<serde_json::Value>)> {
+    llama::update_profile(&state, req.profile)
         .await
         .map(Json)
         .map_err(internal_error)

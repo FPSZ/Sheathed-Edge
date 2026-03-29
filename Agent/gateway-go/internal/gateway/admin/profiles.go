@@ -25,3 +25,14 @@ func loadProfiles(path string) ([]ModelProfile, error) {
 	}
 	return parsed.Profiles, nil
 }
+
+func saveProfiles(path string, profiles []ModelProfile) error {
+	data, err := json.MarshalIndent(profilesFile{Profiles: profiles}, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal model profiles: %w", err)
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return fmt.Errorf("write model profiles: %w", err)
+	}
+	return nil
+}

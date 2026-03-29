@@ -75,6 +75,13 @@ func (c *HostClient) Switch(ctx context.Context, profileID string) error {
 	return err
 }
 
+func (c *HostClient) UpdateProfile(ctx context.Context, profile ModelProfile) error {
+	_, err := c.do(ctx, http.MethodPost, "/internal/host/profiles/update", map[string]any{
+		"profile": profile,
+	})
+	return err
+}
+
 func (c *HostClient) do(ctx context.Context, method, path string, payload any) ([]byte, error) {
 	if c == nil || c.baseURL == "" {
 		return nil, fmt.Errorf("host agent is not configured")

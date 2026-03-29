@@ -10,19 +10,19 @@
       "threads": 16,
       "n_gpu_layers": 999,
       "flash_attn": true,
-      "enabled": true
+      "enabled": false
     },
     {
       "id": "qwen3.5-35b-a3b-q8-experimental",
       "label": "Qwen3.5 35B A3B Q8 Experimental",
       "model_path": "D:\\AI\\Local\\Models\\Qwen\\Qwen3.5-35B-A3B-Q8_0.gguf",
       "quant": "Q8_0",
-      "ctx_size": 32768,
-      "parallel": 1,
+      "ctx_size": 262144,
+      "parallel": 2,
       "threads": 16,
       "n_gpu_layers": 999,
       "flash_attn": true,
-      "enabled": false
+      "enabled": true
     }
   ]
 }

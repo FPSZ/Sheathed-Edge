@@ -1,11 +1,18 @@
 package admin
 
 type ServiceStatus struct {
-	Name        string `json:"name"`
-	Status      string `json:"status"`
-	Address     string `json:"address,omitempty"`
-	LastCheckAt string `json:"last_check_at"`
-	Message     string `json:"message,omitempty"`
+	Name        string       `json:"name"`
+	Status      string       `json:"status"`
+	Address     string       `json:"address,omitempty"`
+	LastCheckAt string       `json:"last_check_at"`
+	Message     string       `json:"message,omitempty"`
+	Control     ControlState `json:"control"`
+}
+
+type ControlState struct {
+	CanStart          bool   `json:"can_start"`
+	CanStop           bool   `json:"can_stop"`
+	UnsupportedReason string `json:"unsupported_reason,omitempty"`
 }
 
 type ModelProfile struct {
@@ -71,4 +78,13 @@ type HostIPsResponse struct {
 	IPs       []string `json:"ips"`
 	SharePort int      `json:"share_port"`
 	ShareURLs []string `json:"share_urls"`
+}
+
+type ServiceActionRequest struct {
+	Name string `json:"name"`
+}
+
+type UpdateModelProfileRequest struct {
+	Profile  ModelProfile `json:"profile"`
+	ApplyNow bool         `json:"apply_now"`
 }
