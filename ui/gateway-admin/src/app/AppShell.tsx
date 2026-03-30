@@ -27,7 +27,7 @@ const pageMeta: Record<string, { title: string; subtitle: string }> = {
     subtitle: "AWDP 能力布局",
   },
   "/admin/mcp": {
-    title: "MCP Servers",
+    title: "MCP 服务",
     subtitle: "外部工具控制面",
   },
   "/admin/logs": {

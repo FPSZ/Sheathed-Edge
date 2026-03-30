@@ -16,7 +16,7 @@ type ActionState = "idle" | "pending";
 function newMCPServerDraft(): MCPServerProfile {
   return {
     id: `mcp-${Math.random().toString(36).slice(2, 8)}`,
-    label: "New MCP Server",
+    label: "新 MCP 服务",
     enabled: true,
     kind: "native_streamable_http",
     description: "",
@@ -118,9 +118,7 @@ export function MCPPage() {
     try {
       await apiPost<MCPServersResponse>("/internal/admin/mcp/servers", { servers });
       await load();
-      setNotice(
-        "MCP server profiles saved. Restart Open WebUI after changes if you want connection sync to refresh.",
-      );
+      setNotice("MCP 服务配置已保存。若要刷新同步连接，请重启 Open WebUI。");
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -199,18 +197,18 @@ export function MCPPage() {
       return;
     }
     await navigator.clipboard.writeText(preview.tool_server_connections_json);
-    setNotice("Open WebUI preview JSON copied.");
+    setNotice("已复制 Open WebUI 预览 JSON。");
   }
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="MCP Servers"
-        description="Register native MCP and mcpo-backed servers, validate them, discover tools, and preview what Open WebUI will receive on restart."
+        title="MCP 服务"
+        description="管理原生 MCP 与 mcpo 桥接服务，支持校验、发现工具，并预览重启后会同步给 Open WebUI 的连接。"
         action={
           <div className="flex shrink-0 flex-nowrap items-center gap-2">
             <button className="admin-button" type="button" onClick={addServer}>
-              New Server
+              新建服务
             </button>
             <button
               className="admin-button"
@@ -218,7 +216,7 @@ export function MCPPage() {
               disabled={actionState === "pending"}
               onClick={saveServers}
             >
-              Save Servers
+              保存配置
             </button>
           </div>
         }
@@ -239,9 +237,9 @@ export function MCPPage() {
       <section className="admin-surface rounded-3xl px-5 py-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-sm font-semibold text-slate-900">Server List</div>
+            <div className="text-sm font-semibold text-slate-900">服务列表</div>
             <div className="mt-1 text-xs text-slate-500">
-              {servers.length} configured MCP endpoints
+              已配置 {servers.length} 个 MCP 服务
             </div>
           </div>
           <button
@@ -250,7 +248,7 @@ export function MCPPage() {
             disabled={!editingServer}
             onClick={removeEditingServer}
           >
-            Remove
+            删除
           </button>
         </div>
 
@@ -273,8 +271,8 @@ export function MCPPage() {
                     </div>
                   </div>
                   <div className="admin-mcp-row-meta">
-                    <span>{server.plugin_scope.join(", ") || "no scope"}</span>
-                    <span>{state?.discovered_tools.length ?? 0} tools</span>
+                    <span>{server.plugin_scope.join(", ") || "未分配作用域"}</span>
+                    <span>{state?.discovered_tools.length ?? 0} 个工具</span>
                   </div>
                 </div>
 
@@ -287,7 +285,7 @@ export function MCPPage() {
                       setValidateResult(null);
                     }}
                   >
-                    {editing ? "Close" : "Edit"}
+                    {editing ? "收起" : "编辑"}
                   </button>
                   <label className="admin-switch" aria-label={`Toggle ${server.label}`}>
                     <input
@@ -303,7 +301,7 @@ export function MCPPage() {
           })}
 
           {servers.length === 0 ? (
-            <div className="py-6 text-sm text-slate-500">No MCP servers yet. Create one to get started.</div>
+            <div className="py-6 text-sm text-slate-500">还没有 MCP 服务，先新建一个再开始。</div>
           ) : null}
         </div>
       </section>
@@ -313,10 +311,9 @@ export function MCPPage() {
           <section className="admin-surface rounded-3xl p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <div className="text-sm font-semibold text-slate-900">Edit Server</div>
+                <div className="text-sm font-semibold text-slate-900">编辑服务</div>
                 <div className="mt-1 text-xs text-slate-500">
-                  The editor only appears after clicking a row. Save still happens at the page
-                  level.
+                  点右侧“编辑”后才会展开表单，保存仍然以整页配置为准。
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -326,7 +323,7 @@ export function MCPPage() {
                   disabled={actionState === "pending"}
                   onClick={validateEditingServer}
                 >
-                  Validate
+                  校验
                 </button>
                 <button
                   className="admin-button"
@@ -334,7 +331,7 @@ export function MCPPage() {
                   disabled={actionState === "pending"}
                   onClick={discoverEditingServerTools}
                 >
-                  Discover Tools
+                  发现工具
                 </button>
               </div>
             </div>
@@ -347,14 +344,14 @@ export function MCPPage() {
                   onChange={(event) => updateEditingServer({ id: event.target.value })}
                 />
               </Field>
-              <Field label="Label">
+              <Field label="名称">
                 <input
                   className="admin-input"
                   value={editingServer.label}
                   onChange={(event) => updateEditingServer({ label: event.target.value })}
                 />
               </Field>
-              <Field label="Kind">
+              <Field label="类型">
                 <select
                   className="admin-input"
                   value={editingServer.kind}
@@ -369,9 +366,9 @@ export function MCPPage() {
                   <option value="mcpo_sse">mcpo_sse</option>
                 </select>
               </Field>
-              <Field label="Enabled">
+              <Field label="启用">
                 <div className="admin-mcp-toggle-field">
-                  <span>Sync this server to Open WebUI</span>
+                  <span>同步到 Open WebUI</span>
                   <label className="admin-switch" aria-label="Toggle server enabled">
                     <input
                       checked={editingServer.enabled}
@@ -382,14 +379,14 @@ export function MCPPage() {
                   </label>
                 </div>
               </Field>
-              <Field label="Plugin Scope">
+              <Field label="作用域">
                 <textarea
                   className="admin-input min-h-24"
                   value={editingServer.plugin_scope.join("\n")}
                   onChange={(event) => updateListField("plugin_scope", event.target.value)}
                 />
               </Field>
-              <Field label="Disabled Tools">
+              <Field label="禁用工具">
                 <textarea
                   className="admin-input min-h-24"
                   value={editingServer.disabled_tools.join("\n")}
@@ -407,21 +404,21 @@ export function MCPPage() {
                   onChange={(event) => updateEditingServer({ url: event.target.value })}
                 />
               </Field>
-              <Field label="Workdir">
+              <Field label="工作目录">
                 <input
                   className="admin-input"
                   value={editingServer.workdir ?? ""}
                   onChange={(event) => updateEditingServer({ workdir: event.target.value })}
                 />
               </Field>
-              <Field label="Command">
+              <Field label="启动命令">
                 <textarea
                   className="admin-input min-h-24"
                   value={(editingServer.command ?? []).join("\n")}
                   onChange={(event) => updateListField("command", event.target.value)}
                 />
               </Field>
-              <Field label="Timeout (ms)">
+              <Field label="超时（毫秒）">
                 <input
                   className="admin-input"
                   type="number"
@@ -431,7 +428,7 @@ export function MCPPage() {
                   }
                 />
               </Field>
-              <Field label="Auth Type">
+              <Field label="认证方式">
                 <select
                   className="admin-input"
                   value={editingServer.auth_type}
@@ -447,9 +444,9 @@ export function MCPPage() {
                   <option value="header">header</option>
                 </select>
               </Field>
-              <Field label="Verify TLS">
+              <Field label="校验 TLS">
                 <div className="admin-mcp-toggle-field">
-                  <span>Reject invalid certificates</span>
+                  <span>拒绝无效证书</span>
                   <label className="admin-switch" aria-label="Toggle TLS verification">
                     <input
                       checked={editingServer.verify_tls}
@@ -460,35 +457,35 @@ export function MCPPage() {
                   </label>
                 </div>
               </Field>
-              <Field label="Auth Payload">
+              <Field label="认证参数">
                 <textarea
                   className="admin-input min-h-24"
                   value={formatMap(editingServer.auth_payload)}
                   onChange={(event) => updateMapField("auth_payload", event.target.value)}
                 />
               </Field>
-              <Field label="Headers">
+              <Field label="请求头">
                 <textarea
                   className="admin-input min-h-24"
                   value={formatMap(editingServer.headers)}
                   onChange={(event) => updateMapField("headers", event.target.value)}
                 />
               </Field>
-              <Field label="Env">
+              <Field label="环境变量">
                 <textarea
                   className="admin-input min-h-24"
                   value={formatMap(editingServer.env)}
                   onChange={(event) => updateMapField("env", event.target.value)}
                 />
               </Field>
-              <Field label="Description">
+              <Field label="描述">
                 <textarea
                   className="admin-input min-h-24"
                   value={editingServer.description ?? ""}
                   onChange={(event) => updateEditingServer({ description: event.target.value })}
                 />
               </Field>
-              <Field label="Notes">
+              <Field label="备注">
                 <textarea
                   className="admin-input min-h-24"
                   value={editingServer.notes ?? ""}
@@ -502,16 +499,16 @@ export function MCPPage() {
                 <div className="font-medium text-slate-900">{validateResult.summary}</div>
                 <div className="mt-1 text-xs text-slate-500">
                   {validateResult.effective_openwebui_type || "unknown"} ·{" "}
-                  {validateResult.effective_connection_url || "no connection url"}
+                  {validateResult.effective_connection_url || "未生成连接地址"}
                 </div>
               </div>
             ) : null}
           </section>
 
           <section className="admin-surface rounded-3xl p-5">
-            <div className="text-sm font-semibold text-slate-900">Tool Toggles</div>
+            <div className="text-sm font-semibold text-slate-900">工具开关</div>
             <div className="mt-1 text-xs text-slate-500">
-              Discover first, then decide which tools should stay visible to the model.
+              先发现工具，再决定哪些工具继续暴露给模型。
             </div>
 
             <div className="mt-4 space-y-2">
@@ -536,7 +533,7 @@ export function MCPPage() {
 
             {(editingState?.discovered_tools ?? []).length === 0 ? (
               <div className="mt-4 text-sm text-slate-500">
-                No discovered tools yet. Run "Discover Tools" first.
+                还没有发现到工具，请先执行“发现工具”。
               </div>
             ) : null}
           </section>
@@ -546,13 +543,13 @@ export function MCPPage() {
       <section className="admin-surface rounded-3xl p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-sm font-semibold text-slate-900">Open WebUI Preview</div>
+            <div className="text-sm font-semibold text-slate-900">Open WebUI 预览</div>
             <div className="mt-1 text-xs text-slate-500">
-              This is the generated connection payload that Open WebUI will consume after restart.
+              这里展示的是重启后会同步给 Open WebUI 的连接配置。
             </div>
           </div>
           <button className="admin-button" type="button" onClick={copyPreview}>
-            Copy JSON
+            复制 JSON
           </button>
         </div>
         <pre className="admin-mcp-preview mt-4">

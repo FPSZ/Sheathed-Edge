@@ -166,7 +166,7 @@ export function DetailsDrawer({ title, subtitle }: Props) {
     <aside className="hidden h-full w-[22rem] min-w-0 overflow-x-hidden bg-[var(--panel-muted)] px-5 py-5 shadow-[inset_1px_0_0_rgba(255,255,255,0.55)] xl:flex xl:flex-col">
       <div className="min-w-0 pb-5">
         <div className="text-[11px] font-semibold uppercase tracking-[0.26em] text-slate-400">
-          Utility Rail
+          侧栏
         </div>
         <div className="mt-2 text-base font-semibold text-slate-950">{title}</div>
         <p className="mt-1 break-words text-sm leading-6 text-slate-500">{subtitle}</p>
@@ -177,17 +177,17 @@ export function DetailsDrawer({ title, subtitle }: Props) {
       <div className="admin-scrollbar-hidden min-w-0 flex-1 overflow-auto overflow-x-hidden pt-5">
         <section className="admin-rail-summary min-w-0">
           <div className="admin-rail-summary-grid">
-            <SummaryBlock label="Mode" value="awdp" />
+            <SummaryBlock label="模式" value="awdp" />
             <SummaryBlock
               label="用户"
               value={selectedUserEmail || "全部用户 / All Users"}
             />
             <SummaryBlock
-              label="Model"
+              label="模型"
               value={overview?.active_model.label ?? overview?.active_model.profile_id ?? "Unknown"}
             />
             <SummaryBlock
-              label="Online"
+              label="在线"
               value={`${onlineServices}/${(overview?.services ?? []).length || 4}`}
             />
           </div>
@@ -200,20 +200,20 @@ export function DetailsDrawer({ title, subtitle }: Props) {
 
         {route === "/admin" ? (
           <>
-            <RailSection title="System Summary">
+            <RailSection title="系统摘要">
               <MetricList
                 items={[
-                  { label: "Profiles", value: String(overview?.available_profiles.length ?? 0) },
-                  { label: "Recent Failure", value: latestFailure ? formatTime(latestFailure.time) : "None" },
+                  { label: "模型配置", value: String(overview?.available_profiles.length ?? 0) },
+                  { label: "最近失败", value: latestFailure ? formatTime(latestFailure.time) : "无" },
                   {
-                    label: "Active PID",
-                    value: overview?.active_model.pid ? String(overview.active_model.pid) : "Stopped",
+                    label: "活动 PID",
+                    value: overview?.active_model.pid ? String(overview.active_model.pid) : "未运行",
                   },
                 ]}
               />
             </RailSection>
 
-            <RailSection title="Recent Exceptions" footer={<QuickJumpLink to={quickJump.to} label={quickJump.label} />}>
+            <RailSection title="最近异常" footer={<QuickJumpLink to={quickJump.to} label={quickJump.label} />}>
               {(overview?.recent_failures ?? []).length > 0 ? (
                 <PlainList
                   items={(overview?.recent_failures ?? []).slice(0, 3).map((entry, index) => ({
@@ -231,23 +231,23 @@ export function DetailsDrawer({ title, subtitle }: Props) {
 
         {route === "/admin/models" ? (
           <>
-            <RailSection title="Run Budget">
+            <RailSection title="运行预算">
               <MetricList
                 items={[
-                  { label: "Profile", value: activeProfile?.label ?? "Unknown" },
-                  { label: "Total Context", value: formatTokens(activeProfile?.ctx_size) },
+                  { label: "配置", value: activeProfile?.label ?? "Unknown" },
+                  { label: "总上下文", value: formatTokens(activeProfile?.ctx_size) },
                   {
-                    label: "Per Slot",
+                    label: "单槽上下文",
                     value: formatTokens(perSlotContext(activeProfile?.ctx_size, activeProfile?.parallel)),
                   },
-                  { label: "Parallel", value: String(activeProfile?.parallel ?? 0) },
-                  { label: "Threads", value: String(activeProfile?.threads ?? 0) },
-                  { label: "GPU Layers", value: String(activeProfile?.n_gpu_layers ?? 0) },
+                  { label: "并发", value: String(activeProfile?.parallel ?? 0) },
+                  { label: "线程", value: String(activeProfile?.threads ?? 0) },
+                  { label: "GPU 层数", value: String(activeProfile?.n_gpu_layers ?? 0) },
                 ]}
               />
             </RailSection>
 
-            <RailSection title="Capacity Notes" footer={<QuickJumpLink to={quickJump.to} label={quickJump.label} />}>
+            <RailSection title="容量提示" footer={<QuickJumpLink to={quickJump.to} label={quickJump.label} />}>
               <NarrativeList
                 items={[
                   {
@@ -359,11 +359,11 @@ export function DetailsDrawer({ title, subtitle }: Props) {
 
         {route === "/admin/mcp" ? (
           <>
-            <RailSection title="MCP Summary">
+            <RailSection title="MCP 概览">
               <MetricList
                 items={[
                   {
-                    label: "Enabled",
+                    label: "启用",
                     value: String(
                       (mcpServers?.servers ?? []).filter((item) => item.profile.enabled).length,
                     ),
@@ -377,7 +377,7 @@ export function DetailsDrawer({ title, subtitle }: Props) {
                     ),
                   },
                   {
-                    label: "Bridged",
+                    label: "桥接",
                     value: String(
                       (mcpServers?.servers ?? []).filter(
                         (item) => item.profile.kind !== "native_streamable_http",
@@ -385,7 +385,7 @@ export function DetailsDrawer({ title, subtitle }: Props) {
                     ),
                   },
                   {
-                    label: "Preview",
+                    label: "预览",
                     value: String(mcpPreview?.connections.length ?? 0),
                   },
                 ]}
@@ -410,7 +410,7 @@ export function DetailsDrawer({ title, subtitle }: Props) {
 
         {route === "/admin/settings" ? (
           <>
-            <RailSection title="Effect Window">
+            <RailSection title="生效窗口">
               <PlainList
                 items={[
                   { key: "ssh-save", eyebrow: "Instant", title: "SSH host save" },
@@ -421,14 +421,14 @@ export function DetailsDrawer({ title, subtitle }: Props) {
               />
             </RailSection>
 
-            <RailSection title="Current Key Paths" footer={<QuickJumpLink to={quickJump.to} label={quickJump.label} />}>
+            <RailSection title="当前关键路径" footer={<QuickJumpLink to={quickJump.to} label={quickJump.label} />}>
               <MetricList
                 items={[
                   { label: "OpenAPI", value: `${toolRouterBaseUrl}/openapi.json` },
                   { label: "用户配置", value: usersConfigPath || "-" },
-                  { label: "Allowed Roots", value: String(terminalPaths?.allowed_paths.length ?? 0) },
-                  { label: "SSH Hosts", value: String(sshHosts?.hosts.length ?? 0) },
-                  { label: "User Bindings", value: String(sshBindings?.bindings.length ?? 0) },
+                  { label: "系统边界", value: String(terminalPaths?.allowed_paths.length ?? 0) },
+                  { label: "SSH 主机", value: String(sshHosts?.hosts.length ?? 0) },
+                  { label: "用户绑定", value: String(sshBindings?.bindings.length ?? 0) },
                 ]}
               />
               <a
@@ -437,7 +437,7 @@ export function DetailsDrawer({ title, subtitle }: Props) {
                 target="_blank"
                 rel="noreferrer"
               >
-                Open OpenAPI spec
+                打开 OpenAPI 说明
                 <ExternalLink className="h-3.5 w-3.5" />
               </a>
             </RailSection>
@@ -661,16 +661,16 @@ function runtimeCompact(entry: MCPRuntimeEntry) {
 function quickJumpForRoute(route: DrawerRoute) {
   switch (route) {
     case "/admin/models":
-      return { to: "/admin/settings", label: "Jump to Settings" };
+      return { to: "/admin/settings", label: "跳到设置" };
     case "/admin/modes":
-      return { to: "/admin", label: "Jump to Dashboard" };
+      return { to: "/admin", label: "跳到总览" };
     case "/admin/mcp":
-      return { to: "/admin/settings", label: "Jump to Settings" };
+      return { to: "/admin/settings", label: "跳到设置" };
     case "/admin/logs":
-      return { to: "/admin", label: "Jump to Dashboard" };
+      return { to: "/admin", label: "跳到总览" };
     case "/admin/settings":
-      return { to: "/admin/models", label: "Jump to Models" };
+      return { to: "/admin/models", label: "跳到模型" };
     default:
-      return { to: "/admin/models", label: "Jump to Models" };
+      return { to: "/admin/models", label: "跳到模型" };
   }
 }

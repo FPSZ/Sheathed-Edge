@@ -315,7 +315,7 @@ func sanitizeUserWorkspace(raw UserWorkspace, globalAllowedPaths []string) (User
 	item := raw
 	item.UserEmail = normalizeEmail(item.UserEmail)
 	item.Label = strings.TrimSpace(item.Label)
-	item.DefaultLocalWorkdir = filepath.Clean(strings.TrimSpace(item.DefaultLocalWorkdir))
+	item.DefaultLocalWorkdir = cleanPortablePath(item.DefaultLocalWorkdir)
 	if item.DefaultLocalWorkdir == "." {
 		item.DefaultLocalWorkdir = ""
 	}
@@ -387,10 +387,7 @@ func sanitizeUserStringList(items []string) []string {
 }
 
 func normalizedPathKey(value string) string {
-	normalized := filepath.Clean(strings.TrimSpace(value))
-	normalized = strings.ReplaceAll(normalized, "\\", "/")
-	normalized = strings.TrimRight(normalized, "/")
-	return strings.ToLower(normalized)
+	return normalizedPortablePathKey(value)
 }
 
 func labelFromEmail(email string) string {

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -320,7 +319,7 @@ func sanitizeMCPServer(raw MCPServerProfile) (MCPServerProfile, error) {
 	server.AuthType = strings.TrimSpace(server.AuthType)
 	server.Notes = strings.TrimSpace(server.Notes)
 	server.URL = strings.TrimSpace(server.URL)
-	server.Workdir = filepath.Clean(strings.TrimSpace(server.Workdir))
+	server.Workdir = cleanPortablePath(server.Workdir)
 	if server.Workdir == "." {
 		server.Workdir = ""
 	}
@@ -378,7 +377,7 @@ func sanitizeMCPServer(raw MCPServerProfile) (MCPServerProfile, error) {
 		if server.Workdir == "" {
 			return MCPServerProfile{}, fmt.Errorf("workdir is required for mcpo_stdio")
 		}
-		if !filepath.IsAbs(server.Workdir) {
+		if !isPortableAbsolutePath(server.Workdir) {
 			return MCPServerProfile{}, fmt.Errorf("workdir must be absolute for mcpo_stdio")
 		}
 	}

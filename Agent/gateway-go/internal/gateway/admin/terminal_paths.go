@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 )
@@ -107,11 +106,11 @@ func sanitizeAllowedPaths(paths []string) ([]string, error) {
 	cleaned := make([]string, 0, len(paths))
 
 	for _, raw := range paths {
-		path := filepath.Clean(strings.TrimSpace(raw))
+		path := cleanPortablePath(raw)
 		if path == "" || path == "." {
 			continue
 		}
-		if !filepath.IsAbs(path) {
+		if !isPortableAbsolutePath(path) {
 			return nil, fmt.Errorf("path must be absolute: %s", raw)
 		}
 		key := strings.ToLower(path)

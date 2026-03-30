@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -201,6 +202,32 @@ func (s *Service) startHostAgent(ctx context.Context) error {
 	}
 	binary = normalizeWindowsPath(binary)
 	cfgPath = normalizeWindowsPath(cfgPath)
+	hostAgentPort := "8101"
+	hostAgentHealthURL := "http://127.0.0.1:8101/healthz"
+	if parsed, err := url.Parse(strings.TrimSpace(s.cfg.Admin.HostAgentURL)); err == nil {
+		if port := parsed.Port(); port != "" {
+			hostAgentPort = port
+		}
+		if strings.TrimSpace(parsed.Scheme) != "" && strings.TrimSpace(parsed.Host) != "" {
+			hostAgentHealthURL = strings.TrimRight(parsed.String(), "/") + "/healthz"
+		}
+	}
+
+	clearStaleCmd := `[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; ` +
+		fmt.Sprintf(`$listener = Get-NetTCPConnection -LocalPort %s -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1; `, hostAgentPort) +
+		`if ($listener) { ` +
+		`  try { ` +
+		fmt.Sprintf(`    Invoke-WebRequest -UseBasicParsing -Uri '%s' -TimeoutSec 2 | Out-Null; `, strings.ReplaceAll(hostAgentHealthURL, `'`, `''`)) +
+		`  } catch { ` +
+		`    Stop-Process -Id $listener.OwningProcess -Force -ErrorAction SilentlyContinue; ` +
+		`    Start-Sleep -Milliseconds 800; ` +
+		`  } ` +
+		`}`
+	clearCmd := exec.CommandContext(ctx, powershellPath, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", clearStaleCmd)
+	if output, err := clearCmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("clear stale host-agent listener: %w: %s", err, strings.TrimSpace(string(output)))
+	}
+
 	// Use PowerShell via WSL interop to start the Windows process detached.
 	psCmd := fmt.Sprintf(
 		`Start-Process -FilePath '%s' -ArgumentList '--config','%s' -WindowStyle Hidden`,

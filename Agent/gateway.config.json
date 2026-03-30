@@ -39,7 +39,7 @@
     "audit_log_dir": "D:\\AI\\Local\\Logs\\audit"
   },
   "admin": {
-    "host_agent_url": "http://127.0.0.1:8101",
+    "host_agent_url": "http://127.0.0.1:8102",
     "host_agent_binary": "D:\\AI\\Local\\Agent\\host-control-rs\\target\\release\\host-control-rs.exe",
     "host_agent_config": "D:\\AI\\Local\\Agent\\host-control.config.json",
     "tool_router_config_path": "D:\\AI\\Local\\Agent\\tool-router.config.json",
