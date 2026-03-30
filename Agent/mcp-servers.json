@@ -1,1 +1,18 @@
-[]
+[
+  {
+    "id": "mock-native",
+    "label": "Mock Native MCP",
+    "enabled": true,
+    "kind": "native_streamable_http",
+    "description": "Local mock MCP for control-plane verification",
+    "plugin_scope": [
+      "awdp"
+    ],
+    "auth_type": "none",
+    "disabled_tools": [],
+    "timeout_ms": 15000,
+    "verify_tls": true,
+    "notes": "temporary local test",
+    "url": "http://127.0.0.1:8765"
+  }
+]

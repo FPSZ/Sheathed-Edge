@@ -12,6 +12,7 @@ type ChatCompletionRequest struct {
 	MaxTokens         *int           `json:"max_tokens,omitempty"`
 	Metadata          map[string]any `json:"metadata,omitempty"`
 	XPlugins          []string       `json:"x_plugins,omitempty"`
+	UserEmail         string         `json:"user_email,omitempty"`
 }
 
 type ChatMessage struct {

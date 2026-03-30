@@ -116,10 +116,44 @@ func (s *Service) ConfirmSSHHostKey(ctx context.Context, req ConfirmSSHHostKeyRe
 }
 
 func (s *Service) SSHBindings() (*SSHBindingsResponse, error) {
-	bindings, err := s.readSSHBindings()
+	settings, err := s.readUserSettings()
 	if err != nil {
 		return nil, err
 	}
+	legacyBindings, err := s.readSSHBindings()
+	if err != nil {
+		return nil, err
+	}
+	byEmail := make(map[string]SSHUserBinding)
+	for _, item := range settings {
+		if strings.TrimSpace(item.DefaultSSHHostID) == "" {
+			continue
+		}
+		byEmail[normalizeEmail(item.UserEmail)] = SSHUserBinding{
+			UserEmail:     normalizeEmail(item.UserEmail),
+			DefaultHostID: strings.TrimSpace(item.DefaultSSHHostID),
+		}
+	}
+	for _, binding := range legacyBindings {
+		email := normalizeEmail(binding.UserEmail)
+		if email == "" {
+			continue
+		}
+		if _, exists := byEmail[email]; exists {
+			continue
+		}
+		byEmail[email] = SSHUserBinding{
+			UserEmail:     email,
+			DefaultHostID: strings.TrimSpace(binding.DefaultHostID),
+		}
+	}
+	bindings := make([]SSHUserBinding, 0, len(byEmail))
+	for _, binding := range byEmail {
+		bindings = append(bindings, binding)
+	}
+	slices.SortFunc(bindings, func(a, b SSHUserBinding) int {
+		return strings.Compare(a.UserEmail, b.UserEmail)
+	})
 	return &SSHBindingsResponse{
 		Bindings:   bindings,
 		ConfigPath: s.sshBindingsPath,
@@ -147,6 +181,38 @@ func (s *Service) UpdateSSHBindings(ctx context.Context, bindings []SSHUserBindi
 		}
 	}
 
+	settings, err := s.readUserSettings()
+	if err != nil {
+		return nil, err
+	}
+	settingsByEmail := make(map[string]UserWorkspace, len(settings))
+	for _, item := range settings {
+		settingsByEmail[normalizeEmail(item.UserEmail)] = item
+	}
+	for _, binding := range cleaned {
+		email := normalizeEmail(binding.UserEmail)
+		item, exists := settingsByEmail[email]
+		if !exists {
+			globalAllowedPaths, pathErr := s.globalAllowedPaths()
+			if pathErr != nil {
+				return nil, pathErr
+			}
+			item = UserWorkspace{
+				UserEmail:            email,
+				Label:                labelFromEmail(email),
+				TerminalAllowedPaths: append([]string{}, globalAllowedPaths...),
+			}
+		}
+		item.DefaultSSHHostID = binding.DefaultHostID
+		settingsByEmail[email] = item
+	}
+	nextSettings := make([]UserWorkspace, 0, len(settingsByEmail))
+	for _, item := range settingsByEmail {
+		nextSettings = append(nextSettings, item)
+	}
+	if err := s.writeUserSettings(nextSettings); err != nil {
+		return nil, err
+	}
 	if err := writeJSONFile(s.sshBindingsPath, cleaned); err != nil {
 		return nil, err
 	}

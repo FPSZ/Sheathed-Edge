@@ -60,12 +60,54 @@ func (s *Server) handleAdminModes(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
+func (s *Server) handleAdminUsers(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodGet) {
+		return
+	}
+	resp, err := s.admin.Users()
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "admin_error", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func (s *Server) handleAdminUserWorkspace(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		userEmail := strings.TrimSpace(r.URL.Query().Get("user_email"))
+		resp, err := s.admin.UserWorkspace(userEmail)
+		if err != nil {
+			writeError(w, http.StatusBadGateway, "admin_error", err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, resp)
+	case http.MethodPost:
+		var req admin.UpdateUserWorkspaceRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+			return
+		}
+		resp, err := s.admin.UpdateUserWorkspace(req.Workspace)
+		if err != nil {
+			writeError(w, http.StatusBadGateway, "admin_error", err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, resp)
+	default:
+		w.Header().Set("Allow", strings.Join([]string{http.MethodGet, http.MethodPost}, ", "))
+		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
+	}
+}
+
 func (s *Server) handleAdminSessionLogs(w http.ResponseWriter, r *http.Request) {
 	if !requireMethod(w, r, http.MethodGet) {
 		return
 	}
 	limit := parseLimit(r, 10)
-	resp, err := s.admin.SessionLogs(limit)
+	userEmail := strings.TrimSpace(r.URL.Query().Get("user_email"))
+	failureOnly := parseBoolFlag(r, "failure_only")
+	resp, err := s.admin.SessionLogs(limit, userEmail, failureOnly)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, "admin_error", err.Error())
 		return
@@ -78,7 +120,9 @@ func (s *Server) handleAdminToolLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	limit := parseLimit(r, 10)
-	resp, err := s.admin.ToolLogs(limit)
+	userEmail := strings.TrimSpace(r.URL.Query().Get("user_email"))
+	failureOnly := parseBoolFlag(r, "failure_only")
+	resp, err := s.admin.ToolLogs(limit, userEmail, failureOnly)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, "admin_error", err.Error())
 		return
@@ -462,6 +506,11 @@ func parseLimit(r *http.Request, defaultValue int) int {
 		return 100
 	}
 	return value
+}
+
+func parseBoolFlag(r *http.Request, key string) bool {
+	value := strings.TrimSpace(strings.ToLower(r.URL.Query().Get(key)))
+	return value == "1" || value == "true" || value == "yes" || value == "on"
 }
 
 func requireMethod(w http.ResponseWriter, r *http.Request, method string) bool {

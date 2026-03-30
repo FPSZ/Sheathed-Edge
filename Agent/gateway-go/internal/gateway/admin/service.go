@@ -20,6 +20,7 @@ type Service struct {
 	client               *http.Client
 	toolRouterConfigPath string
 	toolRouterProjectDir string
+	userSettingsPath     string
 	sshHostsPath         string
 	sshBindingsPath      string
 	mcpServersPath       string
@@ -32,12 +33,14 @@ func NewService(cfg *config.Config, providerClient *provider.Client, gatewayConf
 		toolRouterConfigPath = config.ResolveSiblingPath(gatewayConfigPath, "tool-router.config.json")
 	}
 	toolRouterProjectDir := ""
+	userSettingsPath := ""
 	sshHostsPath := ""
 	sshBindingsPath := ""
 	mcpServersPath := ""
 	mcpToolCachePath := ""
 	if strings.TrimSpace(gatewayConfigPath) != "" {
 		toolRouterProjectDir = config.ResolveSiblingPath(gatewayConfigPath, "tool-router-rs")
+		userSettingsPath = config.ResolveSiblingPath(gatewayConfigPath, "user-settings.json")
 		sshHostsPath = config.ResolveSiblingPath(gatewayConfigPath, "ssh-hosts.json")
 		sshBindingsPath = config.ResolveSiblingPath(gatewayConfigPath, "ssh-user-bindings.json")
 		mcpServersPath = config.ResolveSiblingPath(gatewayConfigPath, "mcp-servers.json")
@@ -52,6 +55,7 @@ func NewService(cfg *config.Config, providerClient *provider.Client, gatewayConf
 		},
 		toolRouterConfigPath: toolRouterConfigPath,
 		toolRouterProjectDir: toolRouterProjectDir,
+		userSettingsPath:     userSettingsPath,
 		sshHostsPath:         sshHostsPath,
 		sshBindingsPath:      sshBindingsPath,
 		mcpServersPath:       mcpServersPath,
@@ -227,12 +231,12 @@ func (s *Service) Modes(ctx context.Context) (*ModesResponse, error) {
 	return loadModes(s.cfg)
 }
 
-func (s *Service) SessionLogs(limit int) ([]map[string]any, error) {
-	return readRecentEntries(s.cfg.Logs.SessionLogDir, limit, nil)
+func (s *Service) SessionLogs(limit int, userEmail string, failureOnly bool) ([]map[string]any, error) {
+	return readRecentEntries(s.cfg.Logs.SessionLogDir, limit, buildLogFilter(userEmail, failureOnly))
 }
 
-func (s *Service) ToolLogs(limit int) ([]map[string]any, error) {
-	return readRecentEntries(s.cfg.Admin.ToolLogDir, limit, nil)
+func (s *Service) ToolLogs(limit int, userEmail string, failureOnly bool) ([]map[string]any, error) {
+	return readRecentEntries(s.cfg.Admin.ToolLogDir, limit, buildLogFilter(userEmail, failureOnly))
 }
 
 func (s *Service) SwitchModel(ctx context.Context, profileID string) error {

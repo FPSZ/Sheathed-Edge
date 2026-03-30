@@ -37,3 +37,49 @@
 - 补测远程 `bash` 与远程 `powershell` 两条链路，包括 `pwd`、`git status`、超时与越权拒绝
 - 继续统一 Admin UI 主区与右栏风格，减少主区过重的容器感
 状态：SSH Remote Terminal V1 主体开发完成，管理面与 WebUI 注入链路已接通，待真实 SSH 主机配置后完成最终 E2E 验证。
+[13:58]
+任务：把 Admin UI 重构为“全局运行态 + 用户工作区态”，并补齐关机后的一键拉起与服务控制可用性。 结果：已完成 `AdminScopeContext` 全局用户视角改造，Admin 顶部新增 `全部用户 / All Users` 与按 `Open WebUI` 邮箱切换的用户选择器；已新增 `Agent/user-settings.json` 与 `GET /internal/admin/users`、`GET/POST /internal/admin/users/workspace` 接口，用户工作区现可保存 `terminal_allowed_paths`、`default_local_workdir`、`default_ssh_host_id`，并兼容旧 `ssh-user-bindings.json`。`Gateway` 与 `Tool Router` 日志链路已补 `user_email`，Open WebUI 补丁会向聊天请求与 terminal 工具请求统一注入 `X-AWDP-User-Email` / `user_email`，因此 `Logs` 与 `Settings` 已能按用户视角查看和编辑。另已新增 `Workflows/windows/start-admin-ui.ps1`，可一键拉起 `host-agent / tool-router / gateway / open-webui` 并打开 `/admin`；其中 `tool-router` 的 Admin 启动逻辑已改为优先使用已编译的 `tool-router-rs.exe`，不再依赖离线环境里的 `cargo run`。`Dashboard` 服务按钮已按实时状态禁用无效操作，并已实测 `tool-router`、`open-webui` 的 `stop -> start` 闭环。 修改：
+- 新增 `Agent/gateway-go/internal/gateway/admin/user_settings.go`
+- 更新 `Agent/gateway-go/internal/gateway/admin/logs.go`
+- 更新 `Agent/gateway-go/internal/gateway/admin/service.go`
+- 更新 `Agent/gateway-go/internal/gateway/admin/service_control.go`
+- 更新 `Agent/gateway-go/internal/gateway/admin/ssh_settings.go`
+- 更新 `Agent/gateway-go/internal/gateway/admin/types.go`
+- 更新 `Agent/gateway-go/internal/gateway/logging/session.go`
+- 更新 `Agent/gateway-go/internal/gateway/logging/stage.go`
+- 更新 `Agent/gateway-go/internal/gateway/orchestrator/orchestrator.go`
+- 更新 `Agent/gateway-go/internal/gateway/toolclient/client.go`
+- 更新 `Agent/gateway-go/internal/gateway/transport/openai/admin.go`
+- 更新 `Agent/gateway-go/internal/gateway/transport/openai/server.go`
+- 更新 `Agent/gateway-go/internal/gateway/types/chat.go`
+- 更新 `Agent/tool-router-rs/src/api.rs`
+- 更新 `Agent/tool-router-rs/src/logging.rs`
+- 更新 `Agent/tool-router-rs/src/models.rs`
+- 新增 `Agent/user-settings.json`
+- 更新 `Workflows/wsl/patch-open-webui-default-terminal.py`
+- 新增 `Workflows/windows/start-admin-ui.ps1`
+- 删除 `ui/gateway-admin/src/app/AdminPageState.tsx`
+- 新增 `ui/gateway-admin/src/app/AdminScopeContext.tsx`
+- 更新 `ui/gateway-admin/src/app/AppShell.tsx`
+- 更新 `ui/gateway-admin/src/components/DetailsDrawer.tsx`
+- 更新 `ui/gateway-admin/src/components/Sidebar.tsx`
+- 更新 `ui/gateway-admin/src/components/TopBar.tsx`
+- 更新 `ui/gateway-admin/src/lib/types.ts`
+- 更新 `ui/gateway-admin/src/pages/DashboardPage.tsx`
+- 更新 `ui/gateway-admin/src/pages/LogsPage.tsx`
+- 更新 `ui/gateway-admin/src/pages/MCPPage.tsx`
+- 更新 `ui/gateway-admin/src/pages/SettingsPage.tsx`
+- 更新 `ui/gateway-admin/src/styles/index.css`
+验证：
+- `Agent/gateway-go` 已通过 `go build ./...`
+- `ui/gateway-admin` 已通过 `npm run build`
+- `tool-router` 已通过 Admin API 实测 `stop -> start`
+- `open-webui` 已通过 Admin API 实测 `stop -> start`
+- `start-admin-ui.ps1` 已可在服务正常时直接输出 `Admin UI: http://127.0.0.1:8090/admin`
+发现的问题：
+- `host-agent` 在 Windows 上被强制停止后，`8101` 会出现端口残留 / 死监听，导致后续 `start` 看似成功但健康检查失败；当前已先禁用 Admin 里的 `host-agent stop`，避免继续制造此状态
+- 当前机器上 `host-agent` 已被该问题影响，需重启系统或补“优雅关闭 + 端口释放”方案后再恢复到可控状态
+下一步：
+- 为 `host-agent` 增加优雅关闭与端口释放逻辑，恢复 `start/stop` 的完整可控性
+- 继续推进 Admin UI 第二阶段：MCP 用户级可见性覆盖、右侧栏进一步统一、主区组件继续减量
+状态：用户工作区化 Phase 1 已完成，一键启动脚本已落地，Admin 服务控制对 `tool-router / open-webui` 已可用，`host-agent` 仍有 Windows 端口残留问题待修。

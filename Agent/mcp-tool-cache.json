@@ -1,3 +1,16 @@
 {
-  "servers": []
+  "servers": [
+    {
+      "server_id": "mock-native",
+      "tools": [
+        {
+          "name": "get_current_time",
+          "description": "Return a mock current time string for MCP integration testing.",
+          "disabled": false
+        }
+      ],
+      "last_discovered_at": "1774837898657",
+      "last_error": ""
+    }
+  ]
 }

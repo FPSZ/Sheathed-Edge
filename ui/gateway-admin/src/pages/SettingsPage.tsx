@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { useAdminScope } from "../app/AdminScopeContext";
 import { PageHeader } from "../components/PageHeader";
 import { apiGet, apiPost } from "../lib/api";
 import type {
   ServicesResponse,
-  SSHBindingsResponse,
   SSHHostProfile,
   SSHHostsResponse,
   SSHHostTestResponse,
-  SSHUserBinding,
   TerminalPathsSettings,
+  UserWorkspaceResponse,
 } from "../lib/types";
 
 type ActionState = "idle" | "pending";
@@ -17,7 +17,7 @@ type ActionState = "idle" | "pending";
 function newHostDraft(): SSHHostProfile {
   return {
     id: `host-${Math.random().toString(36).slice(2, 8)}`,
-    label: "New SSH Host",
+    label: "新 SSH 主机",
     enabled: true,
     host: "",
     port: 22,
@@ -34,44 +34,35 @@ function newHostDraft(): SSHHostProfile {
   };
 }
 
-function newBindingDraft(): SSHUserBinding {
-  return {
-    user_email: "",
-    default_host_id: "",
-  };
-}
-
 export function SettingsPage() {
+  const { selectedUserEmail, refreshUsers } = useAdminScope();
   const [services, setServices] = useState<ServicesResponse | null>(null);
-  const [settings, setSettings] = useState<TerminalPathsSettings | null>(null);
-  const [draft, setDraft] = useState("");
-  const [sshConfigPath, setSshConfigPath] = useState("");
-  const [sshBindingConfigPath, setSshBindingConfigPath] = useState("");
+  const [globalPaths, setGlobalPaths] = useState<TerminalPathsSettings | null>(null);
+  const [globalPathDraft, setGlobalPathDraft] = useState("");
+  const [workspace, setWorkspace] = useState<UserWorkspaceResponse | null>(null);
+  const [workspacePathDraft, setWorkspacePathDraft] = useState("");
   const [sshHosts, setSshHosts] = useState<SSHHostProfile[]>([]);
-  const [sshBindings, setSshBindings] = useState<SSHUserBinding[]>([]);
+  const [sshConfigPath, setSshConfigPath] = useState("");
   const [selectedHostId, setSelectedHostId] = useState("");
   const [sshTestResult, setSshTestResult] = useState<SSHHostTestResponse | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [pathActionState, setPathActionState] = useState<ActionState>("idle");
+  const [workspaceActionState, setWorkspaceActionState] = useState<ActionState>("idle");
+  const [globalPathActionState, setGlobalPathActionState] = useState<ActionState>("idle");
   const [sshHostActionState, setSshHostActionState] = useState<ActionState>("idle");
-  const [sshBindingActionState, setSshBindingActionState] = useState<ActionState>("idle");
 
-  async function load() {
+  async function loadBase() {
     try {
-      const [servicesResp, settingsResp, sshHostsResp, sshBindingsResp] = await Promise.all([
+      const [servicesResp, globalPathsResp, sshHostsResp] = await Promise.all([
         apiGet<ServicesResponse>("/internal/admin/services"),
         apiGet<TerminalPathsSettings>("/internal/admin/settings/terminal-paths"),
         apiGet<SSHHostsResponse>("/internal/admin/ssh/hosts"),
-        apiGet<SSHBindingsResponse>("/internal/admin/ssh/bindings"),
       ]);
       setServices(servicesResp);
-      setSettings(settingsResp);
-      setDraft(settingsResp.allowed_paths.join("\n"));
+      setGlobalPaths(globalPathsResp);
+      setGlobalPathDraft(globalPathsResp.allowed_paths.join("\n"));
       setSshHosts(sshHostsResp.hosts);
-      setSshBindings(sshBindingsResp.bindings);
       setSshConfigPath(sshHostsResp.config_path);
-      setSshBindingConfigPath(sshBindingsResp.config_path);
       setSelectedHostId((current) => {
         if (current && sshHostsResp.hosts.some((host) => host.id === current)) {
           return current;
@@ -84,9 +75,30 @@ export function SettingsPage() {
     }
   }
 
+  async function loadWorkspace() {
+    if (!selectedUserEmail) {
+      setWorkspace(null);
+      setWorkspacePathDraft("");
+      return;
+    }
+    try {
+      const response = await apiGet<UserWorkspaceResponse>(
+        `/internal/admin/users/workspace?user_email=${encodeURIComponent(selectedUserEmail)}`,
+      );
+      setWorkspace(response);
+      setWorkspacePathDraft(response.workspace.terminal_allowed_paths.join("\n"));
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
   useEffect(() => {
-    load();
+    loadBase();
   }, []);
+
+  useEffect(() => {
+    loadWorkspace();
+  }, [selectedUserEmail]);
 
   const selectedHost = useMemo(
     () => sshHosts.find((host) => host.id === selectedHostId) ?? null,
@@ -131,45 +143,56 @@ export function SettingsPage() {
     setSshTestResult(null);
   }
 
-  function addBinding() {
-    setSshBindings((current) => [...current, newBindingDraft()]);
-  }
-
-  function updateBinding(index: number, patch: Partial<SSHUserBinding>) {
-    setSshBindings((current) =>
-      current.map((binding, currentIndex) =>
-        currentIndex === index ? { ...binding, ...patch } : binding,
-      ),
-    );
-  }
-
-  function removeBinding(index: number) {
-    setSshBindings((current) => current.filter((_, currentIndex) => currentIndex !== index));
-  }
-
-  async function savePaths() {
-    setPathActionState("pending");
+  async function saveWorkspace() {
+    if (!selectedUserEmail || !workspace) {
+      return;
+    }
+    setWorkspaceActionState("pending");
     setError("");
     setNotice("");
     try {
-      const allowedPaths = draft
-        .split(/\r?\n/)
-        .map((item) => item.trim())
-        .filter(Boolean);
-      const response = await apiPost<TerminalPathsSettings>(
-        "/internal/admin/settings/terminal-paths",
-        {
-          allowed_paths: allowedPaths,
-          restart_now: false,
+      const response = await apiPost<UserWorkspaceResponse>("/internal/admin/users/workspace", {
+        workspace: {
+          ...workspace.workspace,
+          user_email: selectedUserEmail,
+          terminal_allowed_paths: workspacePathDraft
+            .split(/\r?\n/)
+            .map((item: string) => item.trim())
+            .filter(Boolean),
         },
-      );
-      setSettings(response);
-      setDraft(response.allowed_paths.join("\n"));
-      setNotice("Terminal allowed paths saved. Restart Tool Router if you want the new paths to take effect immediately.");
+      });
+      setWorkspace(response);
+      setWorkspacePathDraft(response.workspace.terminal_allowed_paths.join("\n"));
+      setNotice("用户工作区已保存。");
+      await refreshUsers();
     } catch (err) {
       setError((err as Error).message);
     } finally {
-      setPathActionState("idle");
+      setWorkspaceActionState("idle");
+    }
+  }
+
+  async function saveGlobalPaths() {
+    setGlobalPathActionState("pending");
+    setError("");
+    setNotice("");
+    try {
+      const allowedPaths = globalPathDraft
+        .split(/\r?\n/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+      const response = await apiPost<TerminalPathsSettings>("/internal/admin/settings/terminal-paths", {
+        allowed_paths: allowedPaths,
+        restart_now: false,
+      });
+      setGlobalPaths(response);
+      setGlobalPathDraft(response.allowed_paths.join("\n"));
+      setNotice("系统路径边界已保存。");
+      await loadWorkspace();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setGlobalPathActionState("idle");
     }
   }
 
@@ -182,14 +205,15 @@ export function SettingsPage() {
         hosts: sshHosts,
       });
       setSshHosts(response.hosts);
+      setSshConfigPath(response.config_path);
       setSelectedHostId((current) => {
         if (current && response.hosts.some((host) => host.id === current)) {
           return current;
         }
         return response.hosts[0]?.id ?? "";
       });
-      setSshConfigPath(response.config_path);
-      setNotice("SSH host profiles saved.");
+      setNotice("全局 SSH 主机已保存。");
+      await loadWorkspace();
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -227,16 +251,13 @@ export function SettingsPage() {
     setError("");
     setNotice("");
     try {
-      const response = await apiPost<SSHHostsResponse>(
-        "/internal/admin/ssh/hosts/confirm-host-key",
-        {
-          host_id: selectedHost.id,
-          fingerprint: sshTestResult.host_key_fingerprint,
-        },
-      );
+      const response = await apiPost<SSHHostsResponse>("/internal/admin/ssh/hosts/confirm-host-key", {
+        host_id: selectedHost.id,
+        fingerprint: sshTestResult.host_key_fingerprint,
+      });
       setSshHosts(response.hosts);
       setSshConfigPath(response.config_path);
-      setNotice("SSH host key fingerprint saved as trusted.");
+      setNotice("SSH host key 已确认。");
       await testSelectedSSHHost();
     } catch (err) {
       setError((err as Error).message);
@@ -244,28 +265,10 @@ export function SettingsPage() {
     }
   }
 
-  async function saveSSHBindings() {
-    setSshBindingActionState("pending");
-    setError("");
-    setNotice("");
-    try {
-      const response = await apiPost<SSHBindingsResponse>("/internal/admin/ssh/bindings", {
-        bindings: sshBindings,
-      });
-      setSshBindings(response.bindings);
-      setSshBindingConfigPath(response.config_path);
-      setNotice("Default SSH host bindings saved.");
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setSshBindingActionState("idle");
-    }
-  }
-
   async function copyText(value: string, label: string) {
     try {
       await navigator.clipboard.writeText(value);
-      setNotice(`${label} copied.`);
+      setNotice(`${label} 已复制。`);
       setError("");
     } catch (err) {
       setError((err as Error).message);
@@ -275,15 +278,8 @@ export function SettingsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Settings"
-        description="Manage terminal path boundaries, SSH host profiles, and per-user default remote targets."
-        action={
-          <div className="flex shrink-0 flex-nowrap items-center gap-2">
-            <button className="admin-button" disabled={pathActionState === "pending"} onClick={savePaths}>
-              Save Paths
-            </button>
-          </div>
-        }
+        title="设置"
+        description="当前页分成两层：上面是用户工作区，下面是系统边界和全局 SSH 资源。"
       />
 
       {error ? (
@@ -298,34 +294,176 @@ export function SettingsPage() {
       <section className="admin-surface rounded-3xl p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="text-sm font-semibold text-slate-900">Terminal Path Allowlist</div>
+            <div className="text-sm font-semibold text-slate-900">当前用户工作区</div>
             <div className="mt-1 text-xs leading-6 text-slate-500">
-              One absolute path per line. Local terminal workdir must stay inside these roots.
+              作用于当前选中的 Open WebUI 用户。包含本地目录边界、默认工作目录、默认 SSH 目标。
             </div>
           </div>
-          <span className={`admin-badge ${toolRouterStatus?.status === "ok" ? "success" : "danger"}`}>
-            {toolRouterStatus?.status === "ok" ? "Tool Router Online" : "Tool Router Offline"}
-          </span>
+          <button
+            className="admin-button"
+            type="button"
+            disabled={!selectedUserEmail || workspaceActionState === "pending"}
+            onClick={saveWorkspace}
+          >
+            保存用户工作区
+          </button>
         </div>
 
-        <div className="mt-4 space-y-3">
-          <div className="admin-field">
-            <label className="admin-field-label" htmlFor="terminal-paths">
-              Allowed Paths
-            </label>
-            <textarea
-              id="terminal-paths"
-              className="admin-input min-h-56 resize-y"
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              placeholder={"D:\\AI\\Local\nD:\\Environment2"}
-              spellCheck={false}
-            />
+        {!selectedUserEmail ? (
+          <div className="mt-4 admin-surface-muted rounded-3xl p-5 text-sm text-slate-500">
+            先在顶部选择一个具体用户，再编辑该用户的工作区。
+          </div>
+        ) : workspace ? (
+          <div className="mt-4 grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+            <div className="space-y-4">
+              <div className="admin-field">
+                <label className="admin-field-label">用户邮箱</label>
+                <input className="admin-input" value={workspace.workspace.user_email} disabled />
+              </div>
+              <div className="admin-field">
+                <label className="admin-field-label">显示名称</label>
+                <input
+                  className="admin-input"
+                  value={workspace.workspace.label}
+                  onChange={(event) =>
+                    setWorkspace((current) =>
+                      current
+                        ? {
+                            ...current,
+                            workspace: { ...current.workspace, label: event.target.value },
+                          }
+                        : current,
+                    )
+                  }
+                />
+              </div>
+              <div className="admin-field">
+                <label className="admin-field-label">可访问目录</label>
+                <textarea
+                  className="admin-input min-h-40 resize-y"
+                  value={workspacePathDraft}
+                  onChange={(event) => setWorkspacePathDraft(event.target.value)}
+                  spellCheck={false}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="admin-field">
+                <label className="admin-field-label">默认本地工作目录</label>
+                <input
+                  className="admin-input"
+                  value={workspace.workspace.default_local_workdir ?? ""}
+                  onChange={(event) =>
+                    setWorkspace((current) =>
+                      current
+                        ? {
+                            ...current,
+                            workspace: {
+                              ...current.workspace,
+                              default_local_workdir: event.target.value,
+                            },
+                          }
+                        : current,
+                    )
+                  }
+                />
+              </div>
+              <div className="admin-field">
+                <label className="admin-field-label">默认 SSH 主机</label>
+                <select
+                  className="admin-input"
+                  value={workspace.workspace.default_ssh_host_id ?? ""}
+                  onChange={(event) =>
+                    setWorkspace((current) =>
+                      current
+                        ? {
+                            ...current,
+                            workspace: {
+                              ...current.workspace,
+                              default_ssh_host_id: event.target.value,
+                            },
+                          }
+                        : current,
+                    )
+                  }
+                >
+                  <option value="">不指定</option>
+                  {sshHosts.map((host) => (
+                    <option key={host.id} value={host.id}>
+                      {host.label} ({host.id})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="admin-surface-muted rounded-3xl p-4 text-xs leading-6 text-slate-600">
+                <div>配置文件：{workspace.config_path || "-"}</div>
+                <div>旧绑定兼容文件：{workspace.legacy_bindings_path || "-"}</div>
+                <div>系统边界变更后需要重启 Tool Router：{workspace.restart_required ? "是" : "否"}</div>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </section>
+
+      <section className="admin-surface rounded-3xl p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="text-sm font-semibold text-slate-900">系统边界与 Tool Server</div>
+            <div className="mt-1 text-xs leading-6 text-slate-500">
+              这是全局运行配置。用户工作区只能在这些边界内收窄，不能放宽。
+            </div>
+          </div>
+          <button
+            className="admin-button"
+            disabled={globalPathActionState === "pending"}
+            onClick={saveGlobalPaths}
+          >
+            保存系统边界
+          </button>
+        </div>
+
+        <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_1fr]">
+          <div className="space-y-4">
+            <div className="admin-field">
+              <label className="admin-field-label">系统 allowed_paths</label>
+              <textarea
+                className="admin-input min-h-48 resize-y"
+                value={globalPathDraft}
+                onChange={(event) => setGlobalPathDraft(event.target.value)}
+                placeholder={"D:\\AI\\Local\nD:\\Environment2"}
+                spellCheck={false}
+              />
+            </div>
+            <div className="admin-surface-muted rounded-3xl p-4 text-xs leading-6 text-slate-600">
+              <div>配置文件：{globalPaths?.config_path ?? "-"}</div>
+              <div>重启 Tool Router：{globalPaths?.restart_required ? "需要" : "不需要"}</div>
+            </div>
           </div>
 
-          <div className="admin-surface-muted rounded-3xl p-4 text-xs leading-6 text-slate-600">
-            <div>Config: {settings?.config_path ?? "-"}</div>
-            <div>Restart required: {settings?.restart_required ? "yes" : "no"}</div>
+          <div className="space-y-3">
+            <div className="admin-surface-muted rounded-3xl p-4">
+              <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
+                Tool Router
+              </div>
+              <div className="mt-2 font-mono text-sm text-slate-700">{toolServerInfo.baseUrl}</div>
+              <button className="admin-button mt-3" type="button" onClick={() => copyText(toolServerInfo.baseUrl, "Tool Router 地址")}>
+                复制地址
+              </button>
+            </div>
+            <div className="admin-surface-muted rounded-3xl p-4">
+              <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
+                OpenAPI Spec
+              </div>
+              <div className="mt-2 font-mono text-sm text-slate-700">{toolServerInfo.openapiUrl}</div>
+              <button className="admin-button mt-3" type="button" onClick={() => copyText(toolServerInfo.openapiUrl, "OpenAPI 地址")}>
+                复制 OpenAPI
+              </button>
+            </div>
+            <div className="admin-surface-muted rounded-3xl p-4 text-xs leading-6 text-slate-600">
+              <div>Terminal Endpoint：{toolServerInfo.terminalUrl}</div>
+              <div>状态：{toolRouterStatus?.status === "ok" ? "在线" : "离线"}</div>
+            </div>
           </div>
         </div>
       </section>
@@ -333,63 +471,17 @@ export function SettingsPage() {
       <section className="admin-surface rounded-3xl p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="text-sm font-semibold text-slate-900">Open WebUI Tool Server</div>
+            <div className="text-sm font-semibold text-slate-900">全局 SSH 主机</div>
             <div className="mt-1 text-xs leading-6 text-slate-500">
-              Open WebUI should continue using this OpenAPI terminal server. The same endpoint now supports both local and SSH execution.
-            </div>
-          </div>
-          <span className={`admin-badge ${toolRouterStatus?.status === "ok" ? "success" : "danger"}`}>
-            {toolRouterStatus?.status === "ok" ? "OpenAPI Ready" : "Tool Router Offline"}
-          </span>
-        </div>
-
-        <div className="mt-4 grid gap-3 xl:grid-cols-2">
-          <div className="admin-surface-muted rounded-3xl p-4">
-            <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
-              Tool Router
-            </div>
-            <div className="mt-2 font-mono text-sm text-slate-700">{toolServerInfo.baseUrl}</div>
-            <button className="admin-button mt-3" type="button" onClick={() => copyText(toolServerInfo.baseUrl, "Tool Router URL")}>
-              Copy Address
-            </button>
-          </div>
-
-          <div className="admin-surface-muted rounded-3xl p-4">
-            <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
-              OpenAPI Spec
-            </div>
-            <div className="mt-2 font-mono text-sm text-slate-700">{toolServerInfo.openapiUrl}</div>
-            <button className="admin-button mt-3" type="button" onClick={() => copyText(toolServerInfo.openapiUrl, "OpenAPI URL")}>
-              Copy OpenAPI
-            </button>
-          </div>
-
-          <div className="admin-surface-muted rounded-3xl p-4 xl:col-span-2">
-            <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
-              Terminal Endpoint
-            </div>
-            <div className="mt-2 font-mono text-sm text-slate-700">{toolServerInfo.terminalUrl}</div>
-            <div className="mt-3 text-xs leading-6 text-slate-500">
-              `POST /api/tools/terminal` accepts local terminal fields and SSH terminal fields on the same endpoint.
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="admin-surface rounded-3xl p-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="text-sm font-semibold text-slate-900">SSH Hosts</div>
-            <div className="mt-1 text-xs leading-6 text-slate-500">
-              Configure reusable remote execution targets. Secrets are not shown again after save; leaving them blank keeps the saved value.
+              这里只维护系统级 SSH 主机资料。用户只在上面的工作区里选择默认主机。
             </div>
           </div>
           <div className="flex gap-2">
             <button className="admin-button" type="button" onClick={addSSHHost}>
-              Add Host
+              新建主机
             </button>
             <button className="admin-button" type="button" disabled={!selectedHostId} onClick={removeSelectedHost}>
-              Remove
+              删除主机
             </button>
             <button
               className="admin-button"
@@ -397,7 +489,7 @@ export function SettingsPage() {
               disabled={sshHostActionState === "pending"}
               onClick={saveSSHHosts}
             >
-              Save Hosts
+              保存主机
             </button>
           </div>
         </div>
@@ -406,7 +498,7 @@ export function SettingsPage() {
           <div className="space-y-3">
             {sshHosts.length === 0 ? (
               <div className="admin-surface-muted rounded-3xl p-4 text-sm text-slate-500">
-                No SSH hosts yet.
+                还没有 SSH 主机。
               </div>
             ) : (
               sshHosts.map((host) => (
@@ -424,7 +516,7 @@ export function SettingsPage() {
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-sm font-semibold text-slate-900">{host.label}</div>
                     <span className={`admin-badge ${host.enabled ? "success" : "danger"}`}>
-                      {host.enabled ? "Enabled" : "Disabled"}
+                      {host.enabled ? "启用" : "停用"}
                     </span>
                   </div>
                   <div className="mt-2 text-xs leading-6 text-slate-500">
@@ -442,8 +534,7 @@ export function SettingsPage() {
             {selectedHost ? (
               <>
                 <div className="grid gap-3 md:grid-cols-2">
-                  <div className="admin-field">
-                    <label className="admin-field-label">Host ID</label>
+                  <Field label="Host ID">
                     <input
                       className="admin-input"
                       value={selectedHost.id}
@@ -453,9 +544,8 @@ export function SettingsPage() {
                         updateSelectedHost((host) => ({ ...host, id: nextId }));
                       }}
                     />
-                  </div>
-                  <div className="admin-field">
-                    <label className="admin-field-label">Label</label>
+                  </Field>
+                  <Field label="标签">
                     <input
                       className="admin-input"
                       value={selectedHost.label}
@@ -463,9 +553,8 @@ export function SettingsPage() {
                         updateSelectedHost((host) => ({ ...host, label: event.target.value }))
                       }
                     />
-                  </div>
-                  <div className="admin-field">
-                    <label className="admin-field-label">Host</label>
+                  </Field>
+                  <Field label="Host">
                     <input
                       className="admin-input"
                       value={selectedHost.host}
@@ -473,9 +562,8 @@ export function SettingsPage() {
                         updateSelectedHost((host) => ({ ...host, host: event.target.value }))
                       }
                     />
-                  </div>
-                  <div className="admin-field">
-                    <label className="admin-field-label">Port</label>
+                  </Field>
+                  <Field label="Port">
                     <input
                       className="admin-input"
                       type="number"
@@ -487,9 +575,8 @@ export function SettingsPage() {
                         }))
                       }
                     />
-                  </div>
-                  <div className="admin-field">
-                    <label className="admin-field-label">Username</label>
+                  </Field>
+                  <Field label="Username">
                     <input
                       className="admin-input"
                       value={selectedHost.username}
@@ -497,9 +584,8 @@ export function SettingsPage() {
                         updateSelectedHost((host) => ({ ...host, username: event.target.value }))
                       }
                     />
-                  </div>
-                  <div className="admin-field">
-                    <label className="admin-field-label">Remote Shell</label>
+                  </Field>
+                  <Field label="Remote Shell">
                     <select
                       className="admin-input"
                       value={selectedHost.remote_shell_default}
@@ -513,9 +599,8 @@ export function SettingsPage() {
                       <option value="bash">bash</option>
                       <option value="powershell">powershell</option>
                     </select>
-                  </div>
-                  <div className="admin-field">
-                    <label className="admin-field-label">Auth Type</label>
+                  </Field>
+                  <Field label="认证方式">
                     <select
                       className="admin-input"
                       value={selectedHost.auth_type}
@@ -529,9 +614,8 @@ export function SettingsPage() {
                       <option value="password">password</option>
                       <option value="private_key">private_key</option>
                     </select>
-                  </div>
-                  <div className="admin-field">
-                    <label className="admin-field-label">Enabled</label>
+                  </Field>
+                  <Field label="状态">
                     <select
                       className="admin-input"
                       value={selectedHost.enabled ? "true" : "false"}
@@ -542,17 +626,14 @@ export function SettingsPage() {
                         }))
                       }
                     >
-                      <option value="true">Enabled</option>
-                      <option value="false">Disabled</option>
+                      <option value="true">启用</option>
+                      <option value="false">停用</option>
                     </select>
-                  </div>
+                  </Field>
                 </div>
 
                 {selectedHost.auth_type === "password" ? (
-                  <div className="admin-field">
-                    <label className="admin-field-label">
-                      Password {selectedHost.has_password ? "(leave blank to keep saved value)" : ""}
-                    </label>
+                  <Field label={`密码${selectedHost.has_password ? "（留空保留原值）" : ""}`}>
                     <input
                       className="admin-input"
                       type="password"
@@ -561,13 +642,10 @@ export function SettingsPage() {
                         updateSelectedHost((host) => ({ ...host, password: event.target.value }))
                       }
                     />
-                  </div>
+                  </Field>
                 ) : (
                   <>
-                    <div className="admin-field">
-                      <label className="admin-field-label">
-                        Private Key {selectedHost.has_private_key ? "(leave blank to keep saved value)" : ""}
-                      </label>
+                    <Field label={`私钥${selectedHost.has_private_key ? "（留空保留原值）" : ""}`}>
                       <textarea
                         className="admin-input min-h-40 resize-y font-mono text-xs"
                         value={selectedHost.private_key ?? ""}
@@ -576,9 +654,8 @@ export function SettingsPage() {
                         }
                         spellCheck={false}
                       />
-                    </div>
-                    <div className="admin-field">
-                      <label className="admin-field-label">Passphrase</label>
+                    </Field>
+                    <Field label="Passphrase">
                       <input
                         className="admin-input"
                         type="password"
@@ -587,13 +664,12 @@ export function SettingsPage() {
                           updateSelectedHost((host) => ({ ...host, passphrase: event.target.value }))
                         }
                       />
-                    </div>
+                    </Field>
                   </>
                 )}
 
                 <div className="grid gap-3 md:grid-cols-2">
-                  <div className="admin-field">
-                    <label className="admin-field-label">Allowed Paths</label>
+                  <Field label="Allowed Paths">
                     <textarea
                       className="admin-input min-h-32 resize-y"
                       value={selectedHost.allowed_paths.join("\n")}
@@ -608,9 +684,8 @@ export function SettingsPage() {
                       }
                       spellCheck={false}
                     />
-                  </div>
-                  <div className="admin-field">
-                    <label className="admin-field-label">Default Workdir</label>
+                  </Field>
+                  <Field label="Default Workdir">
                     <input
                       className="admin-input"
                       value={selectedHost.default_workdir ?? ""}
@@ -621,13 +696,13 @@ export function SettingsPage() {
                         }))
                       }
                     />
-                  </div>
+                  </Field>
                 </div>
 
                 <div className="admin-surface-muted rounded-3xl p-4 text-xs leading-6 text-slate-600">
                   <div>Host key status: {selectedHost.host_key_status || "unknown"}</div>
                   <div>Host key fingerprint: {selectedHost.host_key_fingerprint || "-"}</div>
-                  <div>Config: {sshConfigPath || "-"}</div>
+                  <div>配置文件：{sshConfigPath || "-"}</div>
                 </div>
 
                 <div className="flex flex-wrap gap-2">
@@ -637,7 +712,7 @@ export function SettingsPage() {
                     disabled={sshHostActionState === "pending"}
                     onClick={testSelectedSSHHost}
                   >
-                    Test Connection
+                    测试连接
                   </button>
                   <button
                     className="admin-button"
@@ -649,7 +724,7 @@ export function SettingsPage() {
                     }
                     onClick={confirmSelectedSSHHostKey}
                   >
-                    Confirm Host Key
+                    确认 Host Key
                   </button>
                 </div>
 
@@ -672,104 +747,21 @@ export function SettingsPage() {
               </>
             ) : (
               <div className="admin-surface-muted rounded-3xl p-6 text-sm text-slate-500">
-                Select an SSH host on the left, or create a new one.
+                选择左侧主机，或者新建一台。
               </div>
             )}
           </div>
         </div>
       </section>
+    </div>
+  );
+}
 
-      <section className="admin-surface rounded-3xl p-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="text-sm font-semibold text-slate-900">User Default SSH Host</div>
-            <div className="mt-1 text-xs leading-6 text-slate-500">
-              Bind each Open WebUI account email to its default SSH target. The WebUI patch will inject the mapped host automatically.
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <button className="admin-button" type="button" onClick={addBinding}>
-              Add Binding
-            </button>
-            <button
-              className="admin-button"
-              type="button"
-              disabled={sshBindingActionState === "pending"}
-              onClick={saveSSHBindings}
-            >
-              Save Bindings
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-4 space-y-3">
-          {sshBindings.length === 0 ? (
-            <div className="admin-surface-muted rounded-3xl p-4 text-sm text-slate-500">
-              No user bindings yet.
-            </div>
-          ) : null}
-
-          {sshBindings.map((binding, index) => (
-            <div key={`${binding.user_email}-${index}`} className="admin-surface-muted rounded-3xl p-4">
-              <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_240px_auto]">
-                <div className="admin-field">
-                  <label className="admin-field-label">User Email</label>
-                  <input
-                    className="admin-input"
-                    value={binding.user_email}
-                    onChange={(event) => updateBinding(index, { user_email: event.target.value })}
-                  />
-                </div>
-                <div className="admin-field">
-                  <label className="admin-field-label">Default Host</label>
-                  <select
-                    className="admin-input"
-                    value={binding.default_host_id}
-                    onChange={(event) =>
-                      updateBinding(index, { default_host_id: event.target.value })
-                    }
-                  >
-                    <option value="">Select host</option>
-                    {sshHosts.map((host) => (
-                      <option key={host.id} value={host.id}>
-                        {host.label} ({host.id})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex items-end">
-                  <button className="admin-button" type="button" onClick={() => removeBinding(index)}>
-                    Remove
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-
-          <div className="admin-surface-muted rounded-3xl p-4 text-xs leading-6 text-slate-600">
-            <div>Config: {sshBindingConfigPath || "-"}</div>
-            <div>Each Open WebUI user should have its own account email for this mapping to stay stable.</div>
-          </div>
-        </div>
-      </section>
-
-      <section className="admin-surface rounded-3xl p-5">
-        <div className="text-sm font-semibold text-slate-900">Service Status Summary</div>
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {(services?.services ?? []).map((service) => (
-            <div key={service.name} className="admin-surface-muted rounded-3xl p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div className="text-sm font-semibold text-slate-900">{service.name}</div>
-                <span className={`admin-badge ${service.status === "ok" ? "success" : "danger"}`}>
-                  {service.status}
-                </span>
-              </div>
-              <div className="mt-2 text-xs leading-6 text-slate-500">{service.address || "-"}</div>
-              <div className="mt-1 text-xs leading-6 text-slate-500">{service.message || "-"}</div>
-            </div>
-          ))}
-        </div>
-      </section>
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="admin-field">
+      <label className="admin-field-label">{label}</label>
+      {children}
     </div>
   );
 }

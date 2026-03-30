@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 )
 
 func readRecentEntries(dir string, limit int, filter func(map[string]any) bool) ([]map[string]any, error) {
@@ -58,4 +59,45 @@ func readJSONLFile(path string, filter func(map[string]any) bool) ([]map[string]
 		out = append(out, item)
 	}
 	return out, scanner.Err()
+}
+
+func buildLogFilter(userEmail string, failureOnly bool) func(map[string]any) bool {
+	normalizedEmail := strings.ToLower(strings.TrimSpace(userEmail))
+	return func(item map[string]any) bool {
+		if normalizedEmail != "" {
+			if strings.ToLower(strings.TrimSpace(stringField(item, "user_email"))) != normalizedEmail {
+				return false
+			}
+		}
+		if failureOnly && !isFailureLike(item) {
+			return false
+		}
+		return true
+	}
+}
+
+func isFailureLike(item map[string]any) bool {
+	if ok, exists := item["ok"].(bool); exists {
+		return !ok
+	}
+	status := strings.ToLower(strings.TrimSpace(stringField(item, "status")))
+	if status == "failed" || status == "error" {
+		return true
+	}
+	raw, _ := json.Marshal(item)
+	text := strings.ToLower(string(raw))
+	return strings.Contains(text, "error") || strings.Contains(text, "fail")
+}
+
+func stringField(item map[string]any, key string) string {
+	value, ok := item[key]
+	if !ok || value == nil {
+		return ""
+	}
+	switch typed := value.(type) {
+	case string:
+		return typed
+	default:
+		return ""
+	}
 }

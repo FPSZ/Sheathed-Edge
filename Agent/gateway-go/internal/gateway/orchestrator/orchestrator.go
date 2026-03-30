@@ -107,7 +107,7 @@ func (o *Orchestrator) RunTurn(ctx context.Context, requestID string, responseMo
 		return nil, nil, nil, err
 	}
 	if trace != nil {
-		trace.SetContext(mode.BuildLabel(active), active.Plugins)
+		trace.SetContext(mode.BuildLabel(active), active.Plugins, req.UserEmail)
 	}
 
 	query := latestUserMessage(req.Messages)
@@ -180,7 +180,7 @@ func (o *Orchestrator) RunNativeToolTurn(ctx context.Context, requestID string, 
 		return nil, nil, nil, err
 	}
 	if trace != nil {
-		trace.SetContext(mode.BuildLabel(active), active.Plugins)
+		trace.SetContext(mode.BuildLabel(active), active.Plugins, req.UserEmail)
 	}
 
 	upstreamReq := req
@@ -239,6 +239,7 @@ func (o *Orchestrator) handleToolCall(ctx context.Context, responseModel string,
 		SessionID: sessionID,
 		Mode:      mode.BuildLabel(active),
 		Tool:      env.Tool,
+		UserEmail: originalReq.UserEmail,
 		Arguments: env.Arguments,
 	})
 	if err != nil {
@@ -260,6 +261,7 @@ func (o *Orchestrator) handleToolCall(ctx context.Context, responseModel string,
 		SessionID: sessionID,
 		Mode:      mode.BuildLabel(active),
 		Tool:      env.Tool,
+		UserEmail: originalReq.UserEmail,
 		Arguments: resolveResp.NormalizedArguments,
 	})
 	if err != nil {

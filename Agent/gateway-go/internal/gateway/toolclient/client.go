@@ -21,6 +21,7 @@ type ResolveRequest struct {
 	SessionID string         `json:"session_id"`
 	Mode      string         `json:"mode"`
 	Tool      string         `json:"tool"`
+	UserEmail string         `json:"user_email,omitempty"`
 	Arguments map[string]any `json:"arguments"`
 }
 
@@ -35,6 +36,7 @@ type ExecuteRequest struct {
 	SessionID string         `json:"session_id"`
 	Mode      string         `json:"mode"`
 	Tool      string         `json:"tool"`
+	UserEmail string         `json:"user_email,omitempty"`
 	Arguments map[string]any `json:"arguments"`
 }
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { useAdminPageState } from "../app/AdminPageState";
+import { useAdminScope } from "../app/AdminScopeContext";
 import { PageHeader } from "../components/PageHeader";
 import { apiGet } from "../lib/api";
 import { formatJson, formatTime } from "../lib/format";
@@ -11,24 +11,29 @@ export function LogsPage() {
   const [tools, setTools] = useState<Record<string, unknown>[]>([]);
   const [error, setError] = useState("");
   const {
+    selectedUserEmail,
     logSource,
     logRange,
     logFailureOnly,
     selectedLog,
     setSelectedLog,
-  } = useAdminPageState();
+  } = useAdminScope();
 
   useEffect(() => {
     Promise.all([
-      apiGet<LogListResponse>("/internal/admin/logs/sessions"),
-      apiGet<LogListResponse>("/internal/admin/logs/tools"),
+      apiGet<LogListResponse>(
+        `/internal/admin/logs/sessions?limit=100${selectedUserEmail ? `&user_email=${encodeURIComponent(selectedUserEmail)}` : ""}${logFailureOnly ? "&failure_only=true" : ""}`,
+      ),
+      apiGet<LogListResponse>(
+        `/internal/admin/logs/tools?limit=100${selectedUserEmail ? `&user_email=${encodeURIComponent(selectedUserEmail)}` : ""}${logFailureOnly ? "&failure_only=true" : ""}`,
+      ),
     ])
       .then(([sessionData, toolData]) => {
         setSessions(sessionData.items);
         setTools(toolData.items);
       })
       .catch((err: Error) => setError(err.message));
-  }, []);
+  }, [selectedUserEmail, logFailureOnly]);
 
   const activeItems = useMemo(() => {
     const items = logSource === "sessions" ? sessions : tools;
@@ -59,7 +64,7 @@ export function LogsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Logs"
-        description="Browse session and tool logs with a focused list on the left and a detail preview in the utility rail."
+        description={`按用户查看会话与工具日志。当前视角：${selectedUserEmail || "全部用户 / All Users"}`}
       />
 
       {error ? (
@@ -76,10 +81,11 @@ export function LogsPage() {
             </div>
             <div className="mt-1 text-xs text-slate-500">
               Showing {activeItems.length} items in the current filter window.
+              {selectedUserEmail ? ` 当前用户：${selectedUserEmail}` : " 当前范围：全部用户"}
             </div>
           </div>
           <div className="admin-badge muted">
-            {logFailureOnly ? "Failure filter on" : "All severities"}
+            {logFailureOnly ? "仅失败" : "全部状态"}
           </div>
         </div>
 
@@ -115,7 +121,7 @@ export function LogsPage() {
 
           {activeItems.length === 0 ? (
             <div className="admin-surface-muted rounded-3xl p-4 text-sm text-slate-500">
-              No log items match the current source and filter range.
+              当前筛选条件下没有日志。
             </div>
           ) : null}
         </div>

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, ExternalLink } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
-import { useAdminPageState } from "../app/AdminPageState";
+import { useAdminScope } from "../app/AdminScopeContext";
 import { apiGet } from "../lib/api";
 import { formatTime } from "../lib/format";
 import type {
@@ -42,7 +42,9 @@ export function DetailsDrawer({ title, subtitle }: Props) {
     logFailureOnly,
     setLogFailureOnly,
     selectedLog,
-  } = useAdminPageState();
+    selectedUserEmail,
+    usersConfigPath,
+  } = useAdminScope();
   const [overview, setOverview] = useState<OverviewResponse | null>(null);
   const [models, setModels] = useState<ModelsResponse | null>(null);
   const [modes, setModes] = useState<ModesResponse | null>(null);
@@ -176,6 +178,10 @@ export function DetailsDrawer({ title, subtitle }: Props) {
         <section className="admin-rail-summary min-w-0">
           <div className="admin-rail-summary-grid">
             <SummaryBlock label="Mode" value="awdp" />
+            <SummaryBlock
+              label="用户"
+              value={selectedUserEmail || "全部用户 / All Users"}
+            />
             <SummaryBlock
               label="Model"
               value={overview?.active_model.label ?? overview?.active_model.profile_id ?? "Unknown"}
@@ -333,11 +339,11 @@ export function DetailsDrawer({ title, subtitle }: Props) {
                   <MetricList
                     items={[
                       {
-                        label: "Type",
-                        value: selectedLog.source === "sessions" ? "Session log" : "Tool log",
+                        label: "类型",
+                        value: selectedLog.source === "sessions" ? "会话日志" : "工具日志",
                       },
-                      { label: "Time", value: formatTime(selectedLog.item.time) },
-                      { label: "Status", value: detectLogTone(selectedLog.item) },
+                      { label: "时间", value: formatTime(selectedLog.item.time) },
+                      { label: "状态", value: detectLogTone(selectedLog.item) },
                     ]}
                   />
                   <p className="mt-4 text-sm leading-7 text-slate-700">
@@ -419,6 +425,7 @@ export function DetailsDrawer({ title, subtitle }: Props) {
               <MetricList
                 items={[
                   { label: "OpenAPI", value: `${toolRouterBaseUrl}/openapi.json` },
+                  { label: "用户配置", value: usersConfigPath || "-" },
                   { label: "Allowed Roots", value: String(terminalPaths?.allowed_paths.length ?? 0) },
                   { label: "SSH Hosts", value: String(sshHosts?.hosts.length ?? 0) },
                   { label: "User Bindings", value: String(sshBindings?.bindings.length ?? 0) },

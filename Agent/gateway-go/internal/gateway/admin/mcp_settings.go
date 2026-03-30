@@ -474,7 +474,7 @@ func buildOpenWebUIConnection(server MCPServerProfile, runtime MCPRuntimeEntry) 
 		if connection.URL == "" {
 			connection.URL = runtime.EffectiveConnectionURL
 		}
-		connection.Path = fmt.Sprintf("/%s/openapi.json", server.ID)
+		connection.Path = "/openapi.json"
 		if connection.URL == "" {
 			connection.URL = "http://127.0.0.1:8092"
 		}

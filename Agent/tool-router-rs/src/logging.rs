@@ -23,6 +23,7 @@ pub fn append_tool_log(
         "time": now_ms(),
         "session_id": req.session_id,
         "mode": req.mode,
+        "user_email": user_email_for_log(req, arguments),
         "tool": req.tool,
         "arguments": arguments,
         "duration_ms": duration_ms,
@@ -34,6 +35,18 @@ pub fn append_tool_log(
     if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(log_path) {
         let _ = writeln!(file, "{}", entry);
     }
+}
+
+fn user_email_for_log(req: &ExecuteRequest, arguments: &Value) -> String {
+    if !req.user_email.trim().is_empty() {
+        return req.user_email.trim().to_string();
+    }
+    arguments
+        .get("user_email")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim()
+        .to_string()
 }
 
 pub fn now_ms() -> u128 {

@@ -117,6 +117,8 @@ pub struct ResolveRequest {
     pub session_id: String,
     pub mode: String,
     pub tool: String,
+    #[serde(default)]
+    pub user_email: String,
     pub arguments: Value,
 }
 
@@ -133,6 +135,8 @@ pub struct ExecuteRequest {
     pub session_id: String,
     pub mode: String,
     pub tool: String,
+    #[serde(default)]
+    pub user_email: String,
     pub arguments: Value,
 }
 

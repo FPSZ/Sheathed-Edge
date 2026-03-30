@@ -70,6 +70,41 @@ type ModesResponse struct {
 	Plugins []ModeDefinition `json:"plugins"`
 }
 
+type UserSummary struct {
+	UserEmail   string `json:"user_email"`
+	Label       string `json:"label"`
+	LastSeenAt  string `json:"last_seen_at,omitempty"`
+	HasSettings bool   `json:"has_settings"`
+	HasLegacy   bool   `json:"has_legacy"`
+}
+
+type UsersResponse struct {
+	Users      []UserSummary `json:"users"`
+	ConfigPath string        `json:"config_path"`
+}
+
+type UserWorkspace struct {
+	UserEmail                string              `json:"user_email"`
+	Label                    string              `json:"label"`
+	TerminalAllowedPaths     []string            `json:"terminal_allowed_paths"`
+	DefaultLocalWorkdir      string              `json:"default_local_workdir,omitempty"`
+	DefaultSSHHostID         string              `json:"default_ssh_host_id,omitempty"`
+	EnabledMCPServerIDs      []string            `json:"enabled_mcp_server_ids,omitempty"`
+	DisabledMCPToolsByServer map[string][]string `json:"disabled_mcp_tools_by_server,omitempty"`
+}
+
+type UserWorkspaceResponse struct {
+	Workspace          UserWorkspace `json:"workspace"`
+	ConfigPath         string        `json:"config_path"`
+	GlobalAllowedPaths []string      `json:"global_allowed_paths"`
+	RestartRequired    bool          `json:"restart_required"`
+	LegacyBindingsPath string        `json:"legacy_bindings_path,omitempty"`
+}
+
+type UpdateUserWorkspaceRequest struct {
+	Workspace UserWorkspace `json:"workspace"`
+}
+
 type SwitchModelRequest struct {
 	ProfileID string `json:"profile_id"`
 }

@@ -361,13 +361,14 @@ pub async fn openapi_terminal(
     if let Some(timeout_ms) = req.timeout_ms {
         arguments.insert("timeout_ms".into(), json!(timeout_ms));
     }
-    if let Some(user_email) = req.user_email {
+    if let Some(ref user_email) = req.user_email {
         arguments.insert("user_email".into(), json!(user_email));
     }
     let execute_req = ExecuteRequest {
         session_id: format!("openapi-terminal-{}", now_ms()),
         mode: "awdp".into(),
         tool: "terminal".into(),
+        user_email: req.user_email.clone().unwrap_or_default(),
         arguments: json!(arguments),
     };
 

@@ -38,8 +38,8 @@ function newMCPServerDraft(): MCPServerProfile {
 export function MCPPage() {
   const [data, setData] = useState<MCPServersResponse | null>(null);
   const [preview, setPreview] = useState<MCPOpenWebUIPreviewResponse | null>(null);
-  const [selectedId, setSelectedId] = useState("");
   const [servers, setServers] = useState<MCPServerProfile[]>([]);
+  const [editingId, setEditingId] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [actionState, setActionState] = useState<ActionState>("idle");
@@ -54,11 +54,11 @@ export function MCPPage() {
       setData(serversResp);
       setPreview(previewResp);
       setServers(serversResp.servers.map((item) => ({ ...item.profile })));
-      setSelectedId((current) => {
+      setEditingId((current) => {
         if (current && serversResp.servers.some((item) => item.profile.id === current)) {
           return current;
         }
-        return serversResp.servers[0]?.profile.id ?? "";
+        return "";
       });
       setError("");
     } catch (err) {
@@ -70,38 +70,45 @@ export function MCPPage() {
     load();
   }, []);
 
-  const selectedServer = useMemo(
-    () => servers.find((item) => item.id === selectedId) ?? null,
-    [selectedId, servers],
+  const editingServer = useMemo(
+    () => servers.find((item) => item.id === editingId) ?? null,
+    [editingId, servers],
   );
 
-  const selectedState = useMemo(
-    () => data?.servers.find((item) => item.profile.id === selectedId) ?? null,
-    [data, selectedId],
+  const editingState = useMemo(
+    () => data?.servers.find((item) => item.profile.id === editingId) ?? null,
+    [data, editingId],
   );
 
-  function updateSelectedServer(patch: Partial<MCPServerProfile>) {
+  function updateServer(serverId: string, patch: Partial<MCPServerProfile>) {
     setServers((current) =>
-      current.map((item) => (item.id === selectedId ? { ...item, ...patch } : item)),
+      current.map((item) => (item.id === serverId ? { ...item, ...patch } : item)),
     );
+  }
+
+  function updateEditingServer(patch: Partial<MCPServerProfile>) {
+    if (!editingId) {
+      return;
+    }
+    updateServer(editingId, patch);
   }
 
   function addServer() {
     const draft = newMCPServerDraft();
     setServers((current) => [...current, draft]);
-    setSelectedId(draft.id);
+    setEditingId(draft.id);
     setValidateResult(null);
     setNotice("");
   }
 
-  function removeSelectedServer() {
-    if (!selectedId) {
+  function removeEditingServer() {
+    if (!editingId) {
       return;
     }
-    const next = servers.filter((item) => item.id !== selectedId);
-    setServers(next);
-    setSelectedId(next[0]?.id ?? "");
+    setServers((current) => current.filter((item) => item.id !== editingId));
+    setEditingId("");
     setValidateResult(null);
+    setNotice("");
   }
 
   async function saveServers() {
@@ -111,7 +118,9 @@ export function MCPPage() {
     try {
       await apiPost<MCPServersResponse>("/internal/admin/mcp/servers", { servers });
       await load();
-      setNotice("MCP server profiles saved. Restart Open WebUI after changes if you want connection sync to refresh.");
+      setNotice(
+        "MCP server profiles saved. Restart Open WebUI after changes if you want connection sync to refresh.",
+      );
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -119,8 +128,8 @@ export function MCPPage() {
     }
   }
 
-  async function validateSelectedServer() {
-    if (!selectedServer) {
+  async function validateEditingServer() {
+    if (!editingServer) {
       return;
     }
     setActionState("pending");
@@ -128,7 +137,7 @@ export function MCPPage() {
     setNotice("");
     try {
       const response = await apiPost<MCPValidateResponse>("/internal/admin/mcp/servers/validate", {
-        server: selectedServer,
+        server: editingServer,
       });
       setValidateResult(response);
       setNotice(response.summary);
@@ -139,8 +148,8 @@ export function MCPPage() {
     }
   }
 
-  async function discoverSelectedServerTools() {
-    if (!selectedServer) {
+  async function discoverEditingServerTools() {
+    if (!editingServer) {
       return;
     }
     setActionState("pending");
@@ -149,7 +158,7 @@ export function MCPPage() {
     try {
       const response = await apiPost<MCPDiscoverToolsResponse>(
         "/internal/admin/mcp/servers/discover-tools",
-        { server_id: selectedServer.id },
+        { server_id: editingServer.id },
       );
       setNotice(response.summary);
       await load();
@@ -161,40 +170,28 @@ export function MCPPage() {
   }
 
   function updateListField(kind: "plugin_scope" | "command", value: string) {
-    const items = value
-      .split(/\r?\n/)
-      .map((item) => item.trim())
-      .filter(Boolean);
-    updateSelectedServer({ [kind]: items } as Partial<MCPServerProfile>);
+    updateEditingServer({ [kind]: parseLines(value) } as Partial<MCPServerProfile>);
   }
 
   function updateMapField(kind: "env" | "headers" | "auth_payload", value: string) {
-    const entries = value
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) => {
-        const pivot = line.indexOf("=");
-        if (pivot === -1) {
-          return null;
-        }
-        return [line.slice(0, pivot).trim(), line.slice(pivot + 1).trim()] as const;
-      })
-      .filter((item): item is readonly [string, string] => Boolean(item && item[0] && item[1]));
-    updateSelectedServer({ [kind]: Object.fromEntries(entries) } as Partial<MCPServerProfile>);
+    updateEditingServer({ [kind]: parseKeyValueMap(value) } as Partial<MCPServerProfile>);
   }
 
   function toggleDiscoveredTool(tool: MCPDiscoveredTool) {
-    if (!selectedServer) {
+    if (!editingServer) {
       return;
     }
-    const disabled = new Set(selectedServer.disabled_tools);
+    const disabled = new Set(editingServer.disabled_tools);
     if (disabled.has(tool.name)) {
       disabled.delete(tool.name);
     } else {
       disabled.add(tool.name);
     }
-    updateSelectedServer({ disabled_tools: Array.from(disabled).sort() });
+    updateEditingServer({ disabled_tools: Array.from(disabled).sort() });
+  }
+
+  function toggleServerEnabled(serverId: string, enabled: boolean) {
+    updateServer(serverId, { enabled });
   }
 
   async function copyPreview() {
@@ -239,244 +236,269 @@ export function MCPPage() {
         </div>
       ) : null}
 
-      <section className="grid gap-4 xl:grid-cols-[19rem,minmax(0,1fr)]">
-        <div className="admin-surface rounded-3xl p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="text-sm font-semibold text-slate-900">Server List</div>
-              <div className="mt-1 text-xs text-slate-500">
-                {servers.length} configured MCP endpoints
-              </div>
+      <section className="admin-surface rounded-3xl px-5 py-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold text-slate-900">Server List</div>
+            <div className="mt-1 text-xs text-slate-500">
+              {servers.length} configured MCP endpoints
             </div>
-            <button
-              className="admin-button danger"
-              type="button"
-              disabled={!selectedServer}
-              onClick={removeSelectedServer}
-            >
-              Remove
-            </button>
           </div>
-
-          <div className="mt-4 space-y-2">
-            {servers.map((server) => {
-              const state = data?.servers.find((item) => item.profile.id === server.id);
-              const selected = selectedId === server.id;
-              return (
-                <button
-                  key={server.id}
-                  type="button"
-                  className={`admin-log-item w-full text-left ${selected ? "active" : ""}`}
-                  onClick={() => {
-                    setSelectedId(server.id);
-                    setValidateResult(null);
-                  }}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-sm font-medium text-slate-900">{server.label}</div>
-                      <div className="mt-1 text-xs text-slate-500">{server.kind}</div>
-                    </div>
-                    <span className={`admin-badge ${server.enabled ? "success" : "muted"}`}>
-                      {state?.runtime_status.status ?? (server.enabled ? "enabled" : "disabled")}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+          <button
+            className="admin-button danger"
+            type="button"
+            disabled={!editingServer}
+            onClick={removeEditingServer}
+          >
+            Remove
+          </button>
         </div>
 
-        <div className="space-y-4">
+        <div className="mt-5">
+          {servers.map((server, index) => {
+            const state = data?.servers.find((item) => item.profile.id === server.id);
+            const editing = editingId === server.id;
+            const status = state?.runtime_status.status ?? (server.enabled ? "enabled" : "disabled");
+
+            return (
+              <div
+                key={server.id}
+                className={`admin-mcp-row ${editing ? "is-editing" : ""} ${index > 0 ? "with-divider" : ""}`}
+              >
+                <div className="admin-mcp-row-main">
+                  <div className="admin-mcp-row-title">
+                    <div className="text-sm font-medium text-slate-950">{server.label}</div>
+                    <div className="mt-1 text-xs text-slate-500">
+                      {server.kind} · {status}
+                    </div>
+                  </div>
+                  <div className="admin-mcp-row-meta">
+                    <span>{server.plugin_scope.join(", ") || "no scope"}</span>
+                    <span>{state?.discovered_tools.length ?? 0} tools</span>
+                  </div>
+                </div>
+
+                <div className="admin-mcp-row-actions">
+                  <button
+                    className={`admin-button ${editing ? "" : "ghost"}`}
+                    type="button"
+                    onClick={() => {
+                      setEditingId((current) => (current === server.id ? "" : server.id));
+                      setValidateResult(null);
+                    }}
+                  >
+                    {editing ? "Close" : "Edit"}
+                  </button>
+                  <label className="admin-switch" aria-label={`Toggle ${server.label}`}>
+                    <input
+                      checked={server.enabled}
+                      type="checkbox"
+                      onChange={(event) => toggleServerEnabled(server.id, event.target.checked)}
+                    />
+                    <span className="admin-switch-track" />
+                  </label>
+                </div>
+              </div>
+            );
+          })}
+
+          {servers.length === 0 ? (
+            <div className="py-6 text-sm text-slate-500">No MCP servers yet. Create one to get started.</div>
+          ) : null}
+        </div>
+      </section>
+
+      {editingServer ? (
+        <section className="space-y-4">
           <section className="admin-surface rounded-3xl p-5">
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <div className="text-sm font-semibold text-slate-900">Server Editor</div>
+                <div className="text-sm font-semibold text-slate-900">Edit Server</div>
                 <div className="mt-1 text-xs text-slate-500">
-                  Edit transport, auth, scope and timeout. Save writes to the MCP registry file.
+                  The editor only appears after clicking a row. Save still happens at the page
+                  level.
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   className="admin-button"
                   type="button"
-                  disabled={!selectedServer || actionState === "pending"}
-                  onClick={validateSelectedServer}
+                  disabled={actionState === "pending"}
+                  onClick={validateEditingServer}
                 >
                   Validate
                 </button>
                 <button
                   className="admin-button"
                   type="button"
-                  disabled={!selectedServer || actionState === "pending"}
-                  onClick={discoverSelectedServerTools}
+                  disabled={actionState === "pending"}
+                  onClick={discoverEditingServerTools}
                 >
                   Discover Tools
                 </button>
               </div>
             </div>
 
-            {selectedServer ? (
-              <div className="mt-5 grid gap-4 md:grid-cols-2">
-                <Field label="ID">
-                  <input
-                    className="admin-input"
-                    value={selectedServer.id}
-                    onChange={(event) => updateSelectedServer({ id: event.target.value })}
-                  />
-                </Field>
-                <Field label="Label">
-                  <input
-                    className="admin-input"
-                    value={selectedServer.label}
-                    onChange={(event) => updateSelectedServer({ label: event.target.value })}
-                  />
-                </Field>
-                <Field label="Kind">
-                  <select
-                    className="admin-input"
-                    value={selectedServer.kind}
-                    onChange={(event) =>
-                      updateSelectedServer({
-                        kind: event.target.value as MCPServerProfile["kind"],
-                      })
-                    }
-                  >
-                    <option value="native_streamable_http">native_streamable_http</option>
-                    <option value="mcpo_stdio">mcpo_stdio</option>
-                    <option value="mcpo_sse">mcpo_sse</option>
-                  </select>
-                </Field>
-                <Field label="Enabled">
-                  <label className="flex h-11 items-center gap-3 text-sm text-slate-700">
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <Field label="ID">
+                <input
+                  className="admin-input"
+                  value={editingServer.id}
+                  onChange={(event) => updateEditingServer({ id: event.target.value })}
+                />
+              </Field>
+              <Field label="Label">
+                <input
+                  className="admin-input"
+                  value={editingServer.label}
+                  onChange={(event) => updateEditingServer({ label: event.target.value })}
+                />
+              </Field>
+              <Field label="Kind">
+                <select
+                  className="admin-input"
+                  value={editingServer.kind}
+                  onChange={(event) =>
+                    updateEditingServer({
+                      kind: event.target.value as MCPServerProfile["kind"],
+                    })
+                  }
+                >
+                  <option value="native_streamable_http">native_streamable_http</option>
+                  <option value="mcpo_stdio">mcpo_stdio</option>
+                  <option value="mcpo_sse">mcpo_sse</option>
+                </select>
+              </Field>
+              <Field label="Enabled">
+                <div className="admin-mcp-toggle-field">
+                  <span>Sync this server to Open WebUI</span>
+                  <label className="admin-switch" aria-label="Toggle server enabled">
                     <input
-                      checked={selectedServer.enabled}
+                      checked={editingServer.enabled}
                       type="checkbox"
-                      onChange={(event) => updateSelectedServer({ enabled: event.target.checked })}
+                      onChange={(event) => updateEditingServer({ enabled: event.target.checked })}
                     />
-                    Sync this server to Open WebUI
+                    <span className="admin-switch-track" />
                   </label>
-                </Field>
-                <Field label="Plugin Scope">
-                  <textarea
-                    className="admin-input min-h-24"
-                    value={selectedServer.plugin_scope.join("\n")}
-                    onChange={(event) => updateListField("plugin_scope", event.target.value)}
-                  />
-                </Field>
-                <Field label="Disabled Tools">
-                  <textarea
-                    className="admin-input min-h-24"
-                    value={selectedServer.disabled_tools.join("\n")}
-                    onChange={(event) =>
-                      updateSelectedServer({
-                        disabled_tools: event.target.value
-                          .split(/\r?\n/)
-                          .map((item) => item.trim())
-                          .filter(Boolean),
-                      })
-                    }
-                  />
-                </Field>
-                <Field label="URL">
-                  <input
-                    className="admin-input"
-                    value={selectedServer.url ?? ""}
-                    onChange={(event) => updateSelectedServer({ url: event.target.value })}
-                  />
-                </Field>
-                <Field label="Workdir">
-                  <input
-                    className="admin-input"
-                    value={selectedServer.workdir ?? ""}
-                    onChange={(event) => updateSelectedServer({ workdir: event.target.value })}
-                  />
-                </Field>
-                <Field label="Command">
-                  <textarea
-                    className="admin-input min-h-24"
-                    value={(selectedServer.command ?? []).join("\n")}
-                    onChange={(event) => updateListField("command", event.target.value)}
-                  />
-                </Field>
-                <Field label="Timeout (ms)">
-                  <input
-                    className="admin-input"
-                    type="number"
-                    value={selectedServer.timeout_ms}
-                    onChange={(event) =>
-                      updateSelectedServer({ timeout_ms: Number(event.target.value) || 30000 })
-                    }
-                  />
-                </Field>
-                <Field label="Auth Type">
-                  <select
-                    className="admin-input"
-                    value={selectedServer.auth_type}
-                    onChange={(event) =>
-                      updateSelectedServer({
-                        auth_type: event.target.value as MCPServerProfile["auth_type"],
-                      })
-                    }
-                  >
-                    <option value="none">none</option>
-                    <option value="bearer">bearer</option>
-                    <option value="basic">basic</option>
-                    <option value="header">header</option>
-                  </select>
-                </Field>
-                <Field label="Verify TLS">
-                  <label className="flex h-11 items-center gap-3 text-sm text-slate-700">
+                </div>
+              </Field>
+              <Field label="Plugin Scope">
+                <textarea
+                  className="admin-input min-h-24"
+                  value={editingServer.plugin_scope.join("\n")}
+                  onChange={(event) => updateListField("plugin_scope", event.target.value)}
+                />
+              </Field>
+              <Field label="Disabled Tools">
+                <textarea
+                  className="admin-input min-h-24"
+                  value={editingServer.disabled_tools.join("\n")}
+                  onChange={(event) =>
+                    updateEditingServer({
+                      disabled_tools: parseLines(event.target.value),
+                    })
+                  }
+                />
+              </Field>
+              <Field label="URL">
+                <input
+                  className="admin-input"
+                  value={editingServer.url ?? ""}
+                  onChange={(event) => updateEditingServer({ url: event.target.value })}
+                />
+              </Field>
+              <Field label="Workdir">
+                <input
+                  className="admin-input"
+                  value={editingServer.workdir ?? ""}
+                  onChange={(event) => updateEditingServer({ workdir: event.target.value })}
+                />
+              </Field>
+              <Field label="Command">
+                <textarea
+                  className="admin-input min-h-24"
+                  value={(editingServer.command ?? []).join("\n")}
+                  onChange={(event) => updateListField("command", event.target.value)}
+                />
+              </Field>
+              <Field label="Timeout (ms)">
+                <input
+                  className="admin-input"
+                  type="number"
+                  value={editingServer.timeout_ms}
+                  onChange={(event) =>
+                    updateEditingServer({ timeout_ms: Number(event.target.value) || 30000 })
+                  }
+                />
+              </Field>
+              <Field label="Auth Type">
+                <select
+                  className="admin-input"
+                  value={editingServer.auth_type}
+                  onChange={(event) =>
+                    updateEditingServer({
+                      auth_type: event.target.value as MCPServerProfile["auth_type"],
+                    })
+                  }
+                >
+                  <option value="none">none</option>
+                  <option value="bearer">bearer</option>
+                  <option value="basic">basic</option>
+                  <option value="header">header</option>
+                </select>
+              </Field>
+              <Field label="Verify TLS">
+                <div className="admin-mcp-toggle-field">
+                  <span>Reject invalid certificates</span>
+                  <label className="admin-switch" aria-label="Toggle TLS verification">
                     <input
-                      checked={selectedServer.verify_tls}
+                      checked={editingServer.verify_tls}
                       type="checkbox"
-                      onChange={(event) => updateSelectedServer({ verify_tls: event.target.checked })}
+                      onChange={(event) => updateEditingServer({ verify_tls: event.target.checked })}
                     />
-                    Reject invalid certificates
+                    <span className="admin-switch-track" />
                   </label>
-                </Field>
-                <Field label="Auth Payload">
-                  <textarea
-                    className="admin-input min-h-24"
-                    value={formatMap(selectedServer.auth_payload)}
-                    onChange={(event) => updateMapField("auth_payload", event.target.value)}
-                  />
-                </Field>
-                <Field label="Headers">
-                  <textarea
-                    className="admin-input min-h-24"
-                    value={formatMap(selectedServer.headers)}
-                    onChange={(event) => updateMapField("headers", event.target.value)}
-                  />
-                </Field>
-                <Field label="Env">
-                  <textarea
-                    className="admin-input min-h-24"
-                    value={formatMap(selectedServer.env)}
-                    onChange={(event) => updateMapField("env", event.target.value)}
-                  />
-                </Field>
-                <Field label="Description">
-                  <textarea
-                    className="admin-input min-h-24"
-                    value={selectedServer.description ?? ""}
-                    onChange={(event) => updateSelectedServer({ description: event.target.value })}
-                  />
-                </Field>
-                <Field label="Notes">
-                  <textarea
-                    className="admin-input min-h-24"
-                    value={selectedServer.notes ?? ""}
-                    onChange={(event) => updateSelectedServer({ notes: event.target.value })}
-                  />
-                </Field>
-              </div>
-            ) : (
-              <div className="mt-5 text-sm text-slate-500">Select or create an MCP server to edit it.</div>
-            )}
+                </div>
+              </Field>
+              <Field label="Auth Payload">
+                <textarea
+                  className="admin-input min-h-24"
+                  value={formatMap(editingServer.auth_payload)}
+                  onChange={(event) => updateMapField("auth_payload", event.target.value)}
+                />
+              </Field>
+              <Field label="Headers">
+                <textarea
+                  className="admin-input min-h-24"
+                  value={formatMap(editingServer.headers)}
+                  onChange={(event) => updateMapField("headers", event.target.value)}
+                />
+              </Field>
+              <Field label="Env">
+                <textarea
+                  className="admin-input min-h-24"
+                  value={formatMap(editingServer.env)}
+                  onChange={(event) => updateMapField("env", event.target.value)}
+                />
+              </Field>
+              <Field label="Description">
+                <textarea
+                  className="admin-input min-h-24"
+                  value={editingServer.description ?? ""}
+                  onChange={(event) => updateEditingServer({ description: event.target.value })}
+                />
+              </Field>
+              <Field label="Notes">
+                <textarea
+                  className="admin-input min-h-24"
+                  value={editingServer.notes ?? ""}
+                  onChange={(event) => updateEditingServer({ notes: event.target.value })}
+                />
+              </Field>
+            </div>
 
             {validateResult ? (
-              <div className="mt-5 rounded-3xl bg-slate-50 px-4 py-3 text-sm text-slate-700">
+              <div className="admin-mcp-note mt-5">
                 <div className="font-medium text-slate-900">{validateResult.summary}</div>
                 <div className="mt-1 text-xs text-slate-500">
                   {validateResult.effective_openwebui_type || "unknown"} ·{" "}
@@ -489,57 +511,53 @@ export function MCPPage() {
           <section className="admin-surface rounded-3xl p-5">
             <div className="text-sm font-semibold text-slate-900">Tool Toggles</div>
             <div className="mt-1 text-xs text-slate-500">
-              Discover tools once, then use these toggles to write the server-level disabled list.
+              Discover first, then decide which tools should stay visible to the model.
             </div>
 
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              {(selectedState?.discovered_tools ?? []).map((tool) => {
-                const checked = !selectedServer?.disabled_tools.includes(tool.name);
+            <div className="mt-4 space-y-2">
+              {(editingState?.discovered_tools ?? []).map((tool) => {
+                const checked = !editingServer.disabled_tools.includes(tool.name);
                 return (
-                  <label
-                    key={tool.name}
-                    className="admin-surface-muted flex items-start gap-3 rounded-3xl px-4 py-3 text-sm text-slate-700"
-                  >
-                    <input
-                      checked={checked}
-                      type="checkbox"
-                      onChange={() => toggleDiscoveredTool(tool)}
-                    />
-                    <div>
-                      <div className="font-medium text-slate-900">{tool.name}</div>
+                  <div key={tool.name} className="admin-mcp-tool-row">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-slate-900">{tool.name}</div>
                       <div className="mt-1 text-xs leading-5 text-slate-500">
                         {tool.description || "No description from discovery."}
                       </div>
                     </div>
-                  </label>
+                    <label className="admin-switch" aria-label={`Toggle ${tool.name}`}>
+                      <input checked={checked} type="checkbox" onChange={() => toggleDiscoveredTool(tool)} />
+                      <span className="admin-switch-track" />
+                    </label>
+                  </div>
                 );
               })}
             </div>
 
-            {(selectedState?.discovered_tools ?? []).length === 0 ? (
+            {(editingState?.discovered_tools ?? []).length === 0 ? (
               <div className="mt-4 text-sm text-slate-500">
-                No discovered tools yet. Run “Discover Tools” first.
+                No discovered tools yet. Run "Discover Tools" first.
               </div>
             ) : null}
           </section>
+        </section>
+      ) : null}
 
-          <section className="admin-surface rounded-3xl p-5">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="text-sm font-semibold text-slate-900">Open WebUI Preview</div>
-                <div className="mt-1 text-xs text-slate-500">
-                  This is the generated connection payload that Open WebUI will consume after restart.
-                </div>
-              </div>
-              <button className="admin-button" type="button" onClick={copyPreview}>
-                Copy JSON
-              </button>
+      <section className="admin-surface rounded-3xl p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold text-slate-900">Open WebUI Preview</div>
+            <div className="mt-1 text-xs text-slate-500">
+              This is the generated connection payload that Open WebUI will consume after restart.
             </div>
-            <pre className="mt-4 overflow-x-auto rounded-3xl bg-slate-50 p-4 text-xs leading-6 text-slate-700">
-              {preview?.tool_server_connections_json ?? "[]"}
-            </pre>
-          </section>
+          </div>
+          <button className="admin-button" type="button" onClick={copyPreview}>
+            Copy JSON
+          </button>
         </div>
+        <pre className="admin-mcp-preview mt-4">
+          {preview?.tool_server_connections_json ?? "[]"}
+        </pre>
       </section>
     </div>
   );
@@ -554,10 +572,35 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+function parseLines(value: string) {
+  return value
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function parseKeyValueMap(value: string) {
+  const entries = value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const pivot = line.indexOf("=");
+      if (pivot === -1) {
+        return null;
+      }
+      return [line.slice(0, pivot).trim(), line.slice(pivot + 1).trim()] as const;
+    })
+    .filter((item): item is readonly [string, string] => Boolean(item && item[0] && item[1]));
+
+  return Object.fromEntries(entries);
+}
+
 function formatMap(values: Record<string, string> | undefined) {
   if (!values) {
     return "";
   }
+
   return Object.entries(values)
     .map(([key, value]) => `${key}=${value}`)
     .join("\n");

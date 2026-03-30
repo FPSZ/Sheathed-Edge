@@ -16,14 +16,16 @@ type StageTrace struct {
 	logger    *StageLogger
 	requestID string
 
-	mu      sync.RWMutex
-	mode    string
-	plugins []string
+	mu        sync.RWMutex
+	mode      string
+	plugins   []string
+	userEmail string
 }
 
 type StageEntry struct {
 	Time       string   `json:"time"`
 	RequestID  string   `json:"request_id"`
+	UserEmail  string   `json:"user_email,omitempty"`
 	Mode       string   `json:"mode,omitempty"`
 	Plugins    []string `json:"plugins,omitempty"`
 	Stage      string   `json:"stage"`
@@ -49,7 +51,7 @@ func (l *StageLogger) NewTrace(requestID string) *StageTrace {
 	}
 }
 
-func (t *StageTrace) SetContext(mode string, plugins []string) {
+func (t *StageTrace) SetContext(mode string, plugins []string, userEmail string) {
 	if t == nil {
 		return
 	}
@@ -57,6 +59,7 @@ func (t *StageTrace) SetContext(mode string, plugins []string) {
 	defer t.mu.Unlock()
 	t.mode = mode
 	t.plugins = append([]string{}, plugins...)
+	t.userEmail = userEmail
 }
 
 func (t *StageTrace) Begin(stage string) *StageSpan {
@@ -75,11 +78,13 @@ func (s *StageSpan) End(ok bool, reason string) {
 	s.trace.mu.RLock()
 	mode := s.trace.mode
 	plugins := append([]string{}, s.trace.plugins...)
+	userEmail := s.trace.userEmail
 	s.trace.mu.RUnlock()
 
 	entry := StageEntry{
 		Time:       time.Now().Format(time.RFC3339),
 		RequestID:  s.trace.requestID,
+		UserEmail:  userEmail,
 		Mode:       mode,
 		Plugins:    plugins,
 		Stage:      s.stage,

@@ -487,3 +487,181 @@ button {
   background: #ffffff;
   box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06), 0 18px 34px rgba(15, 23, 42, 0.08);
 }
+
+.admin-button.ghost {
+  background: transparent;
+  color: #475569;
+  box-shadow: none;
+}
+
+.admin-button.ghost:hover:not(:disabled) {
+  background: #f5f8fa;
+  color: #0f172a;
+  box-shadow: none;
+  transform: none;
+}
+
+.admin-mcp-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  padding: 1rem 0.15rem;
+}
+
+.admin-mcp-row.with-divider {
+  border-top: 1px solid rgba(214, 221, 226, 0.72);
+}
+
+.admin-mcp-row.is-editing {
+  border-radius: 1rem;
+  background: linear-gradient(180deg, rgba(247, 250, 252, 0.96), rgba(247, 250, 252, 0.72));
+  padding-inline: 0.9rem;
+}
+
+.admin-mcp-row-main {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.admin-mcp-row-title {
+  min-width: 0;
+}
+
+.admin-mcp-row-title > div:first-child {
+  overflow-wrap: anywhere;
+}
+
+.admin-mcp-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem 0.8rem;
+  color: #64748b;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.admin-mcp-row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: none;
+}
+
+.admin-switch {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  cursor: pointer;
+}
+
+.admin-switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.admin-switch-track {
+  position: relative;
+  display: inline-flex;
+  width: 2.8rem;
+  height: 1.58rem;
+  border-radius: 999px;
+  background: #d9e2e8;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.admin-switch-track::after {
+  content: "";
+  position: absolute;
+  top: 0.16rem;
+  left: 0.16rem;
+  width: 1.26rem;
+  height: 1.26rem;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.12);
+  transition: transform 160ms ease;
+}
+
+.admin-switch input:checked + .admin-switch-track {
+  background: #9dd3b4;
+}
+
+.admin-switch input:checked + .admin-switch-track::after {
+  transform: translateX(1.22rem);
+}
+
+.admin-switch input:focus-visible + .admin-switch-track {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.6),
+    0 0 0 3px rgba(82, 109, 130, 0.14);
+}
+
+.admin-mcp-toggle-field {
+  display: flex;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-radius: 1rem;
+  background: var(--surface-2);
+  padding: 0.75rem 0.95rem;
+  color: #334155;
+  font-size: 0.875rem;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+}
+
+.admin-mcp-tool-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-radius: 1rem;
+  background: #f8fbfd;
+  padding: 0.95rem 1rem;
+}
+
+.admin-mcp-note {
+  border-radius: 1rem;
+  background: #f8fbfd;
+  padding: 0.9rem 1rem;
+}
+
+.admin-mcp-preview {
+  overflow-x: auto;
+  border-radius: 1.2rem;
+  background: #f8fbfd;
+  padding: 1rem;
+  color: #475569;
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+
+@media (max-width: 900px) {
+  .admin-mcp-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-mcp-row-main {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .admin-mcp-row-meta {
+    justify-content: flex-start;
+  }
+
+  .admin-mcp-row-actions {
+    justify-content: space-between;
+  }
+}

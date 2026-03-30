@@ -70,6 +70,37 @@ export type LogListResponse = {
   items: Record<string, unknown>[];
 };
 
+export type UserSummary = {
+  user_email: string;
+  label: string;
+  last_seen_at?: string;
+  has_settings: boolean;
+  has_legacy: boolean;
+};
+
+export type UsersResponse = {
+  users: UserSummary[];
+  config_path: string;
+};
+
+export type UserWorkspace = {
+  user_email: string;
+  label: string;
+  terminal_allowed_paths: string[];
+  default_local_workdir?: string;
+  default_ssh_host_id?: string;
+  enabled_mcp_server_ids?: string[];
+  disabled_mcp_tools_by_server?: Record<string, string[]>;
+};
+
+export type UserWorkspaceResponse = {
+  workspace: UserWorkspace;
+  config_path: string;
+  global_allowed_paths: string[];
+  restart_required: boolean;
+  legacy_bindings_path?: string;
+};
+
 export type ServicesResponse = {
   services: ServiceStatus[];
 };

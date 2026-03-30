@@ -18,6 +18,7 @@ type SessionLogger struct {
 type SessionEntry struct {
 	RequestID        string               `json:"request_id,omitempty"`
 	Time             string               `json:"time"`
+	UserEmail        string               `json:"user_email,omitempty"`
 	Mode             string               `json:"mode"`
 	Plugins          []string             `json:"plugins,omitempty"`
 	Status           string               `json:"status"`
@@ -51,6 +52,7 @@ func (l *SessionLogger) Append(entry SessionEntry) {
 func NewSessionEntry(requestID string, active *mode.Active, req types.ChatCompletionRequest, fragments []retrieval.Fragment, answerPreview, status, failure string) SessionEntry {
 	entry := SessionEntry{
 		RequestID:        requestID,
+		UserEmail:        req.UserEmail,
 		Status:           status,
 		Failure:          failure,
 		RetrievalSources: fragments,

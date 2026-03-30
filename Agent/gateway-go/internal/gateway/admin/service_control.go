@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"unicode"
 )
 
 const (
@@ -19,10 +20,15 @@ const (
 
 func defaultControl(name string) ControlState {
 	switch name {
-	case serviceLlama, serviceToolRouter, serviceOpenWebUI, serviceHostAgent:
+	case serviceLlama, serviceToolRouter, serviceOpenWebUI:
 		return ControlState{
 			CanStart: true,
 			CanStop:  true,
+		}
+	case serviceHostAgent:
+		return ControlState{
+			CanStart:          true,
+			UnsupportedReason: "host-agent stop is disabled to avoid stale port locks on Windows",
 		}
 	case serviceGateway:
 		return ControlState{
@@ -79,24 +85,54 @@ func (s *Service) startToolRouter(ctx context.Context) error {
 		return fmt.Errorf("tool-router project directory is not configured")
 	}
 
-	psCmd := fmt.Sprintf(
-		`Start-Process -FilePath 'cargo.exe' -ArgumentList 'run','--','--config','%s' -WorkingDirectory '%s' -WindowStyle Hidden`,
-		strings.ReplaceAll(configPath, `'`, `''`),
-		strings.ReplaceAll(projectDir, `'`, `''`),
+	exePath := firstExistingPath(
+		filepath.Join(projectDir, "target", "release", "tool-router-rs.exe"),
+		filepath.Join(projectDir, "target", "debug", "tool-router-rs.exe"),
 	)
-	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", psCmd)
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("start tool-router: %w: %s", err, strings.TrimSpace(string(output)))
+	logDir := filepath.Join(filepath.Dir(filepath.Dir(projectDir)), "Logs", "startup")
+	if err := os.MkdirAll(logDir, 0o755); err != nil {
+		return fmt.Errorf("create startup log dir: %w", err)
 	}
+	stdoutPath := filepath.Join(logDir, "tool-router.out.log")
+	stderrPath := filepath.Join(logDir, "tool-router.err.log")
+
+	var command string
+	if exePath != "" {
+		command = fmt.Sprintf(
+			"cd %s && nohup %s --config %s > %s 2> %s < /dev/null &",
+			shellQuote(projectDir),
+			shellQuote(exePath),
+			shellQuote(normalizeWindowsPath(configPath)),
+			shellQuote(stdoutPath),
+			shellQuote(stderrPath),
+		)
+	} else {
+		command = fmt.Sprintf(
+			"cd %s && nohup cargo run -- --config %s > %s 2> %s < /dev/null &",
+			shellQuote(projectDir),
+			shellQuote(configPath),
+			shellQuote(stdoutPath),
+			shellQuote(stderrPath),
+		)
+	}
+	cmd := exec.CommandContext(ctx, "/bin/bash", "-lc", command)
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("start tool-router: %w", err)
+	}
+	_ = cmd.Process.Release()
 	return nil
 }
 
 func (s *Service) stopToolRouter(ctx context.Context) error {
+	powershellPath, err := resolveWindowsCommand("powershell.exe", "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe")
+	if err != nil {
+		return err
+	}
 	psCmd := `[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; ` +
 		`$targets = Get-CimInstance Win32_Process | Where-Object { ` +
 		`$_.Name -match 'tool-router-rs(\.exe)?|cargo(\.exe)?' -and ($_.CommandLine -like '*tool-router-rs*' -or $_.CommandLine -like '*tool-router.config.json*') }; ` +
 		`foreach ($proc in $targets) { Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue }`
-	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", psCmd)
+	cmd := exec.CommandContext(ctx, powershellPath, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", psCmd)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("stop tool-router: %w: %s", err, strings.TrimSpace(string(output)))
 	}
@@ -141,19 +177,37 @@ func shellQuote(value string) string {
 	return "'" + strings.ReplaceAll(value, "'", `'"'"'`) + "'"
 }
 
+func firstExistingPath(paths ...string) string {
+	for _, candidate := range paths {
+		if strings.TrimSpace(candidate) == "" {
+			continue
+		}
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+	return ""
+}
+
 func (s *Service) startHostAgent(ctx context.Context) error {
+	powershellPath, err := resolveWindowsCommand("powershell.exe", "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe")
+	if err != nil {
+		return err
+	}
 	binary := s.cfg.Admin.HostAgentBinary
 	cfgPath := s.cfg.Admin.HostAgentConfig
 	if binary == "" {
 		return fmt.Errorf("host_agent_binary not configured")
 	}
+	binary = normalizeWindowsPath(binary)
+	cfgPath = normalizeWindowsPath(cfgPath)
 	// Use PowerShell via WSL interop to start the Windows process detached.
 	psCmd := fmt.Sprintf(
 		`Start-Process -FilePath '%s' -ArgumentList '--config','%s' -WindowStyle Hidden`,
 		strings.ReplaceAll(binary, `'`, `''`),
 		strings.ReplaceAll(cfgPath, `'`, `''`),
 	)
-	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", psCmd)
+	cmd := exec.CommandContext(ctx, powershellPath, "-NoProfile", "-NonInteractive", "-Command", psCmd)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("start host-agent: %w: %s", err, strings.TrimSpace(string(output)))
 	}
@@ -161,7 +215,11 @@ func (s *Service) startHostAgent(ctx context.Context) error {
 }
 
 func (s *Service) stopHostAgent(ctx context.Context) error {
-	cmd := exec.CommandContext(ctx, "taskkill.exe", "/IM", "host-control-rs.exe", "/F")
+	taskkillPath, err := resolveWindowsCommand("taskkill.exe", "/mnt/c/Windows/System32/taskkill.exe")
+	if err != nil {
+		return err
+	}
+	cmd := exec.CommandContext(ctx, taskkillPath, "/IM", "host-control-rs.exe", "/F")
 	output, err := cmd.CombinedOutput()
 	if err == nil {
 		return nil
@@ -170,4 +228,43 @@ func (s *Service) stopHostAgent(ctx context.Context) error {
 		return nil // process not found — already stopped
 	}
 	return fmt.Errorf("stop host-agent: %w: %s", err, strings.TrimSpace(string(output)))
+}
+
+func resolveWindowsCommand(command string, fallbacks ...string) (string, error) {
+	if trimmed := strings.TrimSpace(command); trimmed != "" {
+		if resolved, err := exec.LookPath(trimmed); err == nil {
+			return resolved, nil
+		}
+	}
+
+	for _, fallback := range fallbacks {
+		fallback = strings.TrimSpace(fallback)
+		if fallback == "" {
+			continue
+		}
+		if _, err := os.Stat(fallback); err == nil {
+			return fallback, nil
+		}
+	}
+
+	if strings.TrimSpace(command) == "" {
+		return "", fmt.Errorf("windows command is not configured")
+	}
+	return "", fmt.Errorf("unable to resolve windows command: %s", command)
+}
+
+func normalizeWindowsPath(path string) string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return ""
+	}
+
+	lower := strings.ToLower(path)
+	if strings.HasPrefix(lower, "/mnt/") && len(path) >= 7 && unicode.IsLetter(rune(path[5])) && path[6] == '/' {
+		drive := unicode.ToUpper(rune(path[5]))
+		rest := strings.ReplaceAll(path[7:], "/", `\`)
+		return fmt.Sprintf("%c:\\%s", drive, rest)
+	}
+
+	return path
 }

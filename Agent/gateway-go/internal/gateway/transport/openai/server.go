@@ -66,6 +66,8 @@ func NewServer(configPath string) (*Server, error) {
 	mux.HandleFunc("/internal/admin/models", s.handleAdminModels)
 	mux.HandleFunc("/internal/admin/models/update", s.handleAdminModelUpdate)
 	mux.HandleFunc("/internal/admin/modes", s.handleAdminModes)
+	mux.HandleFunc("/internal/admin/users", s.handleAdminUsers)
+	mux.HandleFunc("/internal/admin/users/workspace", s.handleAdminUserWorkspace)
 	mux.HandleFunc("/internal/admin/logs/sessions", s.handleAdminSessionLogs)
 	mux.HandleFunc("/internal/admin/logs/tools", s.handleAdminToolLogs)
 	mux.HandleFunc("/internal/admin/settings/terminal-paths", s.handleAdminTerminalPaths)
@@ -161,6 +163,11 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		writeErrorWithRequestID(w, http.StatusBadRequest, "invalid_request", err.Error(), requestID)
 		return
 	}
+	req.UserEmail = firstNonEmptyUserEmail(
+		req.UserEmail,
+		r.Header.Get("X-AWDP-User-Email"),
+		r.Header.Get("X-User-Email"),
+	)
 	trace.Begin("request_received").End(true, summarizeChatRequest(req))
 
 	selectedModel, err := s.admin.EnsureModelReady(r.Context(), req.Model)
@@ -388,4 +395,14 @@ func summarizeChatRequest(req types.ChatCompletionRequest) string {
 		parallel,
 		strings.Join(req.XPlugins, ","),
 	)
+}
+
+func firstNonEmptyUserEmail(values ...string) string {
+	for _, value := range values {
+		trimmed := strings.ToLower(strings.TrimSpace(value))
+		if trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
 }

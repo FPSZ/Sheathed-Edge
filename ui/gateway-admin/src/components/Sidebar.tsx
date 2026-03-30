@@ -2,12 +2,12 @@ import { Activity, Bot, LayoutDashboard, Logs, PlugZap, Settings } from "lucide-
 import { NavLink } from "react-router-dom";
 
 const items = [
-  { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/admin/models", label: "Models", icon: Bot },
-  { to: "/admin/modes", label: "Modes", icon: Activity },
+  { to: "/admin", label: "总览", icon: LayoutDashboard, end: true },
+  { to: "/admin/models", label: "模型", icon: Bot },
+  { to: "/admin/modes", label: "模式", icon: Activity },
   { to: "/admin/mcp", label: "MCP", icon: PlugZap },
-  { to: "/admin/logs", label: "Logs", icon: Logs },
-  { to: "/admin/settings", label: "Settings", icon: Settings },
+  { to: "/admin/logs", label: "日志", icon: Logs },
+  { to: "/admin/settings", label: "设置", icon: Settings },
 ];
 
 export function Sidebar() {
@@ -15,7 +15,7 @@ export function Sidebar() {
     <aside className="flex h-full w-64 flex-col bg-[var(--panel-muted)] px-4 py-5 shadow-[inset_-1px_0_0_rgba(255,255,255,0.55)]">
       <div className="mb-8 px-2">
         <div className="text-xs uppercase tracking-[0.24em] text-slate-400">Sheathed Edge</div>
-        <div className="mt-2 text-lg font-semibold text-slate-950">Gateway Admin</div>
+        <div className="mt-2 text-lg font-semibold text-slate-950">管理台</div>
       </div>
       <nav className="space-y-1">
         {items.map((item) => {

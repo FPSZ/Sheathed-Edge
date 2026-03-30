@@ -1,15 +1,23 @@
 import { useEffect, useState } from "react";
 
+import { useAdminScope } from "../app/AdminScopeContext";
 import { PageHeader } from "../components/PageHeader";
 import { StatusCard } from "../components/StatusCard";
 import { apiGet, apiPost } from "../lib/api";
 import { formatJson, formatTime } from "../lib/format";
-import type { HostIPsResponse, OverviewResponse, ServiceStatus } from "../lib/types";
+import type {
+  HostIPsResponse,
+  OverviewResponse,
+  ServiceStatus,
+  UserWorkspaceResponse,
+} from "../lib/types";
 
 type ActionMap = Record<string, "start" | "stop" | "">;
 
 export function DashboardPage() {
+  const { selectedUserEmail } = useAdminScope();
   const [data, setData] = useState<OverviewResponse | null>(null);
+  const [workspace, setWorkspace] = useState<UserWorkspaceResponse | null>(null);
   const [error, setError] = useState("");
   const [shareData, setShareData] = useState<HostIPsResponse | null>(null);
   const [shareLoading, setShareLoading] = useState(false);
@@ -30,6 +38,18 @@ export function DashboardPage() {
   useEffect(() => {
     loadOverview();
   }, []);
+
+  useEffect(() => {
+    if (!selectedUserEmail) {
+      setWorkspace(null);
+      return;
+    }
+    apiGet<UserWorkspaceResponse>(
+      `/internal/admin/users/workspace?user_email=${encodeURIComponent(selectedUserEmail)}`,
+    )
+      .then((response) => setWorkspace(response))
+      .catch(() => setWorkspace(null));
+  }, [selectedUserEmail]);
 
   async function fetchShareLinks() {
     setShareLoading(true);
@@ -84,7 +104,7 @@ export function DashboardPage() {
     <div className="space-y-6">
       <PageHeader
         title="总览"
-        description="系统可用性、当前模型状态、最近会话与失败摘要。"
+        description={`系统运行态与当前用户工作区摘要。当前视角：${selectedUserEmail || "全部用户 / All Users"}`}
       />
 
       {error ? (
@@ -107,7 +127,7 @@ export function DashboardPage() {
                 <>
                   <button
                     className="admin-button"
-                    disabled={!service.control.can_start || pending !== ""}
+                    disabled={!service.control.can_start || service.status === "ok" || pending !== ""}
                     onClick={() => runServiceAction(service, "start")}
                     title={service.control.unsupported_reason}
                   >
@@ -115,7 +135,7 @@ export function DashboardPage() {
                   </button>
                   <button
                     className="admin-button danger"
-                    disabled={!service.control.can_stop || pending !== ""}
+                    disabled={!service.control.can_stop || service.status !== "ok" || pending !== ""}
                     onClick={() => runServiceAction(service, "stop")}
                     title={service.control.unsupported_reason}
                   >
@@ -128,12 +148,26 @@ export function DashboardPage() {
         })}
       </section>
 
+      {selectedUserEmail && workspace ? (
+        <section className="admin-surface rounded-3xl p-5">
+          <div className="text-sm font-semibold text-slate-900">当前用户摘要</div>
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
+            <Metric title="用户" value={workspace.workspace.user_email} />
+            <Metric title="默认 SSH" value={workspace.workspace.default_ssh_host_id || "未设置"} />
+            <Metric
+              title="目录数量"
+              value={String(workspace.workspace.terminal_allowed_paths.length)}
+            />
+          </div>
+        </section>
+      ) : null}
+
       <section className="admin-surface rounded-3xl p-5">
         <div className="flex items-center justify-between gap-4">
           <div>
             <div className="text-sm font-semibold text-slate-900">队友访问链接</div>
             <div className="mt-1 text-xs text-slate-500">
-              读取当前机器的局域网 IP，生成 Open WebUI 访问链接。
+              读取当前机器的局域网 IP，生成 Open WebUI 访问地址。
             </div>
           </div>
           <button className="admin-button" disabled={shareLoading} onClick={fetchShareLinks}>
@@ -142,7 +176,7 @@ export function DashboardPage() {
         </div>
 
         {shareError ? (
-          <div className="admin-surface rounded-3xl bg-rose-50 p-3 text-sm text-rose-700">
+          <div className="mt-4 admin-surface rounded-3xl bg-rose-50 p-3 text-sm text-rose-700">
             {shareError}
           </div>
         ) : null}
@@ -187,6 +221,15 @@ export function DashboardPage() {
           </div>
         </div>
       </section>
+    </div>
+  );
+}
+
+function Metric({ title, value }: { title: string; value: string }) {
+  return (
+    <div className="admin-surface-muted rounded-3xl p-4">
+      <div className="text-xs uppercase tracking-[0.16em] text-slate-400">{title}</div>
+      <div className="mt-2 break-all text-sm text-slate-900">{value}</div>
     </div>
   );
 }
