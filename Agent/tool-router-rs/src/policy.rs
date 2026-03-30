@@ -5,6 +5,7 @@ use serde_json::{Map, Value};
 use crate::{
     config::normalize_runtime_path,
     models::{AppState, ToolDef},
+    ssh,
 };
 
 pub fn check_tool_access<'a>(
@@ -41,7 +42,7 @@ pub fn check_tool_access<'a>(
     }
 
     if tool == "terminal" {
-        validate_terminal_access(def, arguments)?;
+        validate_terminal_access(state, def, arguments)?;
     }
 
     Ok(def)
@@ -90,29 +91,81 @@ fn normalize_terminal_arguments(state: &AppState, tool: &str, arguments: &mut Ma
         return;
     };
 
-    let shell_is_missing = !arguments.contains_key("shell")
-        || arguments.get("shell").is_some_and(Value::is_null)
+    let transport_is_missing = !arguments.contains_key("transport")
+        || arguments.get("transport").is_some_and(Value::is_null)
         || arguments
-            .get("shell")
+            .get("transport")
             .and_then(Value::as_str)
             .is_some_and(|value| value.trim().is_empty());
-    if shell_is_missing {
-        arguments.insert("shell".into(), Value::String("powershell".into()));
+    if transport_is_missing {
+        arguments.insert("transport".into(), Value::String("local".into()));
     }
 
-    let workdir_is_missing = !arguments.contains_key("workdir")
-        || arguments.get("workdir").is_some_and(Value::is_null)
-        || arguments
-            .get("workdir")
-            .and_then(Value::as_str)
-            .is_some_and(|value| value.trim().is_empty());
-    if workdir_is_missing {
-        arguments.insert("workdir".into(), Value::String(def.entry.workdir.clone()));
-    } else if let Some(workdir) = arguments.get("workdir").and_then(Value::as_str) {
-        arguments.insert(
-            "workdir".into(),
-            Value::String(normalize_runtime_path(workdir)),
-        );
+    let transport = arguments
+        .get("transport")
+        .and_then(Value::as_str)
+        .unwrap_or("local");
+
+    if transport == "local" {
+        let shell_is_missing = !arguments.contains_key("shell")
+            || arguments.get("shell").is_some_and(Value::is_null)
+            || arguments
+                .get("shell")
+                .and_then(Value::as_str)
+                .is_some_and(|value| value.trim().is_empty());
+        if shell_is_missing {
+            arguments.insert("shell".into(), Value::String("powershell".into()));
+        }
+
+        let workdir_is_missing = !arguments.contains_key("workdir")
+            || arguments.get("workdir").is_some_and(Value::is_null)
+            || arguments
+                .get("workdir")
+                .and_then(Value::as_str)
+                .is_some_and(|value| value.trim().is_empty());
+        if workdir_is_missing {
+            arguments.insert("workdir".into(), Value::String(def.entry.workdir.clone()));
+        } else if let Some(workdir) = arguments.get("workdir").and_then(Value::as_str) {
+            arguments.insert(
+                "workdir".into(),
+                Value::String(normalize_runtime_path(workdir)),
+            );
+        }
+    } else if transport == "ssh" {
+        if let Some(host_id) = arguments.get("host_id").and_then(Value::as_str) {
+            arguments.insert("host_id".into(), Value::String(host_id.trim().to_string()));
+        }
+
+        let workdir_is_missing = !arguments.contains_key("workdir")
+            || arguments.get("workdir").is_some_and(Value::is_null)
+            || arguments
+                .get("workdir")
+                .and_then(Value::as_str)
+                .is_some_and(|value| value.trim().is_empty());
+        if workdir_is_missing {
+            if let Ok(settings) =
+                ssh::effective_ssh_settings(state, &def.entry, &Value::Object(arguments.clone()))
+            {
+                arguments.insert("workdir".into(), Value::String(settings.workdir));
+                arguments.insert("remote_shell".into(), Value::String(settings.remote_shell));
+            }
+        } else if let Some(workdir) = arguments.get("workdir").and_then(Value::as_str) {
+            arguments.insert("workdir".into(), Value::String(workdir.trim().to_string()));
+        }
+
+        let remote_shell_is_missing = !arguments.contains_key("remote_shell")
+            || arguments.get("remote_shell").is_some_and(Value::is_null)
+            || arguments
+                .get("remote_shell")
+                .and_then(Value::as_str)
+                .is_some_and(|value| value.trim().is_empty());
+        if remote_shell_is_missing {
+            if let Ok(settings) =
+                ssh::effective_ssh_settings(state, &def.entry, &Value::Object(arguments.clone()))
+            {
+                arguments.insert("remote_shell".into(), Value::String(settings.remote_shell));
+            }
+        }
     }
 
     let default_timeout = if state.config.timeouts.default_ms > 0 {
@@ -136,37 +189,72 @@ fn normalize_terminal_arguments(state: &AppState, tool: &str, arguments: &mut Ma
     );
 }
 
-fn validate_terminal_access(def: &ToolDef, arguments: &Value) -> std::result::Result<(), (String, String)> {
-    let shell = arguments
-        .get("shell")
+fn validate_terminal_access(
+    state: &AppState,
+    def: &ToolDef,
+    arguments: &Value,
+) -> std::result::Result<(), (String, String)> {
+    let transport = arguments
+        .get("transport")
         .and_then(Value::as_str)
-        .unwrap_or("powershell");
-    if shell != "powershell" && shell != "wsl-bash" {
-        return Err((
+        .unwrap_or("local");
+
+    match transport {
+        "local" => {
+            let shell = arguments
+                .get("shell")
+                .and_then(Value::as_str)
+                .unwrap_or("powershell");
+            if shell != "powershell" && shell != "wsl-bash" {
+                return Err((
+                    "invalid_arguments".into(),
+                    format!("unsupported shell: {shell}"),
+                ));
+            }
+
+            let workdir = arguments
+                .get("workdir")
+                .and_then(Value::as_str)
+                .unwrap_or(&def.entry.workdir);
+            let candidate = runtime_path_to_windows(workdir);
+            if !def
+                .entry
+                .allowed_paths
+                .iter()
+                .map(|allowed| runtime_path_to_windows(allowed))
+                .any(|allowed| is_within_allowed_path_windows(&candidate, &allowed))
+            {
+                return Err((
+                    "path_denied".into(),
+                    format!("terminal workdir is outside allowed paths: {workdir}"),
+                ));
+            }
+            Ok(())
+        }
+        "ssh" => {
+            let settings = ssh::effective_ssh_settings(state, &def.entry, arguments)?;
+            if !settings.host.allowed_paths.iter().any(|allowed| {
+                ssh::is_within_remote_allowed_path(
+                    &settings.workdir,
+                    allowed,
+                    &settings.remote_shell,
+                )
+            }) {
+                return Err((
+                    "path_denied".into(),
+                    format!(
+                        "ssh terminal workdir is outside allowed paths: {}",
+                        settings.workdir
+                    ),
+                ));
+            }
+            Ok(())
+        }
+        other => Err((
             "invalid_arguments".into(),
-            format!("unsupported shell: {shell}"),
-        ));
+            format!("unsupported transport: {other}"),
+        )),
     }
-
-    let workdir = arguments
-        .get("workdir")
-        .and_then(Value::as_str)
-        .unwrap_or(&def.entry.workdir);
-    let candidate = runtime_path_to_windows(workdir);
-    if !def
-        .entry
-        .allowed_paths
-        .iter()
-        .map(|allowed| runtime_path_to_windows(allowed))
-        .any(|allowed| is_within_allowed_path_windows(&candidate, &allowed))
-    {
-        return Err((
-            "path_denied".into(),
-            format!("terminal workdir is outside allowed paths: {workdir}"),
-        ));
-    }
-
-    Ok(())
 }
 
 pub fn runtime_path_to_windows(path: &str) -> String {
@@ -219,10 +307,7 @@ mod tests {
 
     #[test]
     fn converts_wsl_path_to_windows_path() {
-        assert_eq!(
-            runtime_path_to_windows("/mnt/d/AI/Local"),
-            "D:/AI/Local"
-        );
+        assert_eq!(runtime_path_to_windows("/mnt/d/AI/Local"), "D:/AI/Local");
     }
 
     #[test]

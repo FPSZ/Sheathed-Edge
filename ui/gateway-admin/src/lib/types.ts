@@ -85,3 +85,151 @@ export type TerminalPathsSettings = {
   config_path: string;
   restart_required: boolean;
 };
+
+export type SSHHostProfile = {
+  id: string;
+  label: string;
+  enabled: boolean;
+  host: string;
+  port: number;
+  username: string;
+  auth_type: "password" | "private_key";
+  password?: string;
+  private_key?: string;
+  passphrase?: string;
+  remote_shell_default: "bash" | "powershell";
+  allowed_paths: string[];
+  default_workdir?: string;
+  host_key_status: "unknown" | "trusted";
+  host_key_fingerprint?: string;
+  has_password?: boolean;
+  has_private_key?: boolean;
+};
+
+export type SSHHostsResponse = {
+  hosts: SSHHostProfile[];
+  config_path: string;
+  tool_router: string;
+};
+
+export type SSHHostTestResponse = {
+  ok: boolean;
+  summary: string;
+  host_key_status: "unknown" | "trusted";
+  host_key_fingerprint: string;
+  error?: {
+    code: string;
+    message: string;
+  };
+};
+
+export type SSHUserBinding = {
+  user_email: string;
+  default_host_id: string;
+};
+
+export type SSHBindingsResponse = {
+  bindings: SSHUserBinding[];
+  config_path: string;
+};
+
+export type MCPServerProfile = {
+  id: string;
+  label: string;
+  enabled: boolean;
+  kind: "native_streamable_http" | "mcpo_stdio" | "mcpo_sse";
+  description?: string;
+  plugin_scope: string[];
+  auth_type: "none" | "bearer" | "basic" | "header";
+  auth_payload: Record<string, string>;
+  disabled_tools: string[];
+  timeout_ms: number;
+  verify_tls: boolean;
+  notes?: string;
+  url?: string;
+  command?: string[];
+  workdir?: string;
+  env?: Record<string, string>;
+  headers?: Record<string, string>;
+};
+
+export type MCPDiscoveredTool = {
+  name: string;
+  description?: string;
+  disabled: boolean;
+};
+
+export type MCPRuntimeEntry = {
+  server_id: string;
+  label: string;
+  enabled: boolean;
+  kind: string;
+  status: string;
+  bridge_port?: number;
+  process_pid?: number;
+  effective_openwebui_type?: string;
+  effective_connection_url?: string;
+  last_error?: string;
+};
+
+export type MCPServerState = {
+  profile: MCPServerProfile;
+  discovered_tools: MCPDiscoveredTool[];
+  last_discovered_at?: string;
+  runtime_status: MCPRuntimeEntry;
+  effective_openwebui_type?: string;
+  effective_connection_url?: string;
+  last_error?: string;
+};
+
+export type MCPServersResponse = {
+  servers: MCPServerState[];
+  config_path: string;
+  tool_cache_path: string;
+  tool_router_base: string;
+};
+
+export type MCPValidateResponse = {
+  ok: boolean;
+  summary: string;
+  effective_openwebui_type?: string;
+  effective_connection_url?: string;
+  error?: {
+    code: string;
+    message: string;
+  };
+};
+
+export type MCPDiscoverToolsResponse = {
+  ok: boolean;
+  summary: string;
+  server_id: string;
+  tools: MCPDiscoveredTool[];
+  last_discovered_at?: string;
+  effective_openwebui_type?: string;
+  effective_connection_url?: string;
+  error?: {
+    code: string;
+    message: string;
+  };
+};
+
+export type MCPOpenWebUIConnection = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  type: string;
+  url: string;
+  path?: string;
+  spec_type?: string;
+  auth_type: string;
+  key?: string;
+  headers?: Record<string, string>;
+  function_name_filter_list?: string;
+};
+
+export type MCPOpenWebUIPreviewResponse = {
+  connections: MCPOpenWebUIConnection[];
+  tool_server_connections_json: string;
+  restart_required: boolean;
+};

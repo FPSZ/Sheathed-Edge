@@ -99,3 +99,183 @@ type UpdateTerminalPathsRequest struct {
 	AllowedPaths []string `json:"allowed_paths"`
 	RestartNow   bool     `json:"restart_now"`
 }
+
+type SSHHostProfile struct {
+	ID                 string   `json:"id"`
+	Label              string   `json:"label"`
+	Enabled            bool     `json:"enabled"`
+	Host               string   `json:"host"`
+	Port               int      `json:"port"`
+	Username           string   `json:"username"`
+	AuthType           string   `json:"auth_type"`
+	Password           string   `json:"password,omitempty"`
+	PrivateKey         string   `json:"private_key,omitempty"`
+	Passphrase         string   `json:"passphrase,omitempty"`
+	RemoteShellDefault string   `json:"remote_shell_default"`
+	AllowedPaths       []string `json:"allowed_paths"`
+	DefaultWorkdir     string   `json:"default_workdir,omitempty"`
+	HostKeyStatus      string   `json:"host_key_status"`
+	HostKeyFingerprint string   `json:"host_key_fingerprint,omitempty"`
+	HasPassword        bool     `json:"has_password,omitempty"`
+	HasPrivateKey      bool     `json:"has_private_key,omitempty"`
+}
+
+type SSHHostsResponse struct {
+	Hosts      []SSHHostProfile `json:"hosts"`
+	ConfigPath string           `json:"config_path"`
+	ToolRouter string           `json:"tool_router"`
+}
+
+type UpdateSSHHostsRequest struct {
+	Hosts []SSHHostProfile `json:"hosts"`
+}
+
+type SSHHostTestRequest struct {
+	Host      SSHHostProfile `json:"host"`
+	TimeoutMS int            `json:"timeout_ms,omitempty"`
+}
+
+type SSHHostTestResponse struct {
+	OK                 bool         `json:"ok"`
+	Summary            string       `json:"summary"`
+	HostKeyStatus      string       `json:"host_key_status"`
+	HostKeyFingerprint string       `json:"host_key_fingerprint"`
+	Error              *ErrorDetail `json:"error,omitempty"`
+}
+
+type ConfirmSSHHostKeyRequest struct {
+	HostID      string `json:"host_id"`
+	Fingerprint string `json:"fingerprint"`
+}
+
+type SSHUserBinding struct {
+	UserEmail     string `json:"user_email"`
+	DefaultHostID string `json:"default_host_id"`
+}
+
+type SSHBindingsResponse struct {
+	Bindings   []SSHUserBinding `json:"bindings"`
+	ConfigPath string           `json:"config_path"`
+}
+
+type UpdateSSHBindingsRequest struct {
+	Bindings []SSHUserBinding `json:"bindings"`
+}
+
+type ErrorDetail struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+type MCPServerProfile struct {
+	ID            string            `json:"id"`
+	Label         string            `json:"label"`
+	Enabled       bool              `json:"enabled"`
+	Kind          string            `json:"kind"`
+	Description   string            `json:"description,omitempty"`
+	PluginScope   []string          `json:"plugin_scope"`
+	AuthType      string            `json:"auth_type"`
+	AuthPayload   map[string]string `json:"auth_payload,omitempty"`
+	DisabledTools []string          `json:"disabled_tools"`
+	TimeoutMS     int               `json:"timeout_ms,omitempty"`
+	VerifyTLS     bool              `json:"verify_tls"`
+	Notes         string            `json:"notes,omitempty"`
+	URL           string            `json:"url,omitempty"`
+	Command       []string          `json:"command,omitempty"`
+	Workdir       string            `json:"workdir,omitempty"`
+	Env           map[string]string `json:"env,omitempty"`
+	Headers       map[string]string `json:"headers,omitempty"`
+}
+
+type MCPDiscoveredTool struct {
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Disabled    bool   `json:"disabled"`
+}
+
+type MCPRuntimeEntry struct {
+	ServerID               string `json:"server_id"`
+	Label                  string `json:"label"`
+	Enabled                bool   `json:"enabled"`
+	Kind                   string `json:"kind"`
+	Status                 string `json:"status"`
+	BridgePort             int    `json:"bridge_port,omitempty"`
+	ProcessPID             int    `json:"process_pid,omitempty"`
+	EffectiveOpenWebUIType string `json:"effective_openwebui_type,omitempty"`
+	EffectiveConnectionURL string `json:"effective_connection_url,omitempty"`
+	LastError              string `json:"last_error,omitempty"`
+}
+
+type MCPServerState struct {
+	Profile                MCPServerProfile    `json:"profile"`
+	DiscoveredTools        []MCPDiscoveredTool `json:"discovered_tools"`
+	LastDiscoveredAt       string              `json:"last_discovered_at,omitempty"`
+	RuntimeStatus          MCPRuntimeEntry     `json:"runtime_status"`
+	EffectiveOpenWebUIType string              `json:"effective_openwebui_type,omitempty"`
+	EffectiveConnectionURL string              `json:"effective_connection_url,omitempty"`
+	LastError              string              `json:"last_error,omitempty"`
+}
+
+type MCPServersResponse struct {
+	Servers        []MCPServerState `json:"servers"`
+	ConfigPath     string           `json:"config_path"`
+	ToolCachePath  string           `json:"tool_cache_path"`
+	ToolRouterBase string           `json:"tool_router_base"`
+}
+
+type UpdateMCPServersRequest struct {
+	Servers []MCPServerProfile `json:"servers"`
+}
+
+type MCPValidateRequest struct {
+	Server MCPServerProfile `json:"server"`
+}
+
+type MCPValidateResponse struct {
+	OK                     bool         `json:"ok"`
+	Summary                string       `json:"summary"`
+	EffectiveOpenWebUIType string       `json:"effective_openwebui_type,omitempty"`
+	EffectiveConnectionURL string       `json:"effective_connection_url,omitempty"`
+	Error                  *ErrorDetail `json:"error,omitempty"`
+}
+
+type MCPDiscoverToolsRequest struct {
+	ServerID string `json:"server_id"`
+}
+
+type MCPDiscoverToolsResponse struct {
+	OK                     bool                `json:"ok"`
+	Summary                string              `json:"summary"`
+	ServerID               string              `json:"server_id"`
+	Tools                  []MCPDiscoveredTool `json:"tools"`
+	LastDiscoveredAt       string              `json:"last_discovered_at,omitempty"`
+	EffectiveOpenWebUIType string              `json:"effective_openwebui_type,omitempty"`
+	EffectiveConnectionURL string              `json:"effective_connection_url,omitempty"`
+	Error                  *ErrorDetail        `json:"error,omitempty"`
+}
+
+type MCPRuntimeStatusResponse struct {
+	Servers []MCPRuntimeEntry `json:"servers"`
+}
+
+type OpenWebUIToolConnection struct {
+	ID                     string            `json:"id"`
+	Name                   string            `json:"name"`
+	Enabled                bool              `json:"enabled"`
+	Type                   string            `json:"type"`
+	URL                    string            `json:"url"`
+	Path                   string            `json:"path,omitempty"`
+	SpecType               string            `json:"spec_type,omitempty"`
+	AuthType               string            `json:"auth_type"`
+	Key                    string            `json:"key,omitempty"`
+	Headers                map[string]string `json:"headers,omitempty"`
+	FunctionNameFilterList string            `json:"function_name_filter_list,omitempty"`
+	Config                 map[string]any    `json:"config,omitempty"`
+	Info                   map[string]any    `json:"info,omitempty"`
+}
+
+type MCPOpenWebUIPreviewResponse struct {
+	Connections               []OpenWebUIToolConnection `json:"connections"`
+	ToolServerConnectionsJSON string                    `json:"tool_server_connections_json"`
+	RestartRequired           bool                      `json:"restart_required"`
+}

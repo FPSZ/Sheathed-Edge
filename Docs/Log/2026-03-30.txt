@@ -1,0 +1,39 @@
+[08:42]
+任务：补齐 SSH Remote Terminal V1、Open WebUI 默认 SSH 主机注入链路，并同步收敛 Admin UI 右侧栏设计。
+结果：已在 `Agent/tool-router-rs` 完成 `terminal` 的 `local + ssh` 双后端扩展，SSH 分支支持 `transport=ssh`、`host_id`、`remote_shell=bash|powershell`、密码认证、私钥认证、首次 host key 确认、后续指纹严格匹配、远程 `workdir` 白名单校验与结构化执行结果。`tool-router-rs` 现可同时提供 `GET /openapi.json`、`POST /api/tools/terminal` 与 `POST /internal/ssh/test`，供 Open WebUI External Tools 与管理面复用同一套终端执行链路。
+修改：
+- 更新 `Agent/tool-router-rs/src/api.rs`
+- 更新 `Agent/tool-router-rs/src/config.rs`
+- 更新 `Agent/tool-router-rs/src/executor/terminal.rs`
+- 更新 `Agent/tool-router-rs/src/logging.rs`
+- 更新 `Agent/tool-router-rs/src/main.rs`
+- 更新 `Agent/tool-router-rs/src/models.rs`
+- 新增并更新 `Agent/tool-router-rs/src/ssh.rs`
+- 更新 `Agent/gateway-go/internal/gateway/admin/ssh_settings.go`
+- 更新 `Agent/gateway-go/internal/gateway/admin/server.go`
+- 更新 `ui/gateway-admin/src/pages/SettingsPage.tsx`
+- 更新 `ui/gateway-admin/src/components/DetailsDrawer.tsx`
+- 更新 `ui/gateway-admin/src/components/RuntimeRail.tsx`
+- 更新 `ui/gateway-admin/src/pages/DashboardPage.tsx`
+- 更新 `ui/gateway-admin/src/pages/LogsPage.tsx`
+- 更新 `ui/gateway-admin/src/pages/ModesPage.tsx`
+- 更新 `ui/gateway-admin/src/pages/ModelsPage.tsx`
+- 更新 `Workflows/wsl/patch-open-webui-default-terminal.py`
+验证：
+- `Agent/tool-router-rs` 已通过 `cargo build`
+- `Agent/gateway-go` 已通过 `go build ./...`
+- `ui/gateway-admin` 已通过 `npm run build`
+- 本地 terminal 调用已通过 OpenAPI 路径回归
+- SSH 错误场景已验证结构化返回，包括主机不存在、连接失败等基础失败分支
+补充进展：
+- `Gateway Admin API` 已提供 SSH hosts / bindings 管理接口，可读取与写入 `Agent/ssh-hosts.json`、`Agent/ssh-user-bindings.json`
+- `Open WebUI` 补丁已支持依据登录用户邮箱注入默认 `host_id`，这样同一个 terminal 工具入口可路由到不同队友机器
+- Admin UI 右侧栏已从静态说明抽屉改为页面专属 utility rail，并完成溢出修复、留白调整、弱化气泡容器与隐藏滚动条
+发现的问题：
+- 当前 `Agent/ssh-hosts.json` 与 `Agent/ssh-user-bindings.json` 仍没有真实主机数据，因此“真实队友 SSH 主机”端到端联调还没完成
+- Admin UI 主内容区和右栏的视觉语言还没有完全拉齐，后续仍可继续收敛卡片重量与层级
+下一步：
+- 录入至少一台真实 SSH 主机和一条 `user_email -> default_host_id` 绑定，做一次完整的 Open WebUI 终端联调
+- 补测远程 `bash` 与远程 `powershell` 两条链路，包括 `pwd`、`git status`、超时与越权拒绝
+- 继续统一 Admin UI 主区与右栏风格，减少主区过重的容器感
+状态：SSH Remote Terminal V1 主体开发完成，管理面与 WebUI 注入链路已接通，待真实 SSH 主机配置后完成最终 E2E 验证。

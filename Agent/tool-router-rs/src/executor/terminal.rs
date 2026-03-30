@@ -6,6 +6,7 @@ use tokio::process::Command;
 use crate::{
     models::{AppState, ExecuteResponse, ToolEntry},
     policy::{runtime_path_to_windows, timeout_with_retry, windows_path_to_wsl},
+    ssh,
 };
 
 const MAX_CAPTURE_BYTES: usize = 64 * 1024;
@@ -19,6 +20,10 @@ pub async fn run_terminal(
         .get("command")
         .and_then(Value::as_str)
         .ok_or_else(|| ("invalid_arguments".into(), "missing command".into()))?;
+    let transport = arguments
+        .get("transport")
+        .and_then(Value::as_str)
+        .unwrap_or("local");
     let shell = arguments
         .get("shell")
         .and_then(Value::as_str)
@@ -31,9 +36,18 @@ pub async fn run_terminal(
         .get("timeout_ms")
         .and_then(Value::as_u64)
         .unwrap_or_else(|| default_timeout(state, tool));
-    let command = normalize_command(shell, original_command);
+    let command = if transport == "local" {
+        normalize_command(shell, original_command)
+    } else {
+        original_command.to_string()
+    };
 
-    let effective_timeout = timeout_with_retry(timeout_ms, tool.retry.max_attempts, tool.retry.backoff_ms);
+    if transport == "ssh" {
+        return run_ssh_terminal(state, tool, arguments, original_command).await;
+    }
+
+    let effective_timeout =
+        timeout_with_retry(timeout_ms, tool.retry.max_attempts, tool.retry.backoff_ms);
     let mut process = build_command(shell, &command, workdir)?;
     if !tool.env.is_empty() {
         process.envs(tool.env.iter());
@@ -69,6 +83,9 @@ pub async fn run_terminal(
     let truncated = stdout_truncated || stderr_truncated;
 
     let mut result = BTreeMap::new();
+    result.insert("transport".into(), Value::String("local".into()));
+    result.insert("host_id".into(), Value::String(String::new()));
+    result.insert("remote_shell".into(), Value::String(String::new()));
     result.insert("shell".into(), Value::String(shell.to_string()));
     result.insert("command".into(), Value::String(command.to_string()));
     result.insert(
@@ -103,6 +120,82 @@ pub async fn run_terminal(
             Some(crate::models::ErrorEnvelope {
                 code: "command_failed".into(),
                 message: stderr_if_any(&stderr, exit_code),
+            })
+        },
+    })
+}
+
+async fn run_ssh_terminal(
+    state: &AppState,
+    tool: &ToolEntry,
+    arguments: &Value,
+    original_command: &str,
+) -> std::result::Result<ExecuteResponse, (String, String)> {
+    let settings = ssh::effective_ssh_settings(state, tool, arguments)?;
+    let duration_start = Instant::now();
+    let output = ssh::execute_ssh_command(state, tool, arguments, original_command).await?;
+    let duration_ms = duration_start.elapsed().as_millis();
+    let (stdout, stdout_truncated) = truncate_output(&output.stdout);
+    let (stderr, stderr_truncated) = truncate_output(&output.stderr);
+    let truncated = stdout_truncated || stderr_truncated;
+
+    let mut result = BTreeMap::new();
+    result.insert("transport".into(), Value::String("ssh".into()));
+    result.insert("host_id".into(), Value::String(settings.host.id.clone()));
+    result.insert(
+        "remote_shell".into(),
+        Value::String(settings.remote_shell.clone()),
+    );
+    result.insert("shell".into(), Value::String(settings.remote_shell.clone()));
+    result.insert(
+        "host_key_status".into(),
+        Value::String(settings.host.host_key_status.clone()),
+    );
+    if let Some(user_email) = arguments.get("user_email").and_then(Value::as_str) {
+        result.insert("user_email".into(), Value::String(user_email.to_string()));
+    }
+    result.insert(
+        "command".into(),
+        Value::String(original_command.to_string()),
+    );
+    result.insert(
+        "original_command".into(),
+        Value::String(original_command.to_string()),
+    );
+    result.insert("workdir".into(), Value::String(settings.workdir.clone()));
+    result.insert("exit_code".into(), Value::Number(output.exit_code.into()));
+    result.insert("stdout".into(), Value::String(stdout.clone()));
+    result.insert("stderr".into(), Value::String(stderr.clone()));
+    result.insert("timed_out".into(), Value::Bool(false));
+    result.insert(
+        "duration_ms".into(),
+        Value::Number(serde_json::Number::from(duration_ms as u64)),
+    );
+
+    let summary = if output.exit_code == 0 {
+        format!(
+            "ssh terminal command completed with exit code 0 on {}",
+            settings.host.id
+        )
+    } else {
+        format!(
+            "ssh terminal command failed with exit code {} on {}",
+            output.exit_code, settings.host.id
+        )
+    };
+
+    Ok(ExecuteResponse {
+        ok: output.exit_code == 0,
+        tool: tool.name.clone(),
+        result,
+        summary,
+        truncated,
+        error: if output.exit_code == 0 {
+            None
+        } else {
+            Some(crate::models::ErrorEnvelope {
+                code: "command_failed".into(),
+                message: stderr_if_any(&stderr, output.exit_code),
             })
         },
     })
@@ -178,7 +271,10 @@ fn truncate_output(bytes: &[u8]) -> (String, bool) {
 
     let truncated = String::from_utf8_lossy(&bytes[..MAX_CAPTURE_BYTES]).to_string();
     (
-        format!("{truncated}\n... [truncated {} bytes]", bytes.len() - MAX_CAPTURE_BYTES),
+        format!(
+            "{truncated}\n... [truncated {} bytes]",
+            bytes.len() - MAX_CAPTURE_BYTES
+        ),
         true,
     )
 }
@@ -192,6 +288,9 @@ fn timeout_response(
     timeout_ms: u64,
 ) -> ExecuteResponse {
     let mut result = BTreeMap::new();
+    result.insert("transport".into(), Value::String("local".into()));
+    result.insert("host_id".into(), Value::String(String::new()));
+    result.insert("remote_shell".into(), Value::String(String::new()));
     result.insert("shell".into(), Value::String(shell.to_string()));
     result.insert("command".into(), Value::String(command.to_string()));
     result.insert("workdir".into(), Value::String(workdir.to_string()));
@@ -239,16 +338,34 @@ mod tests {
 
     #[test]
     fn normalizes_linux_calculator_commands_for_powershell() {
-        assert_eq!(normalize_command("powershell", "gnome-calculator &"), "Start-Process calc");
-        assert_eq!(normalize_command("powershell", "open -a Calculator"), "Start-Process calc");
-        assert_eq!(normalize_command("powershell", "xcalc"), "Start-Process calc");
-        assert_eq!(normalize_command("powershell", "calc"), "Start-Process calc");
-        assert_eq!(normalize_command("powershell", "start calc"), "Start-Process calc");
+        assert_eq!(
+            normalize_command("powershell", "gnome-calculator &"),
+            "Start-Process calc"
+        );
+        assert_eq!(
+            normalize_command("powershell", "open -a Calculator"),
+            "Start-Process calc"
+        );
+        assert_eq!(
+            normalize_command("powershell", "xcalc"),
+            "Start-Process calc"
+        );
+        assert_eq!(
+            normalize_command("powershell", "calc"),
+            "Start-Process calc"
+        );
+        assert_eq!(
+            normalize_command("powershell", "start calc"),
+            "Start-Process calc"
+        );
     }
 
     #[test]
     fn preserves_other_commands() {
         assert_eq!(normalize_command("powershell", "git status"), "git status");
-        assert_eq!(normalize_command("wsl-bash", "gnome-calculator &"), "gnome-calculator &");
+        assert_eq!(
+            normalize_command("wsl-bash", "gnome-calculator &"),
+            "gnome-calculator &"
+        );
     }
 }

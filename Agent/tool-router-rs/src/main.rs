@@ -1,12 +1,15 @@
 #![allow(dead_code)]
+#![recursion_limit = "512"]
 
 mod api;
 mod config;
 mod executor;
 mod logging;
+mod mcp;
 mod models;
 mod policy;
 mod registry;
+mod ssh;
 
 use anyhow::Result;
 use axum::{
@@ -38,7 +41,38 @@ async fn main() -> Result<()> {
     let state = AppState {
         config: config.clone(),
         tools: std::sync::Arc::new(tools),
-        workspace_root: std::env::current_dir()?.to_string_lossy().replace('\\', "/"),
+        workspace_root: std::env::current_dir()?
+            .to_string_lossy()
+            .replace('\\', "/"),
+        ssh_hosts_path: std::path::Path::new(&cli.config)
+            .parent()
+            .unwrap_or(std::path::Path::new("."))
+            .join("ssh-hosts.json")
+            .to_string_lossy()
+            .replace('\\', "/"),
+        mcp_servers_path: if config.mcp.servers_path.trim().is_empty() {
+            std::path::Path::new(&cli.config)
+                .parent()
+                .unwrap_or(std::path::Path::new("."))
+                .join("mcp-servers.json")
+                .to_string_lossy()
+                .replace('\\', "/")
+        } else {
+            config.mcp.servers_path.clone()
+        },
+        mcp_tool_cache_path: if config.mcp.tool_cache_path.trim().is_empty() {
+            std::path::Path::new(&cli.config)
+                .parent()
+                .unwrap_or(std::path::Path::new("."))
+                .join("mcp-tool-cache.json")
+                .to_string_lossy()
+                .replace('\\', "/")
+        } else {
+            config.mcp.tool_cache_path.clone()
+        },
+        mcp_runtime: std::sync::Arc::new(tokio::sync::Mutex::new(
+            models::McpRuntimeState::default(),
+        )),
         resources_count,
         prompts_count,
     };
@@ -47,6 +81,13 @@ async fn main() -> Result<()> {
         .route("/healthz", get(api::healthz))
         .route("/openapi.json", get(api::openapi_spec))
         .route("/api/tools/terminal", post(api::openapi_terminal))
+        .route("/internal/ssh/test", post(api::test_ssh_host))
+        .route("/internal/mcp/validate", post(api::validate_mcp_server))
+        .route(
+            "/internal/mcp/discover-tools",
+            post(api::discover_mcp_tools),
+        )
+        .route("/internal/mcp/runtime", get(api::mcp_runtime))
         .route("/internal/tools/resolve", post(api::resolve_tool))
         .route("/internal/tools/execute", post(api::execute_tool))
         .layer(

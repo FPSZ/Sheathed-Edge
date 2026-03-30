@@ -162,6 +162,14 @@
           "command"
         ],
         "properties": {
+          "transport": {
+            "type": "string",
+            "enum": [
+              "local",
+              "ssh"
+            ],
+            "default": "local"
+          },
           "shell": {
             "type": "string",
             "enum": [
@@ -169,6 +177,17 @@
               "wsl-bash"
             ],
             "default": "powershell"
+          },
+          "host_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "remote_shell": {
+            "type": "string",
+            "enum": [
+              "bash",
+              "powershell"
+            ]
           },
           "command": {
             "type": "string",
@@ -181,6 +200,10 @@
           "timeout_ms": {
             "type": "integer",
             "minimum": 1
+          },
+          "user_email": {
+            "type": "string",
+            "minLength": 3
           }
         }
       },

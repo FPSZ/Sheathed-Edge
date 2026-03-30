@@ -1,10 +1,11 @@
-import { Activity, Bot, LayoutDashboard, Logs, Settings } from "lucide-react";
+import { Activity, Bot, LayoutDashboard, Logs, PlugZap, Settings } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 const items = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/admin/models", label: "Models", icon: Bot },
   { to: "/admin/modes", label: "Modes", icon: Activity },
+  { to: "/admin/mcp", label: "MCP", icon: PlugZap },
   { to: "/admin/logs", label: "Logs", icon: Logs },
   { to: "/admin/settings", label: "Settings", icon: Settings },
 ];

@@ -30,6 +30,14 @@
     ]
   },
   "registry_path": "D:\\AI\\Local\\MCP\\registry.json",
+  "mcp": {
+    "servers_path": "D:\\AI\\Local\\Agent\\mcp-servers.json",
+    "tool_cache_path": "D:\\AI\\Local\\Agent\\mcp-tool-cache.json",
+    "bridge_host": "127.0.0.1",
+    "bridge_port_start": 8092,
+    "bridge_port_end": 8124,
+    "process_log_dir": "D:\\AI\\Local\\Logs\\mcp"
+  },
   "timeouts": {
     "default_ms": 60000,
     "max_ms": 180000

@@ -4,11 +4,14 @@ use serde_json::json;
 use crate::{
     executor,
     logging::{append_tool_log, now_ms},
+    mcp,
     models::{
-        AppState, ErrorEnvelope, ExecuteRequest, ExecuteResponse, OpenAPITerminalRequest,
-        OpenAPITerminalResponse, ResolveRequest, ResolveResponse,
+        AppState, ErrorEnvelope, ExecuteRequest, ExecuteResponse, McpDiscoverRequest,
+        McpValidateRequest, OpenAPITerminalRequest, OpenAPITerminalResponse, ResolveRequest,
+        ResolveResponse, SshTestRequest,
     },
     policy::{check_tool_access, normalize_tool_arguments},
+    ssh,
 };
 
 pub async fn healthz(State(state): State<AppState>) -> impl IntoResponse {
@@ -30,7 +33,7 @@ pub async fn openapi_spec(State(state): State<AppState>) -> impl IntoResponse {
         "info": {
             "title": "AWDP Terminal Tool Server",
             "version": "1.0.0",
-            "description": "Controlled local terminal execution for Open WebUI via OpenAPI."
+            "description": "Controlled local and SSH terminal execution for Open WebUI via OpenAPI."
         },
         "servers": [
             {
@@ -41,7 +44,7 @@ pub async fn openapi_spec(State(state): State<AppState>) -> impl IntoResponse {
             "/api/tools/terminal": {
                 "post": {
                     "operationId": "runTerminal",
-                    "summary": "Run a controlled local shell command",
+                    "summary": "Run a controlled local or SSH shell command",
                     "requestBody": {
                         "required": true,
                         "content": {
@@ -52,6 +55,18 @@ pub async fn openapi_spec(State(state): State<AppState>) -> impl IntoResponse {
                                     "required": ["command"],
                                     "properties": {
                                         "command": { "type": "string", "minLength": 1 },
+                                        "transport": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "string",
+                                                    "enum": ["local", "ssh"]
+                                                },
+                                                {
+                                                    "type": "null"
+                                                }
+                                            ],
+                                            "default": "local"
+                                        },
                                         "shell": {
                                             "anyOf": [
                                                 {
@@ -64,6 +79,21 @@ pub async fn openapi_spec(State(state): State<AppState>) -> impl IntoResponse {
                                             ],
                                             "default": "powershell"
                                         },
+                                        "host_id": {
+                                            "anyOf": [
+                                                { "type": "string", "minLength": 1 },
+                                                { "type": "null" }
+                                            ]
+                                        },
+                                        "remote_shell": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "string",
+                                                    "enum": ["bash", "powershell"]
+                                                },
+                                                { "type": "null" }
+                                            ]
+                                        },
                                         "workdir": {
                                             "anyOf": [
                                                 { "type": "string", "minLength": 1 },
@@ -73,6 +103,12 @@ pub async fn openapi_spec(State(state): State<AppState>) -> impl IntoResponse {
                                         "timeout_ms": {
                                             "anyOf": [
                                                 { "type": "integer", "minimum": 1 },
+                                                { "type": "null" }
+                                            ]
+                                        },
+                                        "user_email": {
+                                            "anyOf": [
+                                                { "type": "string", "minLength": 3 },
                                                 { "type": "null" }
                                             ]
                                         }
@@ -96,6 +132,9 @@ pub async fn openapi_spec(State(state): State<AppState>) -> impl IntoResponse {
                                             "stderr",
                                             "timed_out",
                                             "duration_ms",
+                                            "transport",
+                                            "host_id",
+                                            "remote_shell",
                                             "shell",
                                             "workdir",
                                             "truncated"
@@ -108,6 +147,9 @@ pub async fn openapi_spec(State(state): State<AppState>) -> impl IntoResponse {
                                             "stderr": { "type": "string" },
                                             "timed_out": { "type": "boolean" },
                                             "duration_ms": { "type": "integer" },
+                                            "transport": { "type": "string" },
+                                            "host_id": { "type": "string" },
+                                            "remote_shell": { "type": "string" },
                                             "shell": { "type": "string" },
                                             "workdir": { "type": "string" },
                                             "truncated": { "type": "boolean" },
@@ -129,6 +171,96 @@ pub async fn openapi_spec(State(state): State<AppState>) -> impl IntoResponse {
             }
         }
     }))
+}
+
+pub async fn test_ssh_host(
+    State(state): State<AppState>,
+    Json(req): Json<SshTestRequest>,
+) -> impl IntoResponse {
+    let timeout_ms = req.timeout_ms.unwrap_or(10_000).clamp(1, 180_000);
+    match ssh::test_ssh_host_request(&state, &req, timeout_ms).await {
+        Ok(resp) => (StatusCode::OK, Json(resp)).into_response(),
+        Err(err) => (
+            StatusCode::OK,
+            Json(crate::models::SshTestResponse {
+                ok: false,
+                summary: err.to_string(),
+                host_key_status: "unknown".into(),
+                host_key_fingerprint: String::new(),
+                error: Some(ErrorEnvelope {
+                    code: "ssh_test_failed".into(),
+                    message: err.to_string(),
+                }),
+            }),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn validate_mcp_server(
+    State(state): State<AppState>,
+    Json(req): Json<McpValidateRequest>,
+) -> impl IntoResponse {
+    match mcp::validate_server(&state, req).await {
+        Ok(resp) => (StatusCode::OK, Json(resp)).into_response(),
+        Err(err) => (
+            StatusCode::OK,
+            Json(crate::models::McpValidateResponse {
+                ok: false,
+                summary: err.to_string(),
+                effective_openwebui_type: String::new(),
+                effective_connection_url: String::new(),
+                error: Some(ErrorEnvelope {
+                    code: "mcp_validate_failed".into(),
+                    message: err.to_string(),
+                }),
+            }),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn discover_mcp_tools(
+    State(state): State<AppState>,
+    Json(req): Json<McpDiscoverRequest>,
+) -> impl IntoResponse {
+    match mcp::discover_tools(&state, req).await {
+        Ok(resp) => (StatusCode::OK, Json(resp)).into_response(),
+        Err(err) => (
+            StatusCode::OK,
+            Json(crate::models::McpDiscoverResponse {
+                ok: false,
+                summary: err.to_string(),
+                server_id: String::new(),
+                tools: vec![],
+                last_discovered_at: String::new(),
+                effective_openwebui_type: String::new(),
+                effective_connection_url: String::new(),
+                error: Some(ErrorEnvelope {
+                    code: "mcp_discover_failed".into(),
+                    message: err.to_string(),
+                }),
+            }),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn mcp_runtime(State(state): State<AppState>) -> impl IntoResponse {
+    match mcp::runtime_status(&state).await {
+        Ok(resp) => (StatusCode::OK, Json(resp)).into_response(),
+        Err(err) => (
+            StatusCode::OK,
+            Json(crate::models::McpRuntimeStatusResponse {
+                servers: vec![crate::models::McpRuntimeEntry {
+                    status: "error".into(),
+                    last_error: err.to_string(),
+                    ..Default::default()
+                }],
+            }),
+        )
+            .into_response(),
+    }
 }
 
 pub async fn resolve_tool(
@@ -193,7 +325,13 @@ pub async fn execute_tool(
             ),
         };
 
-    append_tool_log(&state, &req, &normalized_arguments, &response, now_ms() - start_ms);
+    append_tool_log(
+        &state,
+        &req,
+        &normalized_arguments,
+        &response,
+        now_ms() - start_ms,
+    );
     (status, Json(response))
 }
 
@@ -201,34 +339,49 @@ pub async fn openapi_terminal(
     State(state): State<AppState>,
     Json(req): Json<OpenAPITerminalRequest>,
 ) -> impl IntoResponse {
-    let arguments = json!({
-        "command": req.command,
-        "shell": req.shell.unwrap_or_else(|| "powershell".into()),
-        "workdir": req.workdir,
-        "timeout_ms": req.timeout_ms,
-    });
+    let mut arguments = serde_json::Map::new();
+    arguments.insert("command".into(), json!(req.command));
+    arguments.insert(
+        "transport".into(),
+        json!(req.transport.unwrap_or_else(|| "local".into())),
+    );
+    arguments.insert(
+        "shell".into(),
+        json!(req.shell.unwrap_or_else(|| "powershell".into())),
+    );
+    if let Some(host_id) = req.host_id {
+        arguments.insert("host_id".into(), json!(host_id));
+    }
+    if let Some(remote_shell) = req.remote_shell {
+        arguments.insert("remote_shell".into(), json!(remote_shell));
+    }
+    if let Some(workdir) = req.workdir {
+        arguments.insert("workdir".into(), json!(workdir));
+    }
+    if let Some(timeout_ms) = req.timeout_ms {
+        arguments.insert("timeout_ms".into(), json!(timeout_ms));
+    }
+    if let Some(user_email) = req.user_email {
+        arguments.insert("user_email".into(), json!(user_email));
+    }
     let execute_req = ExecuteRequest {
         session_id: format!("openapi-terminal-{}", now_ms()),
         mode: "awdp".into(),
         tool: "terminal".into(),
-        arguments,
+        arguments: json!(arguments),
     };
 
     let start_ms = now_ms();
-    let normalized_arguments = normalize_tool_arguments(&state, &execute_req.tool, &execute_req.arguments);
-    let response =
-        match check_tool_access(&state, &execute_req.tool, &execute_req.mode, &normalized_arguments) {
-            Ok(def) => match executor::dispatch_tool(&state, def, &normalized_arguments).await {
-                Ok(resp) => resp,
-                Err((code, message)) => ExecuteResponse {
-                    ok: false,
-                    tool: execute_req.tool.clone(),
-                    result: Default::default(),
-                    summary: message.clone(),
-                    truncated: false,
-                    error: Some(ErrorEnvelope { code, message }),
-                },
-            },
+    let normalized_arguments =
+        normalize_tool_arguments(&state, &execute_req.tool, &execute_req.arguments);
+    let response = match check_tool_access(
+        &state,
+        &execute_req.tool,
+        &execute_req.mode,
+        &normalized_arguments,
+    ) {
+        Ok(def) => match executor::dispatch_tool(&state, def, &normalized_arguments).await {
+            Ok(resp) => resp,
             Err((code, message)) => ExecuteResponse {
                 ok: false,
                 tool: execute_req.tool.clone(),
@@ -237,7 +390,16 @@ pub async fn openapi_terminal(
                 truncated: false,
                 error: Some(ErrorEnvelope { code, message }),
             },
-        };
+        },
+        Err((code, message)) => ExecuteResponse {
+            ok: false,
+            tool: execute_req.tool.clone(),
+            result: Default::default(),
+            summary: message.clone(),
+            truncated: false,
+            error: Some(ErrorEnvelope { code, message }),
+        },
+    };
 
     append_tool_log(
         &state,
@@ -255,6 +417,9 @@ pub async fn openapi_terminal(
         stderr: value_as_string(response.result.get("stderr")),
         timed_out: value_as_bool(response.result.get("timed_out")),
         duration_ms: value_as_u64(response.result.get("duration_ms")),
+        transport: value_as_string(response.result.get("transport")),
+        host_id: value_as_string(response.result.get("host_id")),
+        remote_shell: value_as_string(response.result.get("remote_shell")),
         shell: value_as_string(response.result.get("shell")),
         workdir: value_as_string(response.result.get("workdir")),
         truncated: response.truncated,

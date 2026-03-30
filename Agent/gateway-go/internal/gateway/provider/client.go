@@ -151,21 +151,26 @@ func (p *Client) resolveBaseURL(ctx context.Context) (string, error) {
 		}
 	}
 
-	var lastErr error
-	for _, candidate := range p.baseURLCandidates() {
-		if err := p.checkHealth(ctx, candidate); err != nil {
-			lastErr = err
-			continue
-		}
+	base := strings.TrimRight(p.configuredBaseURL, "/")
+	if err := p.checkHealth(ctx, base); err == nil {
 		p.mu.Lock()
-		p.resolvedBaseURL = candidate
+		p.resolvedBaseURL = base
 		p.mu.Unlock()
-		return candidate, nil
-	}
-	if lastErr != nil {
+		return base, nil
+	} else {
+		lastErr := err
+		for _, candidate := range p.wslFallbackCandidates(ctx) {
+			if err := p.checkHealth(ctx, candidate); err != nil {
+				lastErr = err
+				continue
+			}
+			p.mu.Lock()
+			p.resolvedBaseURL = candidate
+			p.mu.Unlock()
+			return candidate, nil
+		}
 		return "", lastErr
 	}
-	return "", fmt.Errorf("no reachable llama-server base url")
 }
 
 func (p *Client) checkHealth(ctx context.Context, baseURL string) error {
@@ -226,22 +231,20 @@ func (p *Client) resolveUpstreamModel(ctx context.Context, baseURL string) (stri
 	return parsed.Data[0].ID, nil
 }
 
-func (p *Client) baseURLCandidates() []string {
+func (p *Client) wslFallbackCandidates(ctx context.Context) []string {
 	base := strings.TrimRight(p.configuredBaseURL, "/")
-	candidates := []string{base}
-
 	parsed, err := url.Parse(base)
 	if err != nil {
-		return dedupeStrings(candidates)
+		return nil
 	}
 	host := parsed.Hostname()
 	if host != "127.0.0.1" && host != "localhost" {
-		return dedupeStrings(candidates)
+		return nil
 	}
 
-	hostIP := detectWSLHostIP()
+	hostIP := detectWSLHostIP(ctx)
 	if hostIP == "" {
-		return dedupeStrings(candidates)
+		return nil
 	}
 
 	port := parsed.Port()
@@ -249,12 +252,14 @@ func (p *Client) baseURLCandidates() []string {
 	if port != "" {
 		parsed.Host = hostIP + ":" + port
 	}
-	candidates = append(candidates, strings.TrimRight(parsed.String(), "/"))
-	return dedupeStrings(candidates)
+	return dedupeStrings([]string{strings.TrimRight(parsed.String(), "/")})
 }
 
-func detectWSLHostIP() string {
-	if out, err := exec.Command("bash", "-lc", "ip route show default 2>/dev/null | awk '/default/ {print $3; exit}'").Output(); err == nil {
+func detectWSLHostIP(parent context.Context) string {
+	ctx, cancel := context.WithTimeout(parent, 500*time.Millisecond)
+	defer cancel()
+
+	if out, err := exec.CommandContext(ctx, "bash", "-lc", "ip route show default 2>/dev/null | awk '/default/ {print $3; exit}'").Output(); err == nil {
 		return strings.TrimSpace(string(out))
 	}
 	return ""

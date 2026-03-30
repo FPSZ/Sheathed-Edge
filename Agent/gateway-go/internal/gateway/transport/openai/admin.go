@@ -113,6 +113,179 @@ func (s *Server) handleAdminTerminalPaths(w http.ResponseWriter, r *http.Request
 	}
 }
 
+func (s *Server) handleAdminSSHHosts(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		resp, err := s.admin.SSHHosts()
+		if err != nil {
+			writeError(w, http.StatusBadGateway, "admin_error", err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, resp)
+	case http.MethodPost:
+		var req admin.UpdateSSHHostsRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+			return
+		}
+		resp, err := s.admin.UpdateSSHHosts(r.Context(), req.Hosts)
+		if err != nil {
+			writeError(w, http.StatusBadGateway, "admin_error", err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, resp)
+	default:
+		w.Header().Set("Allow", strings.Join([]string{http.MethodGet, http.MethodPost}, ", "))
+		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
+	}
+}
+
+func (s *Server) handleAdminSSHHostsTest(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodPost) {
+		return
+	}
+	var req admin.SSHHostTestRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	resp, err := s.admin.TestSSHHost(r.Context(), req)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "admin_error", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func (s *Server) handleAdminSSHHostsConfirmHostKey(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodPost) {
+		return
+	}
+	var req admin.ConfirmSSHHostKeyRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	resp, err := s.admin.ConfirmSSHHostKey(r.Context(), req)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "admin_error", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func (s *Server) handleAdminSSHBindings(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		resp, err := s.admin.SSHBindings()
+		if err != nil {
+			writeError(w, http.StatusBadGateway, "admin_error", err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, resp)
+	case http.MethodPost:
+		var req admin.UpdateSSHBindingsRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+			return
+		}
+		resp, err := s.admin.UpdateSSHBindings(r.Context(), req.Bindings)
+		if err != nil {
+			writeError(w, http.StatusBadGateway, "admin_error", err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, resp)
+	default:
+		w.Header().Set("Allow", strings.Join([]string{http.MethodGet, http.MethodPost}, ", "))
+		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
+	}
+}
+
+func (s *Server) handleAdminMCPServers(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		resp, err := s.admin.MCPServers()
+		if err != nil {
+			writeError(w, http.StatusBadGateway, "admin_error", err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, resp)
+	case http.MethodPost:
+		var req admin.UpdateMCPServersRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+			return
+		}
+		resp, err := s.admin.UpdateMCPServers(r.Context(), req.Servers)
+		if err != nil {
+			writeError(w, http.StatusBadGateway, "admin_error", err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, resp)
+	default:
+		w.Header().Set("Allow", strings.Join([]string{http.MethodGet, http.MethodPost}, ", "))
+		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
+	}
+}
+
+func (s *Server) handleAdminMCPValidate(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodPost) {
+		return
+	}
+	var req admin.MCPValidateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	resp, err := s.admin.ValidateMCPServer(r.Context(), req.Server)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "admin_error", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func (s *Server) handleAdminMCPDiscoverTools(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodPost) {
+		return
+	}
+	var req admin.MCPDiscoverToolsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	resp, err := s.admin.DiscoverMCPTools(r.Context(), req.ServerID)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "admin_error", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func (s *Server) handleAdminMCPRuntime(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodGet) {
+		return
+	}
+	resp, err := s.admin.MCPRuntimeStatus(r.Context())
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "admin_error", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func (s *Server) handleAdminMCPOpenWebUIPreview(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodGet) {
+		return
+	}
+	resp, err := s.admin.MCPOpenWebUIPreview()
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "admin_error", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
 func (s *Server) handleAdminServiceStart(w http.ResponseWriter, r *http.Request) {
 	if !requireMethod(w, r, http.MethodPost) {
 		return
