@@ -3,11 +3,13 @@ package admin
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 	"unicode"
 )
 
@@ -28,8 +30,8 @@ func defaultControl(name string) ControlState {
 		}
 	case serviceHostAgent:
 		return ControlState{
-			CanStart:          true,
-			UnsupportedReason: "host-agent stop is disabled to avoid stale port locks on Windows",
+			CanStart: true,
+			CanStop:  true,
 		}
 	case serviceGateway:
 		return ControlState{
@@ -70,7 +72,7 @@ func (s *Service) StopService(ctx context.Context, name string) error {
 	case serviceGateway:
 		return fmt.Errorf("gateway stop is not supported from the gateway itself")
 	case serviceHostAgent:
-		return s.stopHostAgent(ctx)
+		return s.gracefulStopHostAgent(ctx)
 	default:
 		return fmt.Errorf("unsupported service: %s", name)
 	}
@@ -164,7 +166,7 @@ func (s *Service) stopProcess(ctx context.Context, pattern string) error {
 	cmd := exec.CommandContext(ctx, "pkill", "-f", pattern)
 	output, err := cmd.CombinedOutput()
 	if err == nil {
-		return nil
+		return s.waitForHostAgentShutdownFallback()
 	}
 
 	if exitError, ok := err.(*exec.ExitError); ok && exitError.ExitCode() == 1 {
@@ -222,7 +224,7 @@ func (s *Service) startHostAgent(ctx context.Context) error {
 		`    Stop-Process -Id $listener.OwningProcess -Force -ErrorAction SilentlyContinue; ` +
 		`    Start-Sleep -Milliseconds 800; ` +
 		`  } ` +
-		`}`
+		`}; exit 0`
 	clearCmd := exec.CommandContext(ctx, powershellPath, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", clearStaleCmd)
 	if output, err := clearCmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("clear stale host-agent listener: %w: %s", err, strings.TrimSpace(string(output)))
@@ -255,6 +257,51 @@ func (s *Service) stopHostAgent(ctx context.Context) error {
 		return nil // process not found — already stopped
 	}
 	return fmt.Errorf("stop host-agent: %w: %s", err, strings.TrimSpace(string(output)))
+}
+
+func (s *Service) gracefulStopHostAgent(ctx context.Context) error {
+	_ = s.host.Stop(ctx)
+	if err := s.host.Shutdown(ctx); err == nil {
+		if s.waitForTCPPortClosed(hostAgentPortFromURL(s.cfg.Admin.HostAgentURL), 12*time.Second) {
+			return nil
+		}
+	}
+
+	return s.stopHostAgent(ctx)
+}
+
+func (s *Service) waitForHostAgentShutdownFallback() error {
+	if s.waitForTCPPortClosed(hostAgentPortFromURL(s.cfg.Admin.HostAgentURL), 12*time.Second) {
+		return nil
+	}
+	return fmt.Errorf("host-agent stop timed out waiting for port release")
+}
+
+func (s *Service) waitForTCPPortClosed(port string, timeout time.Duration) bool {
+	port = strings.TrimSpace(port)
+	if port == "" {
+		return true
+	}
+
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", port), 700*time.Millisecond)
+		if err != nil {
+			return true
+		}
+		_ = conn.Close()
+		time.Sleep(350 * time.Millisecond)
+	}
+	return false
+}
+
+func hostAgentPortFromURL(raw string) string {
+	if parsed, err := url.Parse(strings.TrimSpace(raw)); err == nil {
+		if port := strings.TrimSpace(parsed.Port()); port != "" {
+			return port
+		}
+	}
+	return "8101"
 }
 
 func resolveWindowsCommand(command string, fallbacks ...string) (string, error) {

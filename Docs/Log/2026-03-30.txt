@@ -83,3 +83,99 @@
 - 为 `host-agent` 增加优雅关闭与端口释放逻辑，恢复 `start/stop` 的完整可控性
 - 继续推进 Admin UI 第二阶段：MCP 用户级可见性覆盖、右侧栏进一步统一、主区组件继续减量
 状态：用户工作区化 Phase 1 已完成，一键启动脚本已落地，Admin 服务控制对 `tool-router / open-webui` 已可用，`host-agent` 仍有 Windows 端口残留问题待修。
+[18:36]
+任务：把当前逆向题样本沉淀成正式训练计划，确定后续训练路线先走 `skills-first`，而不是直接开微调。
+结果：已新增 `Docs/Plan/训练评测/Reverse题训练计划V1.md`，将 `reverse` 固定为第一条训练试点主线；计划已明确当前样本来源为 `Feed/Histroy/chat-export-1774864835443.json` 与 `Feed/Histroy/26-3-30/chat-你好.txt`，并固定训练重心为“题目-轨迹-纠错”闭环、结构化过程监督、reverse skills 拆分、pilot eval 与第二阶段 SFT 准备。
+修改：
+- 新增 `Docs/Plan/训练评测/Reverse题训练计划V1.md`
+- 更新 `Docs/Plan/待办事项.md`
+补充进展：
+- 已把首批 reverse 失败模式固定为 `shell_mismatch`、`path_or_encoding_failure`、`missing_dependency_fallback`、`powershell_syntax_error`、`low_signal_exploration`、`bad_error_recovery`、`wrong_tool_priority`、`poor_evidence_summary`
+- 已固定 reverse 第一阶段不新建独立插件，而是继续挂在现有 `awdp + pwn` 能力层
+- 已固定这道 `[re] 尤皮·埃克斯历险记` 只能进入 `train/dev`，不能进入 `eval`
+下一步：
+- 基于这两个聊天轨迹整理首个 `ReverseCaseRecord` 示范样本
+- 起草首批 reverse skills 与差异审查模板
+- 规划 `Datasets/reverse` 与 `Eval/reverse` 的落盘结构
+状态：reverse 训练计划已从口头讨论落地为正式文档，后续可以按文档继续做数据工件、skills 和 eval。
+[19:18]
+任务：整理 `Docs/Plan`，解决计划文档持续堆积、入口不清的问题。
+结果：已将 `Docs/Plan` 改成“根目录只留入口，专题文档进入子目录”的结构；新增总索引 `Docs/Plan/README.md`，并按 `架构设计 / 实施方案 / 训练评测 / 运行环境` 完成现有文档归类。`待办事项.md` 继续留在根目录作为唯一总进度入口。
+修改：
+- 新增 `Docs/Plan/README.md`
+- 移动 `Docs/Plan/本地AI架构计划.md` -> `Docs/Plan/架构设计/本地AI架构计划.md`
+- 移动 `Docs/Plan/本地模型系统计划书.md` -> `Docs/Plan/架构设计/本地模型系统计划书.md`
+- 移动 `Docs/Plan/后端架构.md` -> `Docs/Plan/架构设计/后端架构.md`
+- 移动 `Docs/Plan/Gateway管理GUI计划.md` -> `Docs/Plan/实施方案/Gateway管理GUI计划.md`
+- 移动 `Docs/Plan/后端代码改进方案.md` -> `Docs/Plan/实施方案/后端代码改进方案.md`
+- 移动 `Docs/Plan/Reverse题训练计划V1.md` -> `Docs/Plan/训练评测/Reverse题训练计划V1.md`
+- 移动 `Docs/Plan/WSL2环境落地说明.md` -> `Docs/Plan/运行环境/WSL2环境落地说明.md`
+- 移动 `Docs/Plan/AI操作指南.md` -> `Docs/Plan/运行环境/AI操作指南.md`
+- 更新 `Docs/Plan/待办事项.md`
+- 更新 `Docs/Plan/实施方案/Gateway管理GUI计划.md`
+补充进展：
+- 根目录现在只保留 `README.md` 与 `待办事项.md` 两个入口文档，后续新计划不再直接堆在根目录
+- `README.md` 已补当前分类索引，后续找文档可以先从这里进
+状态：`Docs/Plan` 已完成第一轮分类整理，结构已经可持续维护。
+[19:34]
+任务：确认当前本地模型是否已具备图片识别能力，并把结论写入计划。
+结果：已确认当前启用的 `Qwen3.5-35B-A3B` 模型家族理论支持视觉，但本地运行链路尚未接通视觉输入；`Gateway` 当前的 `messages[].content` 仍为纯字符串，`llama-server` 配置里也没有视觉相关参数，`Models/Qwen` 目录下仅有单个文本 `GGUF`，未发现视觉 projector / mmproj 文件。因此现阶段系统仍按纯文本模型使用，尚不能直接识别图片。
+修改：
+- 更新 `Docs/Plan/待办事项.md`
+补充进展：
+- 这件事已被明确收口为“后续能力项”，避免后面重复判断模型到底支不支持视觉
+- 当前结论是“模型家族支持，不等于本地链路已支持”
+状态：视觉能力现状已写入计划，当前先不推进该方向实现。
+[23:10]
+任务：执行“训练前系统封板计划 V1”的第一轮落地，把启动恢复、工具闭环、MCP 控制面和训练前数据基线真正收口到可回归状态。
+结果：已完成 `host-agent` 优雅关闭与恢复链修复，`Agent/host-control-rs` 新增 `/internal/host/shutdown` 并接入 `axum` graceful shutdown；`Gateway Admin` 新增 `/internal/admin/start-all` 与 `/internal/admin/self-check`，当前可统一拉起 `host-agent / tool-router / open-webui / llama-server` 并对 `gateway health / model list / chat / streaming / local terminal / MCP` 做结构化自检。`Workflows/windows/start-admin-ui.ps1` 已升级为真正的 `start-all + verify-all` 启动链，新增 `Workflows/windows/verify-stack.ps1`，实测可在当前机器上输出完整健康结果。MCP 侧已把原先的 mock 替换为离线可运行的 `local-workspace` native MCP，提供 `list_workspace` 与 `read_text_file` 两个真实工具，当前已完成 `validate -> discover-tools -> Open WebUI preview -> self-check` 闭环；同时 `generate-openwebui-tool-servers.py` 与 Gateway preview 已接入 `user-settings.json` 用户维度，支持 `enabled_mcp_server_ids`、`disabled_mcp_tools_by_server` 与 `user_email` 级别的 `access_grants`。为配合这一点，已新增 `Workflows/wsl/patch-open-webui-access-control.py`，给 Open WebUI 的 access control 补上 `principal_type=user_email` 支持。训练前数据基线方面，已新增 `Datasets/reverse` 与 `Eval/reverse` 的目录结构、模板与占位文件，固定 `ReverseCaseRecord / TraceReviewRecord / SkillDeltaRecord / ReverseEvalRecord` 的落盘接口。
+修改：
+- 更新 `Agent/host-control-rs/src/main.rs`
+- 更新 `Agent/host-control-rs/src/api.rs`
+- 更新 `Agent/host-control-rs/src/models.rs`
+- 更新 `Agent/gateway-go/internal/gateway/admin/hostclient.go`
+- 更新 `Agent/gateway-go/internal/gateway/admin/service_control.go`
+- 新增 `Agent/gateway-go/internal/gateway/admin/stack_checks.go`
+- 更新 `Agent/gateway-go/internal/gateway/admin/mcp_settings.go`
+- 更新 `Agent/gateway-go/internal/gateway/admin/types.go`
+- 更新 `Agent/gateway-go/internal/gateway/transport/openai/admin.go`
+- 更新 `Agent/gateway-go/internal/gateway/transport/openai/server.go`
+- 更新 `Workflows/windows/start-admin-ui.ps1`
+- 新增 `Workflows/windows/verify-stack.ps1`
+- 更新 `Workflows/wsl/start-open-webui.sh`
+- 更新 `Workflows/wsl/generate-openwebui-tool-servers.py`
+- 新增 `Workflows/wsl/patch-open-webui-access-control.py`
+- 更新 `Workflows/testing/mock-native-mcp.py`
+- 更新 `Agent/mcp-servers.json`
+- 更新 `Agent/mcp-tool-cache.json`
+- 更新 `ui/gateway-admin/src/pages/DashboardPage.tsx`
+- 更新 `ui/gateway-admin/src/lib/types.ts`
+- 新增 `Datasets/reverse/README.md`
+- 新增 `Datasets/reverse/success_cases/.gitkeep`
+- 新增 `Datasets/reverse/failure_cases/.gitkeep`
+- 新增 `Datasets/reverse/review_queue/.gitkeep`
+- 新增 `Datasets/reverse/templates/reverse-case-record.template.json`
+- 新增 `Datasets/reverse/templates/trace-review-record.template.json`
+- 新增 `Datasets/reverse/templates/skill-delta-record.template.json`
+- 新增 `Eval/reverse/README.md`
+- 新增 `Eval/reverse/dev/.gitkeep`
+- 新增 `Eval/reverse/eval/.gitkeep`
+- 新增 `Eval/reverse/templates/reverse-eval-record.template.json`
+- 更新 `Docs/Plan/待办事项.md`
+验证：
+- `cargo build --manifest-path Agent/host-control-rs/Cargo.toml` 通过
+- `go build ./...` in `Agent/gateway-go` 通过
+- `npm run build` in `ui/gateway-admin` 通过
+- `python -m py_compile` 已覆盖新的 WSL/MCP 脚本
+- `Workflows/windows/start-admin-ui.ps1 -StartWebUI true -StartLlama true -RunVerify true -OpenBrowser false` 实测通过
+- `/internal/admin/start-all` 已返回全绿
+- `/internal/admin/self-check` 已返回全绿，当前仅 `SSH terminal` 因未配置真实主机被标记为 `skipped`
+- `/internal/admin/mcp/servers/discover-tools` 已成功发现 `local-workspace` 的 2 个工具
+补充进展：
+- `host-agent stop -> start` 现已在 Admin API 层实测恢复，不再需要继续保持“stop disabled”
+- 生成器已兼容 `UTF-8 BOM` 的 `user-settings.json`，避免 PowerShell 落盘文件导致 MCP 同步失败
+- Open WebUI 已重启并加载新的 MCP 生成与 access control patch，当前 `/health` 正常
+剩余项：
+- 需要录入真实 `ssh-hosts.json` 和用户默认主机绑定，补齐 `SSH terminal` 自检与端到端联调
+- 需要在 Open WebUI 聊天界面人工确认一次 `local-workspace` MCP 的真实模型调用表现
+状态：训练前封板的第一轮主链已成型，当前 `启动恢复 / 聊天与 terminal / 离线 MCP / reverse 数据基线` 都已具备可回归基础，剩余主要是 SSH 真机联调与 Open WebUI 前端侧人工 E2E 确认。

@@ -1,0 +1,48 @@
+{
+  "case_id": "2026-newstar-yupi-adventure",
+  "task_meta": {
+    "category": "reverse",
+    "source": "local",
+    "difficulty": "",
+    "visibility": "train-dev-only",
+    "notes": ""
+  },
+  "input_files": [
+    {
+      "path": "D:/CTF/example.zip",
+      "sha256": "",
+      "role": "archive"
+    }
+  ],
+  "student_trace": {
+    "source": "Feed/Histroy/...",
+    "summary": "",
+    "tool_events": []
+  },
+  "teacher_trace": {
+    "source": "",
+    "summary": "",
+    "tool_events": []
+  },
+  "error_tags": [
+    "shell_mismatch"
+  ],
+  "gold_outcome": {
+    "status": "solved",
+    "flag": "",
+    "evidence": []
+  },
+  "skill_delta": [
+    {
+      "skill_id": "reverse-shell-adapter",
+      "change": ""
+    }
+  ],
+  "sft_ready": false,
+  "audit": {
+    "reviewed_by": "",
+    "reviewed_at": "",
+    "can_use_for_train": true,
+    "can_use_for_eval": false
+  }
+}

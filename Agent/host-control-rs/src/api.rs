@@ -54,6 +54,17 @@ pub async fn profile_update(
         .map_err(internal_error)
 }
 
+pub async fn shutdown(
+    State(state): State<SharedState>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    let _ = llama::stop(&state).await;
+    state.shutdown.notify_waiters();
+    Ok(Json(serde_json::json!({
+        "ok": true,
+        "summary": "host-agent shutdown requested"
+    })))
+}
+
 fn internal_error(err: anyhow::Error) -> (StatusCode, Json<serde_json::Value>) {
     (
         StatusCode::BAD_GATEWAY,

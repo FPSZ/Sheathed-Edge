@@ -2,7 +2,7 @@
 
 ## Summary
 
-在 [Docs/Plan](D:\AI\Local\Docs\Plan) 新增一份 GUI 规划文档，文件名固定为 `Gateway管理GUI计划.md`。  
+在 [Docs/Plan](D:\AI\Local\Docs\Plan) 下新增一份 GUI 规划文档，归类到 `实施方案` 目录。  
 这份文档聚焦一个新的 **浏览器优先 Admin 控制台**，不替代 Open WebUI 聊天入口，只负责本机系统控制、状态观测和日志查看。
 
 V1 固定定位如下：
@@ -208,7 +208,7 @@ V1 安全策略固定如下：
 
 ## Assumptions
 
-- 新文档路径固定为 [Gateway管理GUI计划.md](D:\AI\Local\Docs\Plan\Gateway管理GUI计划.md)
+- 新文档路径固定为 [Gateway管理GUI计划.md](D:\AI\Local\Docs\Plan\实施方案\Gateway管理GUI计划.md)
 - GUI 第一版是浏览器管理台，不做桌面壳
 - Open WebUI 继续保留为聊天前端
 - 高性能语言的落点固定为：

@@ -1,0 +1,23 @@
+{
+  "case_id": "2026-newstar-yupi-adventure",
+  "student_vs_teacher": {
+    "missed_steps": [],
+    "bad_tool_choices": [],
+    "bad_recovery_points": [],
+    "evidence_gaps": []
+  },
+  "scored_dimensions": {
+    "tool_selection": 0,
+    "shell_adaptation": 0,
+    "path_handling": 0,
+    "evidence_quality": 0,
+    "final_reporting": 0
+  },
+  "next_actions": [
+    {
+      "type": "skill_update",
+      "target": "reverse-shell-adapter",
+      "note": ""
+    }
+  ]
+}

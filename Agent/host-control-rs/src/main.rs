@@ -12,7 +12,10 @@ use axum::{
 };
 use clap::Parser;
 use models::{RuntimeState, SharedState};
-use tokio::{net::TcpListener, sync::Mutex};
+use tokio::{
+    net::TcpListener,
+    sync::{Mutex, Notify},
+};
 
 #[derive(Parser, Debug)]
 struct Cli {
@@ -37,7 +40,9 @@ async fn main() -> Result<()> {
         active_profile_id: Mutex::new(cfg.default_profile_id.clone()),
         process: Mutex::new(None),
         config: cfg.clone(),
+        shutdown: Arc::new(Notify::new()),
     });
+    let shutdown = state.shutdown.clone();
 
     let app = Router::new()
         .route("/healthz", get(api::healthz))
@@ -47,9 +52,14 @@ async fn main() -> Result<()> {
         .route("/internal/host/llama/restart", post(api::llama_restart))
         .route("/internal/host/llama/switch", post(api::llama_switch))
         .route("/internal/host/profiles/update", post(api::profile_update))
+        .route("/internal/host/shutdown", post(api::shutdown))
         .with_state(state);
 
     let listener = TcpListener::bind(format!("{}:{}", cfg.listen_host, cfg.listen_port)).await?;
-    axum::serve(listener, app).await?;
+    axum::serve(listener, app)
+        .with_graceful_shutdown(async move {
+            shutdown.notified().await;
+        })
+        .await?;
     Ok(())
 }

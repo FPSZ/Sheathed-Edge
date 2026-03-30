@@ -179,6 +179,10 @@ func (s *Service) MCPOpenWebUIPreview() (*MCPOpenWebUIPreviewResponse, error) {
 	if err != nil {
 		return nil, err
 	}
+	users, err := s.readUserSettings()
+	if err != nil {
+		return nil, err
+	}
 	runtime, err := s.MCPRuntimeStatus(context.Background())
 	if err != nil {
 		runtime = &MCPRuntimeStatusResponse{Servers: []MCPRuntimeEntry{}}
@@ -188,15 +192,7 @@ func (s *Service) MCPOpenWebUIPreview() (*MCPOpenWebUIPreviewResponse, error) {
 		runtimeByID[strings.ToLower(item.ServerID)] = item
 	}
 
-	connections := make([]OpenWebUIToolConnection, 0, len(servers))
-	for _, server := range servers {
-		if !server.Enabled {
-			continue
-		}
-		runtimeEntry := runtimeByID[strings.ToLower(server.ID)]
-		connection := buildOpenWebUIConnection(server, runtimeEntry)
-		connections = append(connections, connection)
-	}
+	connections := buildOpenWebUIConnections(servers, users, runtimeByID)
 	data, err := json.MarshalIndent(connections, "", "  ")
 	if err != nil {
 		return nil, fmt.Errorf("encode openwebui preview: %w", err)
@@ -438,6 +434,32 @@ func sanitizeStringMap(items map[string]string) map[string]string {
 	return cleaned
 }
 
+func buildOpenWebUIConnections(
+	servers []MCPServerProfile,
+	users []UserWorkspace,
+	runtimeByID map[string]MCPRuntimeEntry,
+) []OpenWebUIToolConnection {
+	connections := make([]OpenWebUIToolConnection, 0, len(servers))
+	for _, server := range servers {
+		if !server.Enabled {
+			continue
+		}
+		runtimeEntry := runtimeByID[strings.ToLower(server.ID)]
+		if len(users) == 0 {
+			connections = append(connections, buildOpenWebUIConnection(server, runtimeEntry))
+			continue
+		}
+
+		for _, user := range users {
+			if !mcpServerEnabledForUser(server.ID, user) {
+				continue
+			}
+			connections = append(connections, buildUserScopedOpenWebUIConnection(server, runtimeEntry, user))
+		}
+	}
+	return connections
+}
+
 func buildOpenWebUIConnection(server MCPServerProfile, runtime MCPRuntimeEntry) OpenWebUIToolConnection {
 	connection := OpenWebUIToolConnection{
 		ID:       fmt.Sprintf("mcp-%s", server.ID),
@@ -492,6 +514,87 @@ func buildOpenWebUIConnection(server MCPServerProfile, runtime MCPRuntimeEntry) 
 		}
 	}
 	return connection
+}
+
+func buildUserScopedOpenWebUIConnection(
+	server MCPServerProfile,
+	runtime MCPRuntimeEntry,
+	user UserWorkspace,
+) OpenWebUIToolConnection {
+	connection := buildOpenWebUIConnection(server, runtime)
+	connection.ID = fmt.Sprintf("mcp-%s-%s", server.ID, safeConnectionSuffix(user.UserEmail))
+	connection.Config = map[string]any{
+		"access_grants": []map[string]string{
+			{
+				"principal_type": "user_email",
+				"principal_id":   normalizeEmail(user.UserEmail),
+				"permission":     "read",
+			},
+		},
+	}
+
+	disabled := sanitizeStringList(server.DisabledTools)
+	userDisabled := user.DisabledMCPToolsByServer[strings.TrimSpace(server.ID)]
+	if len(userDisabled) == 0 {
+		for key, values := range user.DisabledMCPToolsByServer {
+			if strings.EqualFold(strings.TrimSpace(key), strings.TrimSpace(server.ID)) {
+				userDisabled = values
+				break
+			}
+		}
+	}
+	disabled = mergeDisabledTools(disabled, userDisabled)
+	if len(disabled) > 0 {
+		connection.FunctionNameFilterList = strings.Join(disabled, ",")
+	} else {
+		connection.FunctionNameFilterList = ""
+	}
+	if connection.Info == nil {
+		connection.Info = map[string]any{}
+	}
+	connection.Info["user_email"] = normalizeEmail(user.UserEmail)
+	return connection
+}
+
+func mergeDisabledTools(base []string, extra []string) []string {
+	return sanitizeStringList(append(append([]string{}, base...), extra...))
+}
+
+func mcpServerEnabledForUser(serverID string, user UserWorkspace) bool {
+	if len(user.EnabledMCPServerIDs) == 0 {
+		return true
+	}
+	for _, item := range user.EnabledMCPServerIDs {
+		if strings.EqualFold(strings.TrimSpace(item), strings.TrimSpace(serverID)) {
+			return true
+		}
+	}
+	return false
+}
+
+func safeConnectionSuffix(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if value == "" {
+		return "unknown"
+	}
+	replacer := strings.NewReplacer("@", "-", ".", "-", "_", "-", "+", "-", "/", "-", "\\", "-")
+	value = replacer.Replace(value)
+	var builder strings.Builder
+	for _, r := range value {
+		switch {
+		case r >= 'a' && r <= 'z':
+			builder.WriteRune(r)
+		case r >= '0' && r <= '9':
+			builder.WriteRune(r)
+		case r == '-':
+			builder.WriteRune(r)
+		}
+	}
+	out := strings.Trim(builder.String(), "-")
+	if out == "" {
+		return "user"
+	}
+	return out
 }
 
 func normalizeOpenWebUIAuthType(authType string) string {

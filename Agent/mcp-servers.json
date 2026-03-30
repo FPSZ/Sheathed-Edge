@@ -1,10 +1,10 @@
 [
   {
-    "id": "mock-native",
-    "label": "Mock Native MCP",
+    "id": "local-workspace",
+    "label": "本地工作区 MCP",
     "enabled": true,
     "kind": "native_streamable_http",
-    "description": "Local mock MCP for control-plane verification",
+    "description": "Offline workspace tools for listing directories and reading text files",
     "plugin_scope": [
       "awdp"
     ],
@@ -12,7 +12,7 @@
     "disabled_tools": [],
     "timeout_ms": 15000,
     "verify_tls": true,
-    "notes": "temporary local test",
+    "notes": "Offline native MCP managed by the Windows startup script",
     "url": "http://127.0.0.1:8765"
   }
 ]

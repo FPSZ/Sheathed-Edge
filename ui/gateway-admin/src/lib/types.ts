@@ -111,6 +111,30 @@ export type HostIPsResponse = {
   share_urls: string[];
 };
 
+export type ServiceActionResult = {
+  name: string;
+  ok: boolean;
+  message: string;
+};
+
+export type StartAllResponse = {
+  ok: boolean;
+  results: ServiceActionResult[];
+};
+
+export type SelfCheckItem = {
+  id: string;
+  label: string;
+  status: "ok" | "failed" | "skipped" | string;
+  message: string;
+  details?: Record<string, unknown>;
+};
+
+export type SelfCheckResponse = {
+  ok: boolean;
+  checks: SelfCheckItem[];
+};
+
 export type TerminalPathsSettings = {
   allowed_paths: string[];
   config_path: string;

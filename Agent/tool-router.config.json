@@ -7,12 +7,22 @@
     "D:\\AI\\Local\\Logs",
     "D:\\AI\\Local\\Templates",
     "D:\\AI\\Local\\Writeups",
-    "D:\\Environment2"
+    "D:\\Environment2",
+    "D:\\CTF",
+    "D:\\AWDP"
   ],
   "listen_host": "127.0.0.1",
   "listen_port": 8091,
   "logs": {
     "tool_log_dir": "D:\\AI\\Local\\Logs\\tools"
+  },
+  "mcp": {
+    "bridge_host": "127.0.0.1",
+    "bridge_port_end": 8124,
+    "bridge_port_start": 8092,
+    "process_log_dir": "D:\\AI\\Local\\Logs\\mcp",
+    "servers_path": "D:\\AI\\Local\\Agent\\mcp-servers.json",
+    "tool_cache_path": "D:\\AI\\Local\\Agent\\mcp-tool-cache.json"
   },
   "plugin_scope_defaults": {
     "awdp": [
@@ -30,14 +40,6 @@
     ]
   },
   "registry_path": "D:\\AI\\Local\\MCP\\registry.json",
-  "mcp": {
-    "servers_path": "D:\\AI\\Local\\Agent\\mcp-servers.json",
-    "tool_cache_path": "D:\\AI\\Local\\Agent\\mcp-tool-cache.json",
-    "bridge_host": "127.0.0.1",
-    "bridge_port_start": 8092,
-    "bridge_port_end": 8124,
-    "process_log_dir": "D:\\AI\\Local\\Logs\\mcp"
-  },
   "timeouts": {
     "default_ms": 60000,
     "max_ms": 180000

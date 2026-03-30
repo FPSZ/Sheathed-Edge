@@ -119,6 +119,30 @@ type ServiceActionRequest struct {
 	Name string `json:"name"`
 }
 
+type ServiceActionResult struct {
+	Name    string `json:"name"`
+	OK      bool   `json:"ok"`
+	Message string `json:"message"`
+}
+
+type StartAllResponse struct {
+	OK      bool                  `json:"ok"`
+	Results []ServiceActionResult `json:"results"`
+}
+
+type SelfCheckItem struct {
+	ID      string         `json:"id"`
+	Label   string         `json:"label"`
+	Status  string         `json:"status"`
+	Message string         `json:"message"`
+	Details map[string]any `json:"details,omitempty"`
+}
+
+type SelfCheckResponse struct {
+	OK     bool            `json:"ok"`
+	Checks []SelfCheckItem `json:"checks"`
+}
+
 type UpdateModelProfileRequest struct {
 	Profile  ModelProfile `json:"profile"`
 	ApplyNow bool         `json:"apply_now"`

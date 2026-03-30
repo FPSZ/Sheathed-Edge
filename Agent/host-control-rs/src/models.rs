@@ -1,7 +1,10 @@
 use std::{collections::HashMap, sync::Arc};
 
 use serde::{Deserialize, Serialize};
-use tokio::{process::Child, sync::Mutex};
+use tokio::{
+    process::Child,
+    sync::{Mutex, Notify},
+};
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Config {
@@ -76,6 +79,7 @@ pub struct RuntimeState {
     pub active_profile_id: Mutex<String>,
     pub process: Mutex<Option<ManagedProcess>>,
     pub http_client: reqwest::Client,
+    pub shutdown: Arc<Notify>,
 }
 
 pub type SharedState = Arc<RuntimeState>;

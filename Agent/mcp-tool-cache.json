@@ -1,15 +1,20 @@
 {
   "servers": [
     {
-      "server_id": "mock-native",
+      "server_id": "local-workspace",
       "tools": [
         {
-          "name": "get_current_time",
-          "description": "Return a mock current time string for MCP integration testing.",
+          "name": "list_workspace",
+          "description": "List files inside an allowed workspace directory.",
+          "disabled": false
+        },
+        {
+          "name": "read_text_file",
+          "description": "Read a UTF-8 text file inside allowed roots.",
           "disabled": false
         }
       ],
-      "last_discovered_at": "1774837898657",
+      "last_discovered_at": "1774882580808",
       "last_error": ""
     }
   ]

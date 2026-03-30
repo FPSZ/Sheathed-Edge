@@ -68,6 +68,11 @@ func (c *HostClient) Restart(ctx context.Context) error {
 	return err
 }
 
+func (c *HostClient) Shutdown(ctx context.Context) error {
+	_, err := c.do(ctx, http.MethodPost, "/internal/host/shutdown", map[string]any{})
+	return err
+}
+
 func (c *HostClient) Switch(ctx context.Context, profileID string) error {
 	_, err := c.do(ctx, http.MethodPost, "/internal/host/llama/switch", map[string]any{
 		"profile_id": profileID,

@@ -1,0 +1,19 @@
+{
+  "case_id": "2026-newstar-yupi-adventure",
+  "budget": {
+    "max_turns": 0,
+    "max_tool_calls": 0,
+    "max_minutes": 0
+  },
+  "result": {
+    "status": "unsolved",
+    "solve_rate": 0,
+    "time_to_first_useful_action": 0,
+    "invalid_tool_call_rate": 0,
+    "shell_mismatch_rate": 0,
+    "avg_tool_calls": 0,
+    "error_recovery_turns": 0,
+    "final_evidence_quality": 0
+  },
+  "notes": ""
+}
