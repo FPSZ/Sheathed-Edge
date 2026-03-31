@@ -1,0 +1,10 @@
+# Reverse formal-sft profile.
+# Intended for longer controlled runs after pilot verification.
+
+profile_id: "reverse-formal-sft"
+max_steps: 200
+num_epochs: 2
+save_steps: 50
+logging_steps: 5
+warmup_steps: 10
+evals_per_epoch: 0

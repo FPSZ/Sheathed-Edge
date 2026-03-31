@@ -218,6 +218,18 @@ func (s *Server) handleAdminSSHHostsConfirmHostKey(w http.ResponseWriter, r *htt
 	writeJSON(w, http.StatusOK, resp)
 }
 
+func (s *Server) handleAdminSSHRuntime(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodGet) {
+		return
+	}
+	resp, err := s.admin.SSHRuntimeStatus(r.Context())
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "admin_error", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
 func (s *Server) handleAdminSSHBindings(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:

@@ -13,6 +13,8 @@ pub struct Config {
     pub listen_host: String,
     pub listen_port: u16,
     pub registry_path: String,
+    #[serde(default)]
+    pub user_settings_path: String,
     pub logs: LogsConfig,
     #[serde(default)]
     pub timeouts: TimeoutConfig,
@@ -98,7 +100,9 @@ pub struct AppState {
     pub config: Config,
     pub tools: Arc<HashMap<String, ToolDef>>,
     pub workspace_root: String,
+    pub user_settings_path: String,
     pub ssh_hosts_path: String,
+    pub ssh_runtime: crate::ssh::SharedSshRuntime,
     pub mcp_servers_path: String,
     pub mcp_tool_cache_path: String,
     pub mcp_runtime: Arc<Mutex<McpRuntimeState>>,
@@ -166,6 +170,7 @@ pub struct OpenAPITerminalRequest {
     pub workdir: Option<String>,
     pub timeout_ms: Option<u64>,
     pub user_email: Option<String>,
+    pub available_execution_targets: Option<Vec<ExecutionTarget>>,
 }
 
 #[derive(Debug, Serialize)]
@@ -183,7 +188,43 @@ pub struct OpenAPITerminalResponse {
     pub shell: String,
     pub workdir: String,
     pub truncated: bool,
+    pub stdout_truncated: bool,
+    pub stderr_truncated: bool,
+    pub connection_reused: bool,
+    pub failure_phase: String,
+    pub queue_wait_ms: u64,
     pub error: Option<ErrorEnvelope>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct UserWorkspace {
+    pub user_email: String,
+    #[serde(default)]
+    pub label: String,
+    #[serde(default)]
+    pub terminal_allowed_paths: Vec<String>,
+    #[serde(default)]
+    pub default_local_workdir: String,
+    #[serde(default)]
+    pub default_ssh_host_id: String,
+    #[serde(default)]
+    pub enabled_execution_targets: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ExecutionTarget {
+    pub target_id: String,
+    pub kind: String,
+    #[serde(default)]
+    pub label: String,
+    #[serde(default)]
+    pub shells: Vec<String>,
+    #[serde(default)]
+    pub default_workdir: String,
+    #[serde(default)]
+    pub allowed_paths: Vec<String>,
+    #[serde(default)]
+    pub recommended_use: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -235,7 +276,51 @@ pub struct SshTestResponse {
     pub host_key_status: String,
     pub host_key_fingerprint: String,
     #[serde(default)]
+    pub phases: Vec<SshDiagnosticPhase>,
+    #[serde(default)]
+    pub suggested_fix: String,
+    #[serde(default)]
     pub error: Option<ErrorEnvelope>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct SshDiagnosticPhase {
+    pub phase: String,
+    pub status: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct SshRuntimeStatusResponse {
+    #[serde(default)]
+    pub configured_host_count: usize,
+    #[serde(default)]
+    pub active_connection_count: usize,
+    #[serde(default)]
+    pub hosts: Vec<SshRuntimeEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct SshRuntimeEntry {
+    pub host_id: String,
+    pub label: String,
+    pub enabled: bool,
+    #[serde(default)]
+    pub pool_limit: u32,
+    #[serde(default)]
+    pub pooled_connections: u32,
+    #[serde(default)]
+    pub active_commands: u32,
+    #[serde(default)]
+    pub queued_commands: u32,
+    #[serde(default)]
+    pub last_connect_error: String,
+    #[serde(default)]
+    pub last_exec_error: String,
+    #[serde(default)]
+    pub last_connected_at: u64,
+    #[serde(default)]
+    pub last_used_at: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

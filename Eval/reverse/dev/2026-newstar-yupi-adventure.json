@@ -1,0 +1,19 @@
+{
+  "case_id": "2026-newstar-yupi-adventure",
+  "budget": {
+    "max_turns": 30,
+    "max_tool_calls": 40,
+    "max_minutes": 25
+  },
+  "result": {
+    "status": "unsolved",
+    "solve_rate": 0,
+    "time_to_first_useful_action": 7,
+    "invalid_tool_call_rate": 0.17,
+    "shell_mismatch_rate": 0.22,
+    "avg_tool_calls": 18,
+    "error_recovery_turns": 5,
+    "final_evidence_quality": 2
+  },
+  "notes": "Derived from the archived local student run only. Main failure modes were Windows path handling, missing dependency fallback, noisy exploration, and lack of verification before summarizing."
+}

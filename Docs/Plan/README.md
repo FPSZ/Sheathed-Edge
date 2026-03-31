@@ -31,6 +31,8 @@
 ### 训练评测
 
 - [Reverse题训练计划V1](D:/AI/Local/Docs/Plan/训练评测/Reverse题训练计划V1.md)
+- [可控式训练工程主计划V1](D:/AI/Local/Docs/Plan/训练评测/可控式训练工程主计划V1.md)
+- [可控式训练工程路线图V2](D:/AI/Local/Docs/Plan/训练评测/可控式训练工程路线图V2.md)
 
 ### 运行环境
 

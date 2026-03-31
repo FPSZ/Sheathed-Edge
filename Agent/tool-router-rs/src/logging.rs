@@ -25,6 +25,13 @@ pub fn append_tool_log(
         "mode": req.mode,
         "user_email": user_email_for_log(req, arguments),
         "tool": req.tool,
+        "target_id": result_string(resp, "target_id"),
+        "transport": result_string(resp, "transport"),
+        "host_id": result_string(resp, "host_id"),
+        "remote_shell": result_string(resp, "remote_shell"),
+        "connection_reused": result_bool(resp, "connection_reused"),
+        "failure_phase": result_string(resp, "failure_phase"),
+        "queue_wait_ms": result_u64(resp, "queue_wait_ms"),
         "arguments": arguments,
         "duration_ms": duration_ms,
         "ok": resp.ok,
@@ -47,6 +54,25 @@ fn user_email_for_log(req: &ExecuteRequest, arguments: &Value) -> String {
         .unwrap_or_default()
         .trim()
         .to_string()
+}
+
+fn result_string(resp: &ExecuteResponse, key: &str) -> String {
+    resp.result
+        .get(key)
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string()
+}
+
+fn result_bool(resp: &ExecuteResponse, key: &str) -> bool {
+    resp.result
+        .get(key)
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+}
+
+fn result_u64(resp: &ExecuteResponse, key: &str) -> u64 {
+    resp.result.get(key).and_then(Value::as_u64).unwrap_or(0)
 }
 
 pub fn now_ms() -> u128 {

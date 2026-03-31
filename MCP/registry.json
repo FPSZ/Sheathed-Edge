@@ -129,7 +129,7 @@
     },
     {
       "name": "terminal",
-      "description": "Run controlled local shell commands for AWDP agent workflows using PowerShell or WSL bash.",
+      "description": "Run controlled shell commands on either the local host or an authorized SSH target. Choose local for scripts, repo operations, packaging, and file transfer orchestration. Choose ssh with host_id for remote directories, logs, processes, and running tasks on that host. A single conversation may mix local and ssh calls.",
       "type": "stdio_mcp",
       "transport": "stdio",
       "command": [
@@ -204,6 +204,53 @@
           "user_email": {
             "type": "string",
             "minLength": 3
+          },
+          "available_execution_targets": {
+            "type": "array",
+            "description": "Dynamic per-user execution targets. When present, choose one of these targets for this call.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "target_id",
+                "kind",
+                "label",
+                "shells"
+              ],
+              "properties": {
+                "target_id": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "local",
+                    "ssh"
+                  ]
+                },
+                "label": {
+                  "type": "string"
+                },
+                "shells": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "default_workdir": {
+                  "type": "string"
+                },
+                "allowed_paths": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "recommended_use": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       },

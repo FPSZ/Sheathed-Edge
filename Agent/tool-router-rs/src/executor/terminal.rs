@@ -83,6 +83,7 @@ pub async fn run_terminal(
     let truncated = stdout_truncated || stderr_truncated;
 
     let mut result = BTreeMap::new();
+    result.insert("target_id".into(), Value::String("local".into()));
     result.insert("transport".into(), Value::String("local".into()));
     result.insert("host_id".into(), Value::String(String::new()));
     result.insert("remote_shell".into(), Value::String(String::new()));
@@ -96,6 +97,11 @@ pub async fn run_terminal(
     result.insert("exit_code".into(), Value::Number(exit_code.into()));
     result.insert("stdout".into(), Value::String(stdout.clone()));
     result.insert("stderr".into(), Value::String(stderr.clone()));
+    result.insert("stdout_truncated".into(), Value::Bool(stdout_truncated));
+    result.insert("stderr_truncated".into(), Value::Bool(stderr_truncated));
+    result.insert("connection_reused".into(), Value::Bool(false));
+    result.insert("failure_phase".into(), Value::String(String::new()));
+    result.insert("queue_wait_ms".into(), Value::Number(0.into()));
     result.insert("timed_out".into(), Value::Bool(false));
     result.insert(
         "duration_ms".into(),
@@ -133,13 +139,76 @@ async fn run_ssh_terminal(
 ) -> std::result::Result<ExecuteResponse, (String, String)> {
     let settings = ssh::effective_ssh_settings(state, tool, arguments)?;
     let duration_start = Instant::now();
-    let output = ssh::execute_ssh_command(state, tool, arguments, original_command).await?;
+    let output = match ssh::execute_ssh_command(state, tool, arguments, original_command).await {
+        Ok(output) => output,
+        Err(err) => {
+            let duration_ms = duration_start.elapsed().as_millis();
+            let mut result = BTreeMap::new();
+            result.insert(
+                "target_id".into(),
+                Value::String(format!("ssh:{}", settings.host.id)),
+            );
+            result.insert("transport".into(), Value::String("ssh".into()));
+            result.insert("host_id".into(), Value::String(settings.host.id.clone()));
+            result.insert(
+                "remote_shell".into(),
+                Value::String(settings.remote_shell.clone()),
+            );
+            result.insert("shell".into(), Value::String(settings.remote_shell.clone()));
+            result.insert("workdir".into(), Value::String(settings.workdir.clone()));
+            result.insert(
+                "command".into(),
+                Value::String(original_command.to_string()),
+            );
+            result.insert(
+                "original_command".into(),
+                Value::String(original_command.to_string()),
+            );
+            result.insert("stdout".into(), Value::String(String::new()));
+            result.insert("stderr".into(), Value::String(String::new()));
+            result.insert("stdout_truncated".into(), Value::Bool(false));
+            result.insert("stderr_truncated".into(), Value::Bool(false));
+            result.insert(
+                "connection_reused".into(),
+                Value::Bool(err.connection_reused),
+            );
+            result.insert(
+                "failure_phase".into(),
+                Value::String(err.failure_phase.clone()),
+            );
+            result.insert(
+                "queue_wait_ms".into(),
+                Value::Number(serde_json::Number::from(err.queue_wait_ms)),
+            );
+            result.insert("timed_out".into(), Value::Bool(err.timed_out));
+            result.insert(
+                "duration_ms".into(),
+                Value::Number(serde_json::Number::from(duration_ms as u64)),
+            );
+            result.insert("exit_code".into(), Value::Number((-1).into()));
+            return Ok(ExecuteResponse {
+                ok: false,
+                tool: tool.name.clone(),
+                result,
+                summary: err.message.clone(),
+                truncated: false,
+                error: Some(crate::models::ErrorEnvelope {
+                    code: err.code,
+                    message: err.message,
+                }),
+            });
+        }
+    };
     let duration_ms = duration_start.elapsed().as_millis();
     let (stdout, stdout_truncated) = truncate_output(&output.stdout);
     let (stderr, stderr_truncated) = truncate_output(&output.stderr);
     let truncated = stdout_truncated || stderr_truncated;
 
     let mut result = BTreeMap::new();
+    result.insert(
+        "target_id".into(),
+        Value::String(format!("ssh:{}", settings.host.id)),
+    );
     result.insert("transport".into(), Value::String("ssh".into()));
     result.insert("host_id".into(), Value::String(settings.host.id.clone()));
     result.insert(
@@ -166,6 +235,17 @@ async fn run_ssh_terminal(
     result.insert("exit_code".into(), Value::Number(output.exit_code.into()));
     result.insert("stdout".into(), Value::String(stdout.clone()));
     result.insert("stderr".into(), Value::String(stderr.clone()));
+    result.insert("stdout_truncated".into(), Value::Bool(stdout_truncated));
+    result.insert("stderr_truncated".into(), Value::Bool(stderr_truncated));
+    result.insert(
+        "connection_reused".into(),
+        Value::Bool(output.connection_reused),
+    );
+    result.insert("failure_phase".into(), Value::String(String::new()));
+    result.insert(
+        "queue_wait_ms".into(),
+        Value::Number(serde_json::Number::from(output.queue_wait_ms)),
+    );
     result.insert("timed_out".into(), Value::Bool(false));
     result.insert(
         "duration_ms".into(),
@@ -296,6 +376,11 @@ fn timeout_response(
     result.insert("workdir".into(), Value::String(workdir.to_string()));
     result.insert("stdout".into(), Value::String(String::new()));
     result.insert("stderr".into(), Value::String(String::new()));
+    result.insert("stdout_truncated".into(), Value::Bool(false));
+    result.insert("stderr_truncated".into(), Value::Bool(false));
+    result.insert("connection_reused".into(), Value::Bool(false));
+    result.insert("failure_phase".into(), Value::String("exec".into()));
+    result.insert("queue_wait_ms".into(), Value::Number(0.into()));
     result.insert("timed_out".into(), Value::Bool(true));
     result.insert(
         "duration_ms".into(),

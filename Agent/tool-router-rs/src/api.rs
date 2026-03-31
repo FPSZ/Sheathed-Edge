@@ -33,7 +33,7 @@ pub async fn openapi_spec(State(state): State<AppState>) -> impl IntoResponse {
         "info": {
             "title": "AWDP Terminal Tool Server",
             "version": "1.0.0",
-            "description": "Controlled local and SSH terminal execution for Open WebUI via OpenAPI."
+            "description": "Controlled local and SSH terminal execution for Open WebUI via OpenAPI. The model may switch targets per call: use local for scripts and file transfer orchestration, use ssh for remote execution."
         },
         "servers": [
             {
@@ -45,6 +45,7 @@ pub async fn openapi_spec(State(state): State<AppState>) -> impl IntoResponse {
                 "post": {
                     "operationId": "runTerminal",
                     "summary": "Run a controlled local or SSH shell command",
+                    "description": "Choose transport per call. Use local for host scripts, packaging, git, scp or rsync orchestration. Use ssh with host_id for remote directories, logs, processes, and running tasks on that host. A single conversation may mix local and ssh calls.",
                     "requestBody": {
                         "required": true,
                         "content": {
@@ -54,7 +55,11 @@ pub async fn openapi_spec(State(state): State<AppState>) -> impl IntoResponse {
                                     "additionalProperties": false,
                                     "required": ["command"],
                                     "properties": {
-                                        "command": { "type": "string", "minLength": 1 },
+                                        "command": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "description": "Shell command to run on the selected execution target."
+                                        },
                                         "transport": {
                                             "anyOf": [
                                                 {
@@ -65,7 +70,8 @@ pub async fn openapi_spec(State(state): State<AppState>) -> impl IntoResponse {
                                                     "type": "null"
                                                 }
                                             ],
-                                            "default": "local"
+                                            "default": "local",
+                                            "description": "Execution target kind. Use local for host commands and ssh for remote commands."
                                         },
                                         "shell": {
                                             "anyOf": [
@@ -77,13 +83,15 @@ pub async fn openapi_spec(State(state): State<AppState>) -> impl IntoResponse {
                                                     "type": "null"
                                                 }
                                             ],
-                                            "default": "powershell"
+                                            "default": "powershell",
+                                            "description": "Local shell. Only used when transport=local."
                                         },
                                         "host_id": {
                                             "anyOf": [
                                                 { "type": "string", "minLength": 1 },
                                                 { "type": "null" }
-                                            ]
+                                            ],
+                                            "description": "Required when transport=ssh. Select one authorized SSH target."
                                         },
                                         "remote_shell": {
                                             "anyOf": [
@@ -92,25 +100,58 @@ pub async fn openapi_spec(State(state): State<AppState>) -> impl IntoResponse {
                                                     "enum": ["bash", "powershell"]
                                                 },
                                                 { "type": "null" }
-                                            ]
+                                            ],
+                                            "description": "Remote shell to launch on the SSH host. Only used when transport=ssh."
                                         },
                                         "workdir": {
                                             "anyOf": [
                                                 { "type": "string", "minLength": 1 },
                                                 { "type": "null" }
-                                            ]
+                                            ],
+                                            "description": "Working directory on the selected target. Keep it inside the target allowed paths."
                                         },
                                         "timeout_ms": {
                                             "anyOf": [
                                                 { "type": "integer", "minimum": 1 },
                                                 { "type": "null" }
-                                            ]
+                                            ],
+                                            "description": "Overall execution timeout in milliseconds."
                                         },
                                         "user_email": {
                                             "anyOf": [
                                                 { "type": "string", "minLength": 3 },
                                                 { "type": "null" }
-                                            ]
+                                            ],
+                                            "description": "Current Open WebUI user email. Used to enforce per-user execution target authorization."
+                                        },
+                                        "available_execution_targets": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "additionalProperties": false,
+                                                        "required": ["target_id", "kind", "label", "shells"],
+                                                        "properties": {
+                                                            "target_id": { "type": "string" },
+                                                            "kind": { "type": "string", "enum": ["local", "ssh"] },
+                                                            "label": { "type": "string" },
+                                                            "shells": {
+                                                                "type": "array",
+                                                                "items": { "type": "string" }
+                                                            },
+                                                            "default_workdir": { "type": "string" },
+                                                            "allowed_paths": {
+                                                                "type": "array",
+                                                                "items": { "type": "string" }
+                                                            },
+                                                            "recommended_use": { "type": "string" }
+                                                        }
+                                                    }
+                                                },
+                                                { "type": "null" }
+                                            ],
+                                            "description": "Dynamic per-user execution targets. When present, choose one of these targets for this call."
                                         }
                                     }
                                 }
@@ -137,7 +178,12 @@ pub async fn openapi_spec(State(state): State<AppState>) -> impl IntoResponse {
                                             "remote_shell",
                                             "shell",
                                             "workdir",
-                                            "truncated"
+                                            "truncated",
+                                            "stdout_truncated",
+                                            "stderr_truncated",
+                                            "connection_reused",
+                                            "failure_phase",
+                                            "queue_wait_ms"
                                         ],
                                         "properties": {
                                             "ok": { "type": "boolean" },
@@ -153,6 +199,11 @@ pub async fn openapi_spec(State(state): State<AppState>) -> impl IntoResponse {
                                             "shell": { "type": "string" },
                                             "workdir": { "type": "string" },
                                             "truncated": { "type": "boolean" },
+                                            "stdout_truncated": { "type": "boolean" },
+                                            "stderr_truncated": { "type": "boolean" },
+                                            "connection_reused": { "type": "boolean" },
+                                            "failure_phase": { "type": "string" },
+                                            "queue_wait_ms": { "type": "integer" },
                                             "error": {
                                                 "type": "object",
                                                 "nullable": true,
@@ -187,10 +238,30 @@ pub async fn test_ssh_host(
                 summary: err.to_string(),
                 host_key_status: "unknown".into(),
                 host_key_fingerprint: String::new(),
+                phases: vec![],
+                suggested_fix: String::new(),
                 error: Some(ErrorEnvelope {
                     code: "ssh_test_failed".into(),
                     message: err.to_string(),
                 }),
+            }),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn ssh_runtime(State(state): State<AppState>) -> impl IntoResponse {
+    match ssh::ssh_runtime_status(&state).await {
+        Ok(resp) => (StatusCode::OK, Json(resp)).into_response(),
+        Err(err) => (
+            StatusCode::OK,
+            Json(crate::models::SshRuntimeStatusResponse {
+                configured_host_count: 0,
+                active_connection_count: 0,
+                hosts: vec![crate::models::SshRuntimeEntry {
+                    last_connect_error: err.to_string(),
+                    ..Default::default()
+                }],
             }),
         )
             .into_response(),
@@ -267,7 +338,8 @@ pub async fn resolve_tool(
     State(state): State<AppState>,
     Json(req): Json<ResolveRequest>,
 ) -> impl IntoResponse {
-    let normalized_arguments = normalize_tool_arguments(&state, &req.tool, &req.arguments);
+    let request_arguments = with_request_user_email(&req.arguments, &req.user_email);
+    let normalized_arguments = normalize_tool_arguments(&state, &req.tool, &request_arguments);
     match check_tool_access(&state, &req.tool, &req.mode, &normalized_arguments) {
         Ok(def) => (
             StatusCode::OK,
@@ -295,7 +367,8 @@ pub async fn execute_tool(
     Json(req): Json<ExecuteRequest>,
 ) -> impl IntoResponse {
     let start_ms = now_ms();
-    let normalized_arguments = normalize_tool_arguments(&state, &req.tool, &req.arguments);
+    let request_arguments = with_request_user_email(&req.arguments, &req.user_email);
+    let normalized_arguments = normalize_tool_arguments(&state, &req.tool, &request_arguments);
     let (status, response) =
         match check_tool_access(&state, &req.tool, &req.mode, &normalized_arguments) {
             Ok(def) => match executor::dispatch_tool(&state, def, &normalized_arguments).await {
@@ -364,6 +437,12 @@ pub async fn openapi_terminal(
     if let Some(ref user_email) = req.user_email {
         arguments.insert("user_email".into(), json!(user_email));
     }
+    if let Some(ref available_execution_targets) = req.available_execution_targets {
+        arguments.insert(
+            "available_execution_targets".into(),
+            serde_json::to_value(available_execution_targets).unwrap_or_else(|_| json!([])),
+        );
+    }
     let execute_req = ExecuteRequest {
         session_id: format!("openapi-terminal-{}", now_ms()),
         mode: "awdp".into(),
@@ -424,10 +503,28 @@ pub async fn openapi_terminal(
         shell: value_as_string(response.result.get("shell")),
         workdir: value_as_string(response.result.get("workdir")),
         truncated: response.truncated,
+        stdout_truncated: value_as_bool(response.result.get("stdout_truncated")),
+        stderr_truncated: value_as_bool(response.result.get("stderr_truncated")),
+        connection_reused: value_as_bool(response.result.get("connection_reused")),
+        failure_phase: value_as_string(response.result.get("failure_phase")),
+        queue_wait_ms: value_as_u64(response.result.get("queue_wait_ms")),
         error: response.error,
     };
 
     (StatusCode::OK, Json(openapi_response))
+}
+
+fn with_request_user_email(arguments: &serde_json::Value, user_email: &str) -> serde_json::Value {
+    if user_email.trim().is_empty() {
+        return arguments.clone();
+    }
+    let serde_json::Value::Object(mut object) = arguments.clone() else {
+        return arguments.clone();
+    };
+    if !object.contains_key("user_email") {
+        object.insert("user_email".into(), json!(user_email.trim()));
+    }
+    serde_json::Value::Object(object)
 }
 
 fn value_as_string(value: Option<&serde_json::Value>) -> String {

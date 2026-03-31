@@ -44,12 +44,23 @@ async fn main() -> Result<()> {
         workspace_root: std::env::current_dir()?
             .to_string_lossy()
             .replace('\\', "/"),
+        user_settings_path: if config.user_settings_path.trim().is_empty() {
+            std::path::Path::new(&cli.config)
+                .parent()
+                .unwrap_or(std::path::Path::new("."))
+                .join("user-settings.json")
+                .to_string_lossy()
+                .replace('\\', "/")
+        } else {
+            config.user_settings_path.clone()
+        },
         ssh_hosts_path: std::path::Path::new(&cli.config)
             .parent()
             .unwrap_or(std::path::Path::new("."))
             .join("ssh-hosts.json")
             .to_string_lossy()
             .replace('\\', "/"),
+        ssh_runtime: ssh::new_runtime(),
         mcp_servers_path: if config.mcp.servers_path.trim().is_empty() {
             std::path::Path::new(&cli.config)
                 .parent()
@@ -82,6 +93,7 @@ async fn main() -> Result<()> {
         .route("/openapi.json", get(api::openapi_spec))
         .route("/api/tools/terminal", post(api::openapi_terminal))
         .route("/internal/ssh/test", post(api::test_ssh_host))
+        .route("/internal/ssh/runtime", get(api::ssh_runtime))
         .route("/internal/mcp/validate", post(api::validate_mcp_server))
         .route(
             "/internal/mcp/discover-tools",

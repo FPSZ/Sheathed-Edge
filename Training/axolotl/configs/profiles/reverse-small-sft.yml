@@ -1,0 +1,10 @@
+# Reverse small-sft profile.
+# Intended for single-machine local pilot runs.
+
+profile_id: "reverse-small-sft"
+max_steps: 40
+num_epochs: 1
+save_steps: 20
+logging_steps: 2
+warmup_steps: 4
+evals_per_epoch: 0

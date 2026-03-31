@@ -1,0 +1,28 @@
+# Reverse task-specific notes for the Axolotl scaffold.
+
+task_id: "reverse"
+dataset_format: "chat_template"
+field_messages: "messages"
+field_metadata: "metadata"
+
+required_metadata:
+  - "case_id"
+  - "source_split"
+  - "review_status"
+  - "skill_context"
+  - "sft_ready"
+  - "error_tags"
+  - "teacher_verified"
+
+sample_construction:
+  prompt_style: "teacher-corrected-process"
+  include_student_summary: true
+  include_teacher_trace: true
+  include_review_findings: true
+  include_gold_outcome: true
+  include_skill_delta: true
+
+split_rules:
+  train: "audit.can_use_for_train=true"
+  dev: "visibility=train-dev-only|dev-only"
+  eval: "do-not-export-to-axolotl"

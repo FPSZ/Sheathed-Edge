@@ -1,0 +1,53 @@
+{
+  "case_id": "2026-newstar-yupi-adventure",
+  "student_vs_teacher": {
+    "missed_steps": [
+      "The student did not normalize the archive path and extraction path before the first extraction attempt.",
+      "The student did not perform a focused PE triage step after locating the extracted executable.",
+      "The student did not verify any candidate flag with a controlled rerun or logic reconstruction."
+    ],
+    "bad_tool_choices": [
+      "Large unrelated workspace searches happened before engaging directly with the provided challenge path.",
+      "The student attempted 7z without checking whether the binary existed in the environment.",
+      "The student used broad string scraping that produced massive low-signal output instead of escalating to a decompiler/disassembler."
+    ],
+    "bad_recovery_points": [
+      "After the first path failure, recovery was slow and included multiple low-confidence extraction attempts.",
+      "After seeing truncated string output, the student continued heuristic guessing instead of narrowing scope or changing tools."
+    ],
+    "evidence_gaps": [
+      "No exact extracted executable path was stabilized in the notes.",
+      "No compiler/packer/import summary was recorded.",
+      "No validation trace tied the proposed fragments to a final flag."
+    ]
+  },
+  "scored_dimensions": {
+    "tool_selection": 2,
+    "shell_adaptation": 2,
+    "path_handling": 1,
+    "evidence_quality": 2,
+    "final_reporting": 1
+  },
+  "next_actions": [
+    {
+      "type": "skill_update",
+      "target": "reverse-intake-and-path-normalization",
+      "note": "Make non-ASCII Windows path normalization mandatory before extraction or file reads."
+    },
+    {
+      "type": "skill_update",
+      "target": "reverse-shell-adapter",
+      "note": "Teach explicit Windows fallback ordering: Expand-Archive -> .NET ZipFile -> external archiver only if available."
+    },
+    {
+      "type": "skill_update",
+      "target": "reverse-static-analysis-escalation",
+      "note": "After one executable is confirmed, require focused PE triage before any large raw string dump."
+    },
+    {
+      "type": "eval_followup",
+      "target": "2026-newstar-yupi-adventure",
+      "note": "Keep this case in train/dev only; prepare a separate unseen reverse sample for held-out eval."
+    }
+  ]
+}

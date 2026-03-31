@@ -1,1 +1,20 @@
-[]
+[
+  {
+    "user_email": "3223659402@qq.com",
+    "label": "3223659402",
+    "terminal_allowed_paths": [
+      "D:\\AI\\Local",
+      "D:\\CTF",
+      "D:\\Environment2"
+    ],
+    "default_local_workdir": "D:\\AI\\Local",
+    "enabled_execution_targets": [
+      "local",
+      "ssh:fpsz-linux-vm"
+    ],
+    "enabled_mcp_server_ids": [
+      "local-workspace"
+    ],
+    "disabled_mcp_tools_by_server": {}
+  }
+]

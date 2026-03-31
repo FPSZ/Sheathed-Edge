@@ -9,6 +9,8 @@ import (
 	"strings"
 )
 
+const primaryLocalTerminalUser = "3223659402@qq.com"
+
 func (s *Service) Users() (*UsersResponse, error) {
 	settings, err := s.readUserSettings()
 	if err != nil {
@@ -78,18 +80,23 @@ func (s *Service) UserWorkspace(userEmail string) (*UserWorkspaceResponse, error
 	if err != nil {
 		return nil, err
 	}
+	hosts, err := s.readSSHHosts()
+	if err != nil {
+		return nil, err
+	}
 
-	workspace, err := s.resolveUserWorkspace(userEmail, globalAllowedPaths)
+	workspace, err := s.resolveUserWorkspace(userEmail, globalAllowedPaths, hosts)
 	if err != nil {
 		return nil, err
 	}
 
 	return &UserWorkspaceResponse{
-		Workspace:          workspace,
-		ConfigPath:         s.userSettingsPath,
-		GlobalAllowedPaths: globalAllowedPaths,
-		RestartRequired:    true,
-		LegacyBindingsPath: s.sshBindingsPath,
+		Workspace:                 workspace,
+		ConfigPath:                s.userSettingsPath,
+		GlobalAllowedPaths:        globalAllowedPaths,
+		AvailableExecutionTargets: buildAvailableExecutionTargets(workspace, hosts),
+		RestartRequired:           true,
+		LegacyBindingsPath:        s.sshBindingsPath,
 	}, nil
 }
 
@@ -110,6 +117,13 @@ func (s *Service) UpdateUserWorkspace(workspace UserWorkspace) (*UserWorkspaceRe
 	}
 	if cleaned.DefaultSSHHostID != "" && !hasSSHHostID(hosts, cleaned.DefaultSSHHostID) {
 		return nil, fmt.Errorf("unknown default_ssh_host_id: %s", cleaned.DefaultSSHHostID)
+	}
+	cleaned.EnabledExecutionTargets, err = sanitizeExecutionTargets(
+		cleaned.EnabledExecutionTargets,
+		hosts,
+	)
+	if err != nil {
+		return nil, err
 	}
 
 	settings, err := s.readUserSettings()
@@ -178,7 +192,11 @@ func (s *Service) writeUserSettings(items []UserWorkspace) error {
 	return writeJSONFile(s.userSettingsPath, sanitizeUserWorkspaceList(items))
 }
 
-func (s *Service) resolveUserWorkspace(userEmail string, globalAllowedPaths []string) (UserWorkspace, error) {
+func (s *Service) resolveUserWorkspace(
+	userEmail string,
+	globalAllowedPaths []string,
+	hosts []SSHHostProfile,
+) (UserWorkspace, error) {
 	email := normalizeEmail(userEmail)
 	if email == "" {
 		return UserWorkspace{}, fmt.Errorf("user_email is required")
@@ -197,6 +215,7 @@ func (s *Service) resolveUserWorkspace(userEmail string, globalAllowedPaths []st
 		}
 		item.UserEmail = email
 		item.Label = firstNonEmptyString(strings.TrimSpace(item.Label), labelFromEmail(email))
+		item.EnabledExecutionTargets = hydrateExecutionTargets(item, hosts)
 		return item, nil
 	}
 
@@ -212,12 +231,14 @@ func (s *Service) resolveUserWorkspace(userEmail string, globalAllowedPaths []st
 		}
 	}
 
-	return UserWorkspace{
+	workspace := UserWorkspace{
 		UserEmail:            email,
 		Label:                labelFromEmail(email),
 		TerminalAllowedPaths: append([]string{}, globalAllowedPaths...),
 		DefaultSSHHostID:     defaultSSHHostID,
-	}, nil
+	}
+	workspace.EnabledExecutionTargets = hydrateExecutionTargets(workspace, hosts)
+	return workspace, nil
 }
 
 func (s *Service) globalAllowedPaths() ([]string, error) {
@@ -292,6 +313,7 @@ func sanitizeUserWorkspaceList(items []UserWorkspace) []UserWorkspace {
 		item.Label = strings.TrimSpace(item.Label)
 		item.DefaultLocalWorkdir = strings.TrimSpace(item.DefaultLocalWorkdir)
 		item.DefaultSSHHostID = strings.TrimSpace(item.DefaultSSHHostID)
+		item.EnabledExecutionTargets = sanitizeUserStringList(item.EnabledExecutionTargets)
 		item.EnabledMCPServerIDs = sanitizeUserStringList(item.EnabledMCPServerIDs)
 		item.TerminalAllowedPaths = sanitizePathList(item.TerminalAllowedPaths)
 		if item.DisabledMCPToolsByServer == nil {
@@ -340,7 +362,100 @@ func sanitizeUserWorkspace(raw UserWorkspace, globalAllowedPaths []string) (User
 	if item.DefaultLocalWorkdir != "" && !isAllowedUserPath(item.DefaultLocalWorkdir, item.TerminalAllowedPaths) {
 		return UserWorkspace{}, fmt.Errorf("default_local_workdir must stay inside user terminal_allowed_paths: %s", item.DefaultLocalWorkdir)
 	}
+	item.EnabledExecutionTargets = sanitizeUserStringList(item.EnabledExecutionTargets)
 	return item, nil
+}
+
+func buildAvailableExecutionTargets(
+	workspace UserWorkspace,
+	hosts []SSHHostProfile,
+) []ExecutionTargetSummary {
+	allowed := make([]ExecutionTargetSummary, 0, len(workspace.EnabledExecutionTargets))
+	hostByID := make(map[string]SSHHostProfile, len(hosts))
+	for _, host := range hosts {
+		hostByID[strings.ToLower(strings.TrimSpace(host.ID))] = host
+	}
+
+	for _, target := range workspace.EnabledExecutionTargets {
+		switch {
+		case strings.EqualFold(target, "local"):
+			workdir := workspace.DefaultLocalWorkdir
+			if workdir == "" && len(workspace.TerminalAllowedPaths) > 0 {
+				workdir = workspace.TerminalAllowedPaths[0]
+			}
+			allowed = append(allowed, ExecutionTargetSummary{
+				TargetID:       "local",
+				Kind:           "local",
+				Label:          "本机 / Local",
+				Shells:         []string{"powershell", "wsl-bash"},
+				DefaultWorkdir: workdir,
+				AllowedPaths:   append([]string{}, workspace.TerminalAllowedPaths...),
+				RecommendedUse: "适合本机脚本、仓库操作、文件打包与传输编排",
+			})
+		case strings.HasPrefix(strings.ToLower(target), "ssh:"):
+			hostID := strings.TrimSpace(target[4:])
+			host, ok := hostByID[strings.ToLower(hostID)]
+			if !ok || !host.Enabled {
+				continue
+			}
+			workdir := strings.TrimSpace(host.DefaultWorkdir)
+			if workdir == "" && len(host.AllowedPaths) > 0 {
+				workdir = host.AllowedPaths[0]
+			}
+			shells := []string{host.RemoteShellDefault}
+			if host.RemoteShellDefault == "bash" {
+				shells = []string{"bash", "powershell"}
+			} else {
+				shells = []string{"powershell", "bash"}
+			}
+			allowed = append(allowed, ExecutionTargetSummary{
+				TargetID:       "ssh:" + host.ID,
+				Kind:           "ssh",
+				Label:          firstNonEmptyString(host.Label, host.ID),
+				Shells:         shells,
+				DefaultWorkdir: workdir,
+				AllowedPaths:   append([]string{}, host.AllowedPaths...),
+				RecommendedUse: "适合远端目录检查、运行题目、查看远端日志与进程",
+			})
+		}
+	}
+
+	return allowed
+}
+
+func hydrateExecutionTargets(workspace UserWorkspace, hosts []SSHHostProfile) []string {
+	targets := sanitizeUserStringList(workspace.EnabledExecutionTargets)
+	if len(targets) > 0 {
+		return targets
+	}
+
+	if normalizeEmail(workspace.UserEmail) == primaryLocalTerminalUser {
+		targets = append(targets, "local")
+	}
+	if strings.TrimSpace(workspace.DefaultSSHHostID) != "" && hasSSHHostID(hosts, workspace.DefaultSSHHostID) {
+		targets = append(targets, "ssh:"+strings.TrimSpace(workspace.DefaultSSHHostID))
+	}
+	return sanitizeUserStringList(targets)
+}
+
+func sanitizeExecutionTargets(targets []string, hosts []SSHHostProfile) ([]string, error) {
+	cleaned := sanitizeUserStringList(targets)
+	for _, target := range cleaned {
+		switch {
+		case strings.EqualFold(target, "local"):
+		case strings.HasPrefix(strings.ToLower(target), "ssh:"):
+			hostID := strings.TrimSpace(target[4:])
+			if hostID == "" {
+				return nil, fmt.Errorf("ssh execution target must include host id")
+			}
+			if !hasSSHHostID(hosts, hostID) {
+				return nil, fmt.Errorf("unknown ssh execution target: %s", hostID)
+			}
+		default:
+			return nil, fmt.Errorf("unsupported execution target: %s", target)
+		}
+	}
+	return cleaned, nil
 }
 
 func isAllowedUserPath(path string, roots []string) bool {

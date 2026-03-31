@@ -84,8 +84,14 @@ func (s *Service) startToolRouter(ctx context.Context) error {
 	if configPath == "" {
 		return fmt.Errorf("tool-router config path is not configured")
 	}
+	if _, err := os.Stat(configPath); err != nil {
+		return fmt.Errorf("tool-router config not found: %s", configPath)
+	}
 	if projectDir == "" {
 		return fmt.Errorf("tool-router project directory is not configured")
+	}
+	if _, err := os.Stat(projectDir); err != nil {
+		return fmt.Errorf("tool-router project directory not found: %s", projectDir)
 	}
 
 	exePath := firstExistingPath(
@@ -204,6 +210,15 @@ func (s *Service) startHostAgent(ctx context.Context) error {
 	}
 	binary = normalizeWindowsPath(binary)
 	cfgPath = normalizeWindowsPath(cfgPath)
+	if _, err := os.Stat(binary); err != nil {
+		return fmt.Errorf("host-agent binary not found: %s", binary)
+	}
+	if strings.TrimSpace(cfgPath) == "" {
+		return fmt.Errorf("host_agent_config not configured")
+	}
+	if _, err := os.Stat(cfgPath); err != nil {
+		return fmt.Errorf("host-agent config not found: %s", cfgPath)
+	}
 	hostAgentPort := "8101"
 	hostAgentHealthURL := "http://127.0.0.1:8101/healthz"
 	if parsed, err := url.Parse(strings.TrimSpace(s.cfg.Admin.HostAgentURL)); err == nil {

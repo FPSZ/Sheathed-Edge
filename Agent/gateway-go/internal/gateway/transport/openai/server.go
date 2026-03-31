@@ -76,6 +76,7 @@ func NewServer(configPath string) (*Server, error) {
 	mux.HandleFunc("/internal/admin/ssh/hosts", s.handleAdminSSHHosts)
 	mux.HandleFunc("/internal/admin/ssh/hosts/test", s.handleAdminSSHHostsTest)
 	mux.HandleFunc("/internal/admin/ssh/hosts/confirm-host-key", s.handleAdminSSHHostsConfirmHostKey)
+	mux.HandleFunc("/internal/admin/ssh/runtime", s.handleAdminSSHRuntime)
 	mux.HandleFunc("/internal/admin/ssh/bindings", s.handleAdminSSHBindings)
 	mux.HandleFunc("/internal/admin/mcp/servers", s.handleAdminMCPServers)
 	mux.HandleFunc("/internal/admin/mcp/servers/validate", s.handleAdminMCPValidate)

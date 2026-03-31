@@ -1,0 +1,37 @@
+base_model: "Qwen/Qwen2.5-7B-Instruct"
+chat_template: "tokenizer_default"
+adapter: "qlora"
+load_in_4bit: true
+strict: false
+sequence_len: 8192
+sample_packing: false
+pad_to_sequence_len: true
+train_on_inputs: false
+group_by_length: false
+micro_batch_size: 1
+gradient_accumulation_steps: 8
+num_epochs: 1
+max_steps: 2
+learning_rate: 2e-05
+optimizer: "adamw_bnb_8bit"
+lr_scheduler: "cosine"
+gradient_checkpointing: true
+lora_r: 32
+lora_alpha: 64
+lora_dropout: 0.05
+lora_target_linear: true
+save_steps: 2
+logging_steps: 1
+warmup_steps: 0
+output_dir: "D:/AI/Local/Training/axolotl/outputs/reverse-dry-run"
+dataset_prepared_path: "D:/AI/Local/Training/axolotl/outputs/reverse-dry-run/prepared_dataset"
+datasets:
+  -
+    path: "D:/AI/Local/Training/axolotl/datasets/reverse_pilot/train.jsonl"
+    type: "chat_template"
+    field_messages: "messages"
+test_datasets:
+  -
+    path: "D:/AI/Local/Training/axolotl/datasets/reverse_pilot/dev.jsonl"
+    type: "chat_template"
+    field_messages: "messages"

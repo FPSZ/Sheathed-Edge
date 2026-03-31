@@ -89,16 +89,28 @@ type UserWorkspace struct {
 	TerminalAllowedPaths     []string            `json:"terminal_allowed_paths"`
 	DefaultLocalWorkdir      string              `json:"default_local_workdir,omitempty"`
 	DefaultSSHHostID         string              `json:"default_ssh_host_id,omitempty"`
+	EnabledExecutionTargets  []string            `json:"enabled_execution_targets,omitempty"`
 	EnabledMCPServerIDs      []string            `json:"enabled_mcp_server_ids,omitempty"`
 	DisabledMCPToolsByServer map[string][]string `json:"disabled_mcp_tools_by_server,omitempty"`
 }
 
+type ExecutionTargetSummary struct {
+	TargetID       string   `json:"target_id"`
+	Kind           string   `json:"kind"`
+	Label          string   `json:"label"`
+	Shells         []string `json:"shells"`
+	DefaultWorkdir string   `json:"default_workdir,omitempty"`
+	AllowedPaths   []string `json:"allowed_paths,omitempty"`
+	RecommendedUse string   `json:"recommended_use,omitempty"`
+}
+
 type UserWorkspaceResponse struct {
-	Workspace          UserWorkspace `json:"workspace"`
-	ConfigPath         string        `json:"config_path"`
-	GlobalAllowedPaths []string      `json:"global_allowed_paths"`
-	RestartRequired    bool          `json:"restart_required"`
-	LegacyBindingsPath string        `json:"legacy_bindings_path,omitempty"`
+	Workspace                 UserWorkspace            `json:"workspace"`
+	ConfigPath                string                   `json:"config_path"`
+	GlobalAllowedPaths        []string                 `json:"global_allowed_paths"`
+	AvailableExecutionTargets []ExecutionTargetSummary `json:"available_execution_targets"`
+	RestartRequired           bool                     `json:"restart_required"`
+	LegacyBindingsPath        string                   `json:"legacy_bindings_path,omitempty"`
 }
 
 type UpdateUserWorkspaceRequest struct {
@@ -195,11 +207,39 @@ type SSHHostTestRequest struct {
 }
 
 type SSHHostTestResponse struct {
-	OK                 bool         `json:"ok"`
-	Summary            string       `json:"summary"`
-	HostKeyStatus      string       `json:"host_key_status"`
-	HostKeyFingerprint string       `json:"host_key_fingerprint"`
-	Error              *ErrorDetail `json:"error,omitempty"`
+	OK                 bool           `json:"ok"`
+	Summary            string         `json:"summary"`
+	HostKeyStatus      string         `json:"host_key_status"`
+	HostKeyFingerprint string         `json:"host_key_fingerprint"`
+	Phases             []SSHTestPhase `json:"phases,omitempty"`
+	SuggestedFix       string         `json:"suggested_fix,omitempty"`
+	Error              *ErrorDetail   `json:"error,omitempty"`
+}
+
+type SSHTestPhase struct {
+	Phase   string `json:"phase"`
+	Status  string `json:"status"`
+	Message string `json:"message"`
+}
+
+type SSHRuntimeStatusResponse struct {
+	ConfiguredHostCount   int               `json:"configured_host_count"`
+	ActiveConnectionCount int               `json:"active_connection_count"`
+	Hosts                 []SSHRuntimeEntry `json:"hosts"`
+}
+
+type SSHRuntimeEntry struct {
+	HostID            string `json:"host_id"`
+	Label             string `json:"label"`
+	Enabled           bool   `json:"enabled"`
+	PoolLimit         int    `json:"pool_limit"`
+	PooledConnections int    `json:"pooled_connections"`
+	ActiveCommands    int    `json:"active_commands"`
+	QueuedCommands    int    `json:"queued_commands"`
+	LastConnectError  string `json:"last_connect_error,omitempty"`
+	LastExecError     string `json:"last_exec_error,omitempty"`
+	LastConnectedAt   uint64 `json:"last_connected_at,omitempty"`
+	LastUsedAt        uint64 `json:"last_used_at,omitempty"`
 }
 
 type ConfirmSSHHostKeyRequest struct {

@@ -1,0 +1,14 @@
+[16:28]
+任务：补写训练工程总路线图，把现有 `reverse` 试点、Axolotl 脚手架、后续 eval / review / skills / SFT 节奏收口成一份可执行主文档。
+结果：已新增 `Docs/Plan/训练评测/可控式训练工程路线图V2.md`，将训练路线固定为 `skills-first + eval-first + human-in-the-loop + SFT second`，并明确当前不做自学习、不做自动回灌、不做线上日志直喂训练。文档已按 GitHub 项目职责拆分 `Axolotl / Inspect AI / AgentEvals / CAISI / inspect_evals` 的边界：`Axolotl` 只负责训练，`Inspect AI` 负责 dev/eval 编排，`AgentEvals` 负责过程 judge，`CAISI` 与 `inspect_evals` 只作 benchmark 与目录结构参考。路线图已明确仓库衔接方式，继续沿用 `Feed/Histroy`、`Datasets/reverse`、`Eval/reverse`、`Training/axolotl`、`Core/awdp/skills`、`Plugins/pwn/skills` 作为现阶段真源，并新增 `Phase 0 -> Phase 4` 的分阶段路线、训练入库门禁、eval 隔离规则和 operator workflow。
+修改：
+- 新增 `Docs/Plan/训练评测/可控式训练工程路线图V2.md`
+- 更新 `Docs/Plan/README.md`
+补充进展：
+- 路线图已把“学生做题 -> teacher 复做 -> 人工差异审查 -> 更新 skills / 训练候选 -> 回归 eval”写成固定工作流，后续可以直接据此搭 `Training/inspect` 和 review 工具链
+- 当前训练工程的边界已经进一步收口：`skills` 仍是第一修正手段，`SFT` 只在 dev 改善且 eval 不回归时才允许进入
+下一步：
+- 基于现有 `2026-newstar-yupi-adventure` 样本补齐首个完整 `ReverseCaseRecord / TraceReviewRecord / SkillDeltaRecord / ReverseEvalRecord`
+- 给 `Training/inspect/` 补任务 runner 和 reverse dev/eval 模板
+- 按路线图先推进第一批 reverse skills，而不是直接开正式训练
+状态：训练工程顶层路线图已落盘，当前仓库已具备从现有 reverse 样本继续推进 `review -> skills -> eval -> 小规模 SFT` 的统一入口。

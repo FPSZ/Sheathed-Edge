@@ -562,7 +562,7 @@ func mergeDisabledTools(base []string, extra []string) []string {
 
 func mcpServerEnabledForUser(serverID string, user UserWorkspace) bool {
 	if len(user.EnabledMCPServerIDs) == 0 {
-		return true
+		return false
 	}
 	for _, item := range user.EnabledMCPServerIDs {
 		if strings.EqualFold(strings.TrimSpace(item), strings.TrimSpace(serverID)) {

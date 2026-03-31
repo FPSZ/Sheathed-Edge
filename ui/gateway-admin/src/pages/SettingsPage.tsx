@@ -4,10 +4,12 @@ import { useAdminScope } from "../app/AdminScopeContext";
 import { PageHeader } from "../components/PageHeader";
 import { apiGet, apiPost } from "../lib/api";
 import type {
+  ExecutionTargetSummary,
   ServicesResponse,
   SSHHostProfile,
   SSHHostsResponse,
   SSHHostTestResponse,
+  SSHRuntimeStatusResponse,
   TerminalPathsSettings,
   UserWorkspaceResponse,
 } from "../lib/types";
@@ -43,6 +45,7 @@ export function SettingsPage() {
   const [workspacePathDraft, setWorkspacePathDraft] = useState("");
   const [sshHosts, setSshHosts] = useState<SSHHostProfile[]>([]);
   const [sshConfigPath, setSshConfigPath] = useState("");
+  const [sshRuntime, setSshRuntime] = useState<SSHRuntimeStatusResponse | null>(null);
   const [selectedHostId, setSelectedHostId] = useState("");
   const [sshTestResult, setSshTestResult] = useState<SSHHostTestResponse | null>(null);
   const [error, setError] = useState("");
@@ -53,16 +56,18 @@ export function SettingsPage() {
 
   async function loadBase() {
     try {
-      const [servicesResp, globalPathsResp, sshHostsResp] = await Promise.all([
+      const [servicesResp, globalPathsResp, sshHostsResp, sshRuntimeResp] = await Promise.all([
         apiGet<ServicesResponse>("/internal/admin/services"),
         apiGet<TerminalPathsSettings>("/internal/admin/settings/terminal-paths"),
         apiGet<SSHHostsResponse>("/internal/admin/ssh/hosts"),
+        apiGet<SSHRuntimeStatusResponse>("/internal/admin/ssh/runtime"),
       ]);
       setServices(servicesResp);
       setGlobalPaths(globalPathsResp);
       setGlobalPathDraft(globalPathsResp.allowed_paths.join("\n"));
       setSshHosts(sshHostsResp.hosts);
       setSshConfigPath(sshHostsResp.config_path);
+      setSshRuntime(sshRuntimeResp);
       setSelectedHostId((current) => {
         if (current && sshHostsResp.hosts.some((host) => host.id === current)) {
           return current;
@@ -104,6 +109,14 @@ export function SettingsPage() {
     () => sshHosts.find((host) => host.id === selectedHostId) ?? null,
     [selectedHostId, sshHosts],
   );
+  const executionTargetLookup = useMemo(() => {
+    const entries = workspace?.available_execution_targets ?? [];
+    return new Map(entries.map((item) => [item.target_id, item]));
+  }, [workspace]);
+  const selectedHostRuntime = useMemo(
+    () => sshRuntime?.hosts.find((item) => item.host_id === selectedHostId) ?? null,
+    [selectedHostId, sshRuntime],
+  );
 
   const toolRouterStatus = useMemo(
     () => services?.services.find((item) => item.name === "tool-router") ?? null,
@@ -124,6 +137,27 @@ export function SettingsPage() {
     setSshHosts((current) =>
       current.map((host) => (host.id === selectedHostId ? mutator(host) : host)),
     );
+  }
+
+  function toggleExecutionTarget(targetId: string, enabled: boolean) {
+    setWorkspace((current) => {
+      if (!current) {
+        return current;
+      }
+      const next = new Set(current.workspace.enabled_execution_targets ?? []);
+      if (enabled) {
+        next.add(targetId);
+      } else {
+        next.delete(targetId);
+      }
+      return {
+        ...current,
+        workspace: {
+          ...current.workspace,
+          enabled_execution_targets: Array.from(next),
+        },
+      };
+    });
   }
 
   function addSSHHost() {
@@ -206,12 +240,14 @@ export function SettingsPage() {
       });
       setSshHosts(response.hosts);
       setSshConfigPath(response.config_path);
+      setSshRuntime(await apiGet<SSHRuntimeStatusResponse>("/internal/admin/ssh/runtime"));
       setSelectedHostId((current) => {
         if (current && response.hosts.some((host) => host.id === current)) {
           return current;
         }
         return response.hosts[0]?.id ?? "";
       });
+      setSshRuntime(await apiGet<SSHRuntimeStatusResponse>("/internal/admin/ssh/runtime"));
       setNotice("全局 SSH 主机已保存。");
       await loadWorkspace();
     } catch (err) {
@@ -235,6 +271,7 @@ export function SettingsPage() {
         timeout_ms: 10000,
       });
       setSshTestResult(response);
+      setSshRuntime(await apiGet<SSHRuntimeStatusResponse>("/internal/admin/ssh/runtime"));
       setNotice(response.summary);
     } catch (err) {
       setError((err as Error).message);
@@ -396,6 +433,48 @@ export function SettingsPage() {
                   ))}
                 </select>
               </div>
+              <div className="admin-field">
+                <label className="admin-field-label">执行目标授权</label>
+                <div className="space-y-2">
+                  <ExecutionTargetToggle
+                    checked={(workspace.workspace.enabled_execution_targets ?? []).includes("local")}
+                    label="本机 Local"
+                    description="脚本、仓库、打包、scp/rsync 编排"
+                    meta={
+                      executionTargetLookup.get("local")?.default_workdir ||
+                      workspace.workspace.default_local_workdir ||
+                      "-"
+                    }
+                    onChange={(checked) => toggleExecutionTarget("local", checked)}
+                  />
+                  {sshHosts.map((host) => {
+                    const targetId = `ssh:${host.id}`;
+                    const target = executionTargetLookup.get(targetId);
+                    return (
+                      <ExecutionTargetToggle
+                        key={targetId}
+                        checked={(workspace.workspace.enabled_execution_targets ?? []).includes(
+                          targetId,
+                        )}
+                        label={`${host.label} (${host.id})`}
+                        description={host.enabled ? "远端目录、题目执行、日志、进程" : "该 SSH 主机当前已停用"}
+                        meta={target?.default_workdir || host.default_workdir || "-"}
+                        onChange={(checked) => toggleExecutionTarget(targetId, checked)}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+              {workspace.available_execution_targets.length ? (
+                <div className="admin-surface-muted rounded-3xl p-4 text-xs leading-6 text-slate-600">
+                  <div className="font-semibold text-slate-900">当前可见执行目标</div>
+                  <div className="mt-2 space-y-2">
+                    {workspace.available_execution_targets.map((target) => (
+                      <ExecutionTargetSummaryRow key={target.target_id} target={target} />
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               <div className="admin-surface-muted rounded-3xl p-4 text-xs leading-6 text-slate-600">
                 <div>配置文件：{workspace.config_path || "-"}</div>
                 <div>旧绑定兼容文件：{workspace.legacy_bindings_path || "-"}</div>
@@ -705,6 +784,19 @@ export function SettingsPage() {
                   <div>配置文件：{sshConfigPath || "-"}</div>
                 </div>
 
+                {selectedHostRuntime ? (
+                  <div className="admin-surface-muted rounded-3xl p-4 text-xs leading-6 text-slate-600">
+                    <div className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
+                      SSH Runtime
+                    </div>
+                    <div className="mt-2">连接池: {selectedHostRuntime.pooled_connections}/{selectedHostRuntime.pool_limit}</div>
+                    <div>活动命令: {selectedHostRuntime.active_commands}</div>
+                    <div>排队命令: {selectedHostRuntime.queued_commands}</div>
+                    <div>最近连接错误: {selectedHostRuntime.last_connect_error || "-"}</div>
+                    <div>最近执行错误: {selectedHostRuntime.last_exec_error || "-"}</div>
+                  </div>
+                ) : null}
+
                 <div className="flex flex-wrap gap-2">
                   <button
                     className="admin-button"
@@ -742,6 +834,26 @@ export function SettingsPage() {
                         {sshTestResult.error.code}: {sshTestResult.error.message}
                       </div>
                     ) : null}
+                    {sshTestResult.suggested_fix ? (
+                      <div className="mt-2 text-xs leading-6 text-slate-500">
+                        建议处理: {sshTestResult.suggested_fix}
+                      </div>
+                    ) : null}
+                    {sshTestResult.phases?.length ? (
+                      <div className="mt-3 space-y-2">
+                        {sshTestResult.phases.map((phase) => (
+                          <div
+                            key={`${phase.phase}-${phase.status}-${phase.message}`}
+                            className="rounded-2xl bg-white/70 px-3 py-2 text-xs leading-6 text-slate-600"
+                          >
+                            <div className="font-semibold text-slate-900">
+                              {phase.phase} · {phase.status}
+                            </div>
+                            <div>{phase.message}</div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
               </>
@@ -762,6 +874,49 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <div className="admin-field">
       <label className="admin-field-label">{label}</label>
       {children}
+    </div>
+  );
+}
+
+function ExecutionTargetToggle({
+  checked,
+  label,
+  description,
+  meta,
+  onChange,
+}: {
+  checked: boolean;
+  label: string;
+  description: string;
+  meta: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="admin-surface-muted flex items-start justify-between gap-3 rounded-3xl px-4 py-3 text-sm text-slate-700">
+      <div className="min-w-0">
+        <div className="font-medium text-slate-900">{label}</div>
+        <div className="mt-1 text-xs leading-6 text-slate-500">{description}</div>
+        <div className="text-xs leading-6 text-slate-400">{meta}</div>
+      </div>
+      <input
+        checked={checked}
+        className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-slate-900"
+        onChange={(event) => onChange(event.target.checked)}
+        type="checkbox"
+      />
+    </label>
+  );
+}
+
+function ExecutionTargetSummaryRow({ target }: { target: ExecutionTargetSummary }) {
+  return (
+    <div className="rounded-2xl bg-white/70 px-3 py-2">
+      <div className="font-medium text-slate-900">
+        {target.label} <span className="text-slate-400">[{target.target_id}]</span>
+      </div>
+      <div className="text-slate-500">shells: {target.shells.join(", ") || "-"}</div>
+      <div className="text-slate-500">workdir: {target.default_workdir || "-"}</div>
+      <div className="text-slate-500">{target.recommended_use || "-"}</div>
     </div>
   );
 }

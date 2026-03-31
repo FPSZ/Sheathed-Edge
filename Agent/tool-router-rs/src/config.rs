@@ -8,6 +8,7 @@ pub fn load_config(path: &str) -> Result<Config> {
     let data = fs::read_to_string(path).with_context(|| format!("read config {path}"))?;
     let mut cfg: Config = serde_json::from_str(&data).context("parse tool-router config")?;
     cfg.registry_path = normalize_runtime_path(&cfg.registry_path);
+    cfg.user_settings_path = normalize_runtime_path(&cfg.user_settings_path);
     cfg.logs.tool_log_dir = normalize_runtime_path(&cfg.logs.tool_log_dir);
     cfg.allowed_paths = cfg
         .allowed_paths

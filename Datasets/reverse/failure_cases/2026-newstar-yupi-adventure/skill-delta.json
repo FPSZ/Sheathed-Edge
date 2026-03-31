@@ -1,0 +1,14 @@
+{
+  "skill_id": "reverse-shell-adapter",
+  "trigger_case_id": "2026-newstar-yupi-adventure",
+  "problem": "The student mixed environment assumptions, failed early on a non-ASCII Windows path, tried a missing 7z dependency, and spent too long in generic PowerShell fallback loops before moving to high-signal reverse analysis.",
+  "rule_update": "For Windows reverse cases, first normalize and verify the exact archive path, then use a fixed extraction fallback chain, and after extraction immediately classify the binary and escalate to targeted analysis. Do not keep broad string-dumping once the output becomes noisy or truncated.",
+  "checklist_update": [
+    "Validate source archive path with literal-path-safe checks before extraction.",
+    "Prefer built-in Windows extraction methods before assuming external tools exist.",
+    "Record the extracted executable path before starting analysis.",
+    "After recovering prompts/imports, switch to PE triage or decompiler tooling.",
+    "Treat unverified string fragments as hints, not candidate flags."
+  ],
+  "requires_eval_refresh": true
+}

@@ -115,6 +115,14 @@ func (s *Service) ConfirmSSHHostKey(ctx context.Context, req ConfirmSSHHostKeyRe
 	return s.SSHHosts()
 }
 
+func (s *Service) SSHRuntimeStatus(ctx context.Context) (*SSHRuntimeStatusResponse, error) {
+	var resp SSHRuntimeStatusResponse
+	if err := s.callToolRouterJSON(ctx, http.MethodGet, "/internal/ssh/runtime", nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
 func (s *Service) SSHBindings() (*SSHBindingsResponse, error) {
 	settings, err := s.readUserSettings()
 	if err != nil {
@@ -204,6 +212,9 @@ func (s *Service) UpdateSSHBindings(ctx context.Context, bindings []SSHUserBindi
 			}
 		}
 		item.DefaultSSHHostID = binding.DefaultHostID
+		if !slices.Contains(item.EnabledExecutionTargets, "ssh:"+binding.DefaultHostID) {
+			item.EnabledExecutionTargets = append(item.EnabledExecutionTargets, "ssh:"+binding.DefaultHostID)
+		}
 		settingsByEmail[email] = item
 	}
 	nextSettings := make([]UserWorkspace, 0, len(settingsByEmail))

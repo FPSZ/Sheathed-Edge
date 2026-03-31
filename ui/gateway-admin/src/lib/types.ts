@@ -89,14 +89,26 @@ export type UserWorkspace = {
   terminal_allowed_paths: string[];
   default_local_workdir?: string;
   default_ssh_host_id?: string;
+  enabled_execution_targets?: string[];
   enabled_mcp_server_ids?: string[];
   disabled_mcp_tools_by_server?: Record<string, string[]>;
+};
+
+export type ExecutionTargetSummary = {
+  target_id: string;
+  kind: "local" | "ssh" | string;
+  label: string;
+  shells: string[];
+  default_workdir?: string;
+  allowed_paths?: string[];
+  recommended_use?: string;
 };
 
 export type UserWorkspaceResponse = {
   workspace: UserWorkspace;
   config_path: string;
   global_allowed_paths: string[];
+  available_execution_targets: ExecutionTargetSummary[];
   restart_required: boolean;
   legacy_bindings_path?: string;
 };
@@ -172,10 +184,36 @@ export type SSHHostTestResponse = {
   summary: string;
   host_key_status: "unknown" | "trusted";
   host_key_fingerprint: string;
+  phases?: Array<{
+    phase: string;
+    status: string;
+    message: string;
+  }>;
+  suggested_fix?: string;
   error?: {
     code: string;
     message: string;
   };
+};
+
+export type SSHRuntimeEntry = {
+  host_id: string;
+  label: string;
+  enabled: boolean;
+  pool_limit: number;
+  pooled_connections: number;
+  active_commands: number;
+  queued_commands: number;
+  last_connect_error?: string;
+  last_exec_error?: string;
+  last_connected_at?: number;
+  last_used_at?: number;
+};
+
+export type SSHRuntimeStatusResponse = {
+  configured_host_count: number;
+  active_connection_count: number;
+  hosts: SSHRuntimeEntry[];
 };
 
 export type SSHUserBinding = {

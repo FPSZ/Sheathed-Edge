@@ -1,0 +1,143 @@
+{
+  "case_id": "2026-newstar-yupi-adventure",
+  "task_meta": {
+    "category": "reverse",
+    "source": "local",
+    "difficulty": "unknown",
+    "visibility": "train-dev-only",
+    "notes": "Source trace comes from an Open WebUI local run on the Newstar reverse challenge '[re] 尤皮·埃克斯历险记'. The student trace was already exposed to the system, so it is excluded from eval."
+  },
+  "input_files": [
+    {
+      "path": "D:/CTF/题目/逆向/比赛/Newstar/[re] 尤皮·埃克斯历险记.zip",
+      "sha256": "",
+      "role": "archive"
+    }
+  ],
+  "student_trace": {
+    "source": "Feed/Histroy/chat-export-1774864835443.json; Feed/Histroy/26-3-30/chat-你好.txt",
+    "summary": "The student first wandered through unrelated workspace and knowledge-base searches, then tried multiple extraction methods on Windows. It eventually extracted the archive with .NET ZipFile, located one PE executable, ran broad strings-style scans that produced huge low-signal output, and ended with speculative flag fragments instead of a verified solve.",
+    "tool_events": [
+      {
+        "phase": "intake",
+        "goal": "Open the provided zip challenge",
+        "chosen_tool": "terminal.local.powershell",
+        "why_this_tool": "Archive handling and filesystem access were only available through local terminal.",
+        "expected_evidence": "Existing archive path, extracted files, executable entry artifact.",
+        "observed_result": "Initial Expand-Archive call failed because the Chinese path was not handled reliably in the generated command.",
+        "fallback_if_fail": "Enumerate the directory first, then switch to a more explicit extraction method."
+      },
+      {
+        "phase": "archive-triage",
+        "goal": "Extract the zip archive",
+        "chosen_tool": "terminal.local.powershell",
+        "why_this_tool": "The environment had no 7z; PowerShell/.NET was the only practical extractor.",
+        "expected_evidence": "A non-empty extraction directory containing the target binary.",
+        "observed_result": "The student tried Expand-Archive, then 7z, then an incorrect ZipArchive instance call before finally using [System.IO.Compression.ZipFile]::ExtractToDirectory successfully.",
+        "fallback_if_fail": "Use exact .NET static extraction API and verify extracted files immediately."
+      },
+      {
+        "phase": "binary-triage",
+        "goal": "Identify what was extracted and what kind of binary it is",
+        "chosen_tool": "terminal.local.powershell",
+        "why_this_tool": "A simple directory listing was enough to locate the extracted executable.",
+        "expected_evidence": "Executable filename, size, and whether the archive unpacked correctly.",
+        "observed_result": "A single PE executable was found, but the path/name handling remained noisy because of Windows terminal rendering.",
+        "fallback_if_fail": "Normalize to a stable working directory and record the exact extracted file path."
+      },
+      {
+        "phase": "static-probing",
+        "goal": "Find flag-related strings or logic hints",
+        "chosen_tool": "terminal.local.powershell",
+        "why_this_tool": "The student only had shell access and tried byte/string extraction inside PowerShell.",
+        "expected_evidence": "Prompt strings, success/failure branches, algorithm names, or flag format hints.",
+        "observed_result": "The student recovered useful prompts such as 'Enter your flag:', 'Wrong!', and 'Right!', but also dumped massive low-signal symbol output and overfit on partial string fragments.",
+        "fallback_if_fail": "Move to focused PE triage or decompiler tooling instead of continuing raw string scraping."
+      },
+      {
+        "phase": "reporting",
+        "goal": "Produce a verified answer",
+        "chosen_tool": "assistant freeform output",
+        "why_this_tool": "No additional verification step was taken before summarizing.",
+        "expected_evidence": "A validated flag candidate with reproduction steps.",
+        "observed_result": "The student produced speculative flag fragments without verification and did not close the solve.",
+        "fallback_if_fail": "State unsolved clearly and record the next concrete verification step."
+      }
+    ]
+  },
+  "teacher_trace": {
+    "source": "manual review from the archived student trajectory",
+    "summary": "The teacher path for this case should start by normalizing the exact archive and extraction paths, extracting with a known-good Windows method, identifying the PE characteristics, running targeted string/metadata inspection, then escalating into disassembly or decompilation before proposing any flag. The main correction is process quality: reduce blind searching, verify each filesystem step, and do not promote string fragments into a flag candidate.",
+    "tool_events": [
+      {
+        "phase": "intake",
+        "goal": "Confirm exact source path and prepare a clean output directory",
+        "chosen_tool": "terminal.local.powershell",
+        "why_this_tool": "Windows archive path handling needs explicit quoting and path validation first.",
+        "expected_evidence": "Source archive exists; extraction root is empty and writable.",
+        "observed_result": "Should avoid speculative path typing and rely on directory enumeration before extraction.",
+        "fallback_if_fail": "Use literal path handling and test-path checks before any archive command."
+      },
+      {
+        "phase": "archive-and-binary-triage",
+        "goal": "Extract, locate the binary, and classify it",
+        "chosen_tool": "terminal.local.powershell plus PE triage tooling",
+        "why_this_tool": "This is the shortest path to determine whether the sample is packed, native, or .NET.",
+        "expected_evidence": "Executable path, architecture, compiler/runtime hints, packer indicators, imports, and prompt strings.",
+        "observed_result": "The student reached partial prompt recovery but skipped structured triage.",
+        "fallback_if_fail": "Escalate to radare2/Ghidra-style static analysis instead of dumping huge generic string output."
+      },
+      {
+        "phase": "analysis",
+        "goal": "Recover the check logic and derive the expected flag input",
+        "chosen_tool": "radare2/decompiler or controlled debugger",
+        "why_this_tool": "Prompt strings alone were insufficient; verification requires control-flow or algorithm understanding.",
+        "expected_evidence": "Validation routine, transformation function, and a reproducible flag derivation.",
+        "observed_result": "Not completed in the student run.",
+        "fallback_if_fail": "Document the unresolved blocker and preserve high-signal notes for a second pass."
+      }
+    ]
+  },
+  "error_tags": [
+    "shell_mismatch",
+    "path_or_encoding_failure",
+    "missing_dependency_fallback",
+    "low_signal_exploration",
+    "bad_error_recovery",
+    "poor_evidence_summary"
+  ],
+  "gold_outcome": {
+    "status": "unsolved_reviewed",
+    "flag": "",
+    "evidence": [
+      "Archive extraction eventually succeeded with [System.IO.Compression.ZipFile]::ExtractToDirectory.",
+      "The extracted sample exposed strings consistent with an input-checking reverse challenge, including 'Enter your flag:', 'Wrong!', and 'Right!'.",
+      "No verified flag candidate was produced in the archived run."
+    ]
+  },
+  "skill_delta": [
+    {
+      "skill_id": "reverse-intake-and-path-normalization",
+      "change": "Require the agent to validate exact Windows paths and extraction destinations before invoking archive commands on non-ASCII filenames."
+    },
+    {
+      "skill_id": "reverse-shell-adapter",
+      "change": "On Windows PowerShell, prefer literal path handling and environment-aware extraction commands; do not assume 7z is present."
+    },
+    {
+      "skill_id": "reverse-static-analysis-escalation",
+      "change": "After prompt strings and one executable are confirmed, escalate to structured PE triage or disassembly instead of continuing broad strings dumps."
+    },
+    {
+      "skill_id": "reverse-final-report",
+      "change": "Do not present partial string fragments as likely flag material without a verification step."
+    }
+  ],
+  "sft_ready": false,
+  "audit": {
+    "reviewed_by": "codex",
+    "reviewed_at": "2026-03-31",
+    "can_use_for_train": true,
+    "can_use_for_eval": false
+  }
+}
