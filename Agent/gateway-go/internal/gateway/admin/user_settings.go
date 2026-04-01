@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 )
 
 const primaryLocalTerminalUser = "3223659402@qq.com"
@@ -17,6 +19,10 @@ func (s *Service) Users() (*UsersResponse, error) {
 		return nil, err
 	}
 	legacyBindings, err := s.readSSHBindings()
+	if err != nil {
+		return nil, err
+	}
+	openWebUIUsers, err := s.readOpenWebUIUsers()
 	if err != nil {
 		return nil, err
 	}
@@ -31,10 +37,11 @@ func (s *Service) Users() (*UsersResponse, error) {
 		if email == "" {
 			continue
 		}
+		openWebUIItem := openWebUIUsers[email]
 		byEmail[email] = UserSummary{
 			UserEmail:   email,
-			Label:       firstNonEmptyString(strings.TrimSpace(workspace.Label), labelFromEmail(email)),
-			LastSeenAt:  observed[email],
+			Label:       preferredUserLabel(strings.TrimSpace(workspace.Label), openWebUIItem.Label, email),
+			LastSeenAt:  chooseLaterTimestamp(openWebUIItem.LastSeenAt, observed[email]),
 			HasSettings: true,
 		}
 	}
@@ -43,18 +50,26 @@ func (s *Service) Users() (*UsersResponse, error) {
 		if email == "" {
 			continue
 		}
+		openWebUIItem := openWebUIUsers[email]
 		item := byEmail[email]
 		item.UserEmail = email
-		item.Label = firstNonEmptyString(item.Label, labelFromEmail(email))
-		item.LastSeenAt = firstNonEmptyString(item.LastSeenAt, observed[email])
+		item.Label = preferredUserLabel(item.Label, openWebUIItem.Label, email)
+		item.LastSeenAt = chooseLaterTimestamp(item.LastSeenAt, chooseLaterTimestamp(openWebUIItem.LastSeenAt, observed[email]))
 		item.HasLegacy = true
+		byEmail[email] = item
+	}
+	for email, openWebUIItem := range openWebUIUsers {
+		item := byEmail[email]
+		item.UserEmail = email
+		item.Label = preferredUserLabel(item.Label, openWebUIItem.Label, email)
+		item.LastSeenAt = chooseLaterTimestamp(item.LastSeenAt, openWebUIItem.LastSeenAt)
 		byEmail[email] = item
 	}
 	for email, lastSeenAt := range observed {
 		item := byEmail[email]
 		item.UserEmail = email
 		item.Label = firstNonEmptyString(item.Label, labelFromEmail(email))
-		item.LastSeenAt = firstNonEmptyString(item.LastSeenAt, lastSeenAt)
+		item.LastSeenAt = chooseLaterTimestamp(item.LastSeenAt, lastSeenAt)
 		byEmail[email] = item
 	}
 
@@ -73,6 +88,88 @@ func (s *Service) Users() (*UsersResponse, error) {
 		Users:      users,
 		ConfigPath: s.userSettingsPath,
 	}, nil
+}
+
+type openWebUIUserRecord struct {
+	Name         string `json:"name"`
+	Email        string `json:"email"`
+	LastActiveAt int64  `json:"last_active_at"`
+}
+
+func (s *Service) readOpenWebUIUsers() (map[string]UserSummary, error) {
+	dbPath := resolveOpenWebUIDBPath()
+	if dbPath == "" {
+		return map[string]UserSummary{}, nil
+	}
+
+	pythonPath, err := exec.LookPath("python3")
+	if err != nil {
+		return map[string]UserSummary{}, nil
+	}
+
+	script := `
+import json
+import sqlite3
+import sys
+
+conn = sqlite3.connect(sys.argv[1])
+conn.row_factory = sqlite3.Row
+rows = conn.execute(
+    'select name, email, last_active_at from "user" where trim(email) <> "" order by created_at'
+).fetchall()
+print(json.dumps([dict(row) for row in rows], ensure_ascii=False))
+`
+
+	output, err := exec.Command(pythonPath, "-c", script, dbPath).CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("read open webui users: %w: %s", err, strings.TrimSpace(string(output)))
+	}
+
+	var records []openWebUIUserRecord
+	if err := json.Unmarshal(output, &records); err != nil {
+		return nil, fmt.Errorf("parse open webui users: %w", err)
+	}
+
+	users := make(map[string]UserSummary, len(records))
+	for _, record := range records {
+		email := normalizeEmail(record.Email)
+		if email == "" {
+			continue
+		}
+		users[email] = UserSummary{
+			UserEmail:  email,
+			Label:      firstNonEmptyString(strings.TrimSpace(record.Name), labelFromEmail(email)),
+			LastSeenAt: formatUnixTimestamp(record.LastActiveAt),
+		}
+	}
+	return users, nil
+}
+
+func resolveOpenWebUIDBPath() string {
+	if dataDir := strings.TrimSpace(os.Getenv("OPEN_WEBUI_DATA_DIR")); dataDir != "" {
+		if candidate := firstExistingPath(filepath.Join(dataDir, "webui.db")); candidate != "" {
+			return candidate
+		}
+	}
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil || strings.TrimSpace(homeDir) == "" {
+		return ""
+	}
+
+	candidate := firstExistingPath(
+		filepath.Join(homeDir, ".cache", "sheathed-edge", "open-webui-awdp", "webui.db"),
+		filepath.Join(homeDir, ".cache", "sheathed-edge", "open-webui", "webui.db"),
+	)
+	if candidate != "" {
+		return candidate
+	}
+
+	matches, err := filepath.Glob(filepath.Join(homeDir, ".cache", "sheathed-edge", "*", "webui.db"))
+	if err != nil {
+		return ""
+	}
+	return firstExistingPath(matches...)
 }
 
 func (s *Service) UserWorkspace(userEmail string) (*UserWorkspaceResponse, error) {
@@ -284,7 +381,7 @@ func (s *Service) collectObservedUsers() (map[string]string, error) {
 			}
 			for _, item := range items {
 				email := normalizeEmail(stringField(item, "user_email"))
-				if email == "" {
+				if email == "" || !shouldIncludeObservedUser(email) {
 					continue
 				}
 				timeValue := stringField(item, "time")
@@ -295,6 +392,58 @@ func (s *Service) collectObservedUsers() (map[string]string, error) {
 		}
 	}
 	return out, nil
+}
+
+func preferredUserLabel(existing, fromOpenWebUI, email string) string {
+	existing = strings.TrimSpace(existing)
+	fromOpenWebUI = strings.TrimSpace(fromOpenWebUI)
+	if existing == "" {
+		return firstNonEmptyString(fromOpenWebUI, labelFromEmail(email))
+	}
+	if strings.EqualFold(existing, labelFromEmail(email)) {
+		return firstNonEmptyString(fromOpenWebUI, existing)
+	}
+	return existing
+}
+
+func chooseLaterTimestamp(current, incoming string) string {
+	current = strings.TrimSpace(current)
+	incoming = strings.TrimSpace(incoming)
+	if current == "" {
+		return incoming
+	}
+	if incoming == "" {
+		return current
+	}
+
+	currentTime, currentErr := time.Parse(time.RFC3339, current)
+	incomingTime, incomingErr := time.Parse(time.RFC3339, incoming)
+	if currentErr == nil && incomingErr == nil {
+		if incomingTime.After(currentTime) {
+			return incoming
+		}
+		return current
+	}
+
+	if strings.Compare(incoming, current) > 0 {
+		return incoming
+	}
+	return current
+}
+
+func shouldIncludeObservedUser(email string) bool {
+	lower := strings.ToLower(strings.TrimSpace(email))
+	if lower == "" {
+		return false
+	}
+	return !strings.HasSuffix(lower, "@local") && !strings.HasSuffix(lower, "@example.com")
+}
+
+func formatUnixTimestamp(value int64) string {
+	if value <= 0 {
+		return ""
+	}
+	return time.Unix(value, 0).Format(time.RFC3339)
 }
 
 func sanitizeUserWorkspaceList(items []UserWorkspace) []UserWorkspace {

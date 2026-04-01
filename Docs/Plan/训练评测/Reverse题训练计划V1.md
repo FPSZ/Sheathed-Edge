@@ -1,25 +1,21 @@
-# Reverse 题训练计划 V1（Skills 优先，过程监督试点）
+﻿# Reverse 棰樿缁冭鍒?V1锛圫kills 浼樺厛锛岃繃绋嬬洃鐫ｈ瘯鐐癸級
 
 ## Summary
 
-这份计划以当前逆向题轨迹为起点，先做一条 `reverse` 试点闭环，再复制到其他题型。当前起始样本固定为：
-
+杩欎唤璁″垝浠ュ綋鍓嶉€嗗悜棰樿建杩逛负璧风偣锛屽厛鍋氫竴鏉?`reverse` 璇曠偣闂幆锛屽啀澶嶅埗鍒板叾浠栭鍨嬨€傚綋鍓嶈捣濮嬫牱鏈浐瀹氫负锛?
 - `Feed/Histroy/chat-export-1774864835443.json`
-- `Feed/Histroy/26-3-30/chat-你好.txt`
+- `Feed/Histroy/26-3-30/chat-浣犲ソ.txt`
 
-核心决策固定如下：
-
-- 第一阶段不直接上微调，先做 `skills + eval + 轨迹纠错`
-- `reverse` 先作为试点，不一开始铺满 `awdp/web/pwn` 全域
-- 训练重点不是只追最终做对，而是纠正过程质量：工具选择、shell 适配、路径编码、失败恢复、证据整理
-- 第一阶段沿用现有 `awdp + pwn` 能力面，不先新建独立 `reverse` 插件
-- 当前这道 `[re] 尤皮·埃克斯历险记` 已被看过，只能进 `train/dev`，不能进 `eval`
+鏍稿績鍐崇瓥鍥哄畾濡備笅锛?
+- 绗竴闃舵涓嶇洿鎺ヤ笂寰皟锛屽厛鍋?`skills + eval + 杞ㄨ抗绾犻敊`
+- `reverse` 鍏堜綔涓鸿瘯鐐癸紝涓嶄竴寮€濮嬮摵婊?`awdp/web/pwn` 鍏ㄥ煙
+- 璁粌閲嶇偣涓嶆槸鍙拷鏈€缁堝仛瀵癸紝鑰屾槸绾犳杩囩▼璐ㄩ噺锛氬伐鍏烽€夋嫨銆乻hell 閫傞厤銆佽矾寰勭紪鐮併€佸け璐ユ仮澶嶃€佽瘉鎹暣鐞?- 绗竴闃舵娌跨敤鐜版湁 `awdp + pwn` 鑳藉姏闈紝涓嶅厛鏂板缓鐙珛 `reverse` 鎻掍欢
+- 褰撳墠杩欓亾 `[re] 灏ょ毊路鍩冨厠鏂巻闄╄` 宸茶鐪嬭繃锛屽彧鑳借繘 `train/dev`锛屼笉鑳借繘 `eval`
 
 ## Key Changes
 
-### 1. 建立“题目-轨迹-纠错”数据闭环
-
-原始聊天记录继续保留在 `Feed/Histroy`，不直接拿脏轨迹做训练；新增一层人工整理后的 `reverse case` 语料，最少包含这些字段：
+### 1. 寤虹珛鈥滈鐩?杞ㄨ抗-绾犻敊鈥濇暟鎹棴鐜?
+鍘熷鑱婂ぉ璁板綍缁х画淇濈暀鍦?`Feed/Histroy`锛屼笉鐩存帴鎷胯剰杞ㄨ抗鍋氳缁冿紱鏂板涓€灞備汉宸ユ暣鐞嗗悗鐨?`reverse case` 璇枡锛屾渶灏戝寘鍚繖浜涘瓧娈碉細
 
 - `case_id`
 - `task_meta`
@@ -31,18 +27,13 @@
 - `skill_delta`
 - `sft_ready`
 
-每道题固定走这条流程：
-
-1. 让当前模型独立做题并完整记录工具轨迹
-2. 让更强 `teacher` 同题独立求解
-3. 人工做差异审查，输出“错在哪、为什么错、理想过程是什么”
-4. 把产物拆成三类：
-   - `skill` 修订项
-   - 过程监督样本
-   - `eval` 候选样本
-
-首批错误标签先从这次样本里抽象，不做泛化空话：
-
+姣忛亾棰樺浐瀹氳蛋杩欐潯娴佺▼锛?
+1. 璁╁綋鍓嶆ā鍨嬬嫭绔嬪仛棰樺苟瀹屾暣璁板綍宸ュ叿杞ㄨ抗
+2. 璁╂洿寮?`teacher` 鍚岄鐙珛姹傝В
+3. 浜哄伐鍋氬樊寮傚鏌ワ紝杈撳嚭鈥滈敊鍦ㄥ摢銆佷负浠€涔堥敊銆佺悊鎯宠繃绋嬫槸浠€涔堚€?4. 鎶婁骇鐗╂媶鎴愪笁绫伙細
+   - `skill` 淇椤?   - 杩囩▼鐩戠潱鏍锋湰
+   - `eval` 鍊欓€夋牱鏈?
+棣栨壒閿欒鏍囩鍏堜粠杩欐鏍锋湰閲屾娊璞★紝涓嶅仛娉涘寲绌鸿瘽锛?
 - `shell_mismatch`
 - `path_or_encoding_failure`
 - `missing_dependency_fallback`
@@ -52,36 +43,27 @@
 - `wrong_tool_priority`
 - `poor_evidence_summary`
 
-### 2. 先写小而可组合的 reverse skills，不写一坨大 prompt
+### 2. 鍏堝啓灏忚€屽彲缁勫悎鐨?reverse skills锛屼笉鍐欎竴鍧ㄥぇ prompt
 
-第一阶段优先补 `skills`，因为当前问题更像“不会稳定按流程做”，不是“完全没有知识”。`skills` 固定拆成小块：
+绗竴闃舵浼樺厛琛?`skills`锛屽洜涓哄綋鍓嶉棶棰樻洿鍍忊€滀笉浼氱ǔ瀹氭寜娴佺▼鍋氣€濓紝涓嶆槸鈥滃畬鍏ㄦ病鏈夌煡璇嗏€濄€俙skills` 鍥哄畾鎷嗘垚灏忓潡锛?
+- `rev-intake`
+  - 鍏堢‘璁ら鐩枃浠躲€佸帇缂╁寘銆佽緭鍑虹洰褰曘€佺紪鐮佷笌璺緞鍙揪鎬?- `rev-shell`
+  - 鏄庣‘褰撳墠鏄?`powershell / wsl-bash`锛屽悓涓€鍛戒护鎸夊涓婚€傞厤锛屼笉娣?Linux/Windows 璇硶
+- `rev-triage`
+  - 鍘嬬缉鍖呰В鍖呫€佹枃浠剁被鍨嬭瘑鍒€佸叆鍙ｆ枃浠跺畾浣嶃€佸熀纭€瀛楃涓蹭笌鍏冧俊鎭鏌?- `rev-static`
+  - 浣曟椂鍏?`strings`锛屼綍鏃惰繘 `radare2`锛屼綍鏃跺垏鍔ㄦ€侀獙璇?- `reverse-hypothesis-loop`
+  - 姣忚疆鍙彁鍑哄皯閲忓亣璁撅紝瑕佹眰宸ュ叿杈撳嚭蹇呴』鑳芥敮鎸佷笅涓€姝ュ喅绛?- `rev-report`
+  - 璇佹嵁銆佺粨璁恒€佹湭璇佸疄鍋囪銆佸鐜版楠ゅ垎寮€鍐?
+姣忎釜 skill 鐨勬帴鍙ｅ浐瀹氬寘鍚細
 
-- `reverse-intake-and-path-normalization`
-  - 先确认题目文件、压缩包、输出目录、编码与路径可达性
-- `reverse-shell-adapter`
-  - 明确当前是 `powershell / wsl-bash`，同一命令按宿主适配，不混 Linux/Windows 语法
-- `reverse-archive-and-binary-triage`
-  - 压缩包解包、文件类型识别、入口文件定位、基础字符串与元信息检查
-- `reverse-static-analysis-escalation`
-  - 何时先 `strings`，何时进 `radare2`，何时切动态验证
-- `reverse-hypothesis-loop`
-  - 每轮只提出少量假设，要求工具输出必须能支持下一步决策
-- `reverse-final-report`
-  - 证据、结论、未证实假设、复现步骤分开写
-
-每个 skill 的接口固定包含：
-
-- 触发描述
-- 所需输入
-- 编号流程
-- 输出格式
-- 最终检查项
-- 必要时附脚本或参考文件
-
-### 3. 训练重心放到“过程监督”，不是只喂最终题解
-
-训练样本不要只保留最终答案或 `writeup`，必须保留可监督的中间决策。V1 不直接回灌原始自由链路思维文本，而是固定改成可控的结构化过程标签：
-
+- 瑙﹀彂鎻忚堪
+- 鎵€闇€杈撳叆
+- 缂栧彿娴佺▼
+- 杈撳嚭鏍煎紡
+- 鏈€缁堟鏌ラ」
+- 蹇呰鏃堕檮鑴氭湰鎴栧弬鑰冩枃浠?
+### 3. 璁粌閲嶅績鏀惧埌鈥滆繃绋嬬洃鐫ｂ€濓紝涓嶆槸鍙杺鏈€缁堥瑙?
+璁粌鏍锋湰涓嶈鍙繚鐣欐渶缁堢瓟妗堟垨 `writeup`锛屽繀椤讳繚鐣欏彲鐩戠潱鐨勪腑闂村喅绛栥€俈1 涓嶇洿鎺ュ洖鐏屽師濮嬭嚜鐢遍摼璺€濈淮鏂囨湰锛岃€屾槸鍥哄畾鏀规垚鍙帶鐨勭粨鏋勫寲杩囩▼鏍囩锛?
 - `phase`
 - `goal`
 - `chosen_tool`
@@ -90,18 +72,15 @@
 - `observed_result`
 - `fallback_if_fail`
 
-目标是把“正确过程”显式教给模型，尤其针对这次样本里暴露的多步失误。进入 `SFT` 之前，先累积 `teacher` 修正后的多轮过程样本，而不是只堆最终 `flag` 或最终解释。
-
-### 4. 先做 reverse 评测集，再决定是否开训
-
-第一阶段固定先做一个小而硬的 `reverse pilot` 数据集，建议 20 题起步：
+鐩爣鏄妸鈥滄纭繃绋嬧€濇樉寮忔暀缁欐ā鍨嬶紝灏ゅ叾閽堝杩欐鏍锋湰閲屾毚闇茬殑澶氭澶辫銆傝繘鍏?`SFT` 涔嬪墠锛屽厛绱Н `teacher` 淇鍚庣殑澶氳疆杩囩▼鏍锋湰锛岃€屼笉鏄彧鍫嗘渶缁?`flag` 鎴栨渶缁堣В閲娿€?
+### 4. 鍏堝仛 reverse 璇勬祴闆嗭紝鍐嶅喅瀹氭槸鍚﹀紑璁?
+绗竴闃舵鍥哄畾鍏堝仛涓€涓皬鑰岀‖鐨?`reverse pilot` 鏁版嵁闆嗭紝寤鸿 20 棰樿捣姝ワ細
 
 - `train/curation`: 10
 - `dev`: 5
 - `eval`: 5
 
-评测不只看“最后过没过”，还要固定记录这些过程指标：
-
+璇勬祴涓嶅彧鐪嬧€滄渶鍚庤繃娌¤繃鈥濓紝杩樿鍥哄畾璁板綍杩欎簺杩囩▼鎸囨爣锛?
 - `solve_rate`
 - `time_to_first_useful_action`
 - `invalid_tool_call_rate`
@@ -111,82 +90,65 @@
 - `truncated_output_incidents`
 - `final_evidence_quality`
 
-判定是否进入下一阶段的门槛固定为：
+鍒ゅ畾鏄惁杩涘叆涓嬩竴闃舵鐨勯棬妲涘浐瀹氫负锛?
+- `reverse dev/eval` 宸茬ǔ瀹氬彲澶嶈窇
+- 鑷冲皯绉疮 30 涓汉宸ユ牎姝ｈ繃鐨?`reverse case`
+- 缁忚繃 `skill` 涓庡伐鍏锋弿杩拌凯浠ｅ悗锛屼富瑕佸け璐ユā寮忓凡鏀舵暃锛屼笉鍐嶆瘡棰橀兘鎹竴绉嶉敊娉?
+### 5. 寰皟鍙綔涓虹浜岄樁娈碉紝涓嶅拰绗竴闃舵娣峰仛
 
-- `reverse dev/eval` 已稳定可复跑
-- 至少积累 30 个人工校正过的 `reverse case`
-- 经过 `skill` 与工具描述迭代后，主要失败模式已收敛，不再每题都换一种错法
+杈惧埌涓婇潰闂ㄦ鍚庯紝鍐嶅噯澶囧閮ㄨ缁冦€傞粯璁ゅ彧鍋?`SFT`锛屼笉鍦?V1 涓婂仛 `DPO/RL`銆?
+`SFT` 鏁版嵁瑙勫垯鍥哄畾涓猴細
 
-### 5. 微调只作为第二阶段，不和第一阶段混做
-
-达到上面门槛后，再准备外部训练。默认只做 `SFT`，不在 V1 上做 `DPO/RL`。
-
-`SFT` 数据规则固定为：
-
-- 保留多轮对话与工具调用结构
-- 每条样本带上当前最优系统提示与 `skill` 上下文
-- 训练集和测试集严格分离
-- 高质量少量样本优先于大量低质量样本
-- 先训“过程稳定性、工具调用偏好、错误恢复”，不是先训“写得像不像高手”
-
-`DPO` 只留作后续可选项：
-
-- 适合做“两个过程都能解，但哪个更稳更省工具”的偏好排序
-- 不作为第一阶段主路线
-
+- 淇濈暀澶氳疆瀵硅瘽涓庡伐鍏疯皟鐢ㄧ粨鏋?- 姣忔潯鏍锋湰甯︿笂褰撳墠鏈€浼樼郴缁熸彁绀轰笌 `skill` 涓婁笅鏂?- 璁粌闆嗗拰娴嬭瘯闆嗕弗鏍煎垎绂?- 楂樿川閲忓皯閲忔牱鏈紭鍏堜簬澶ч噺浣庤川閲忔牱鏈?- 鍏堣鈥滆繃绋嬬ǔ瀹氭€с€佸伐鍏疯皟鐢ㄥ亸濂姐€侀敊璇仮澶嶁€濓紝涓嶆槸鍏堣鈥滃啓寰楀儚涓嶅儚楂樻墜鈥?
+`DPO` 鍙暀浣滃悗缁彲閫夐」锛?
+- 閫傚悎鍋氣€滀袱涓繃绋嬮兘鑳借В锛屼絾鍝釜鏇寸ǔ鏇寸渷宸ュ叿鈥濈殑鍋忓ソ鎺掑簭
+- 涓嶄綔涓虹涓€闃舵涓昏矾绾?
 ## Artifacts / Interfaces
 
-本计划新增的稳定接口不是 HTTP API，而是训练工件接口：
-
+鏈鍒掓柊澧炵殑绋冲畾鎺ュ彛涓嶆槸 HTTP API锛岃€屾槸璁粌宸ヤ欢鎺ュ彛锛?
 - `ReverseCaseRecord`
-  - 一题的完整训练单元
+  - 涓€棰樼殑瀹屾暣璁粌鍗曞厓
 - `TraceReviewRecord`
-  - `student` 与 `teacher` 的差异审查结果
-- `SkillDeltaRecord`
-  - 某次失败应转化成哪条 `skill` 修订
+  - `student` 涓?`teacher` 鐨勫樊寮傚鏌ョ粨鏋?- `SkillDeltaRecord`
+  - 鏌愭澶辫触搴旇浆鍖栨垚鍝潯 `skill` 淇
 - `ReverseEvalRecord`
-  - 题目、预算、结果、工具指标、人工评分
+  - 棰樼洰銆侀绠椼€佺粨鏋溿€佸伐鍏锋寚鏍囥€佷汉宸ヨ瘎鍒?
+寤鸿鍚庣画钀界洏浣嶇疆鍥哄畾涓猴細
 
-建议后续落盘位置固定为：
-
-- 原始轨迹：`Feed/Histroy`
-- 清洗样本：`Datasets/reverse`
-- 评测集：`Eval/reverse`
-- `skill` 文档：沿现有 `Core/awdp/skills` 与 `Plugins/pwn/skills` 分层放置
+- 鍘熷杞ㄨ抗锛歚Feed/Histroy`
+- 娓呮礂鏍锋湰锛歚Datasets/reverse`
+- 璇勬祴闆嗭細`Eval/reverse`
+- `skill` 鏂囨。锛氭部鐜版湁 `Core/awdp/skills` 涓?`Plugins/pwn/skills` 鍒嗗眰鏀剧疆
 
 ## Test Plan
 
-- 用当前这次样本先做 1 个完整示范 `case`，确认从原始轨迹到 `ReverseCaseRecord` 的整理规则可执行
-- 再选 5 道本地 `reverse` 题，验证同一套错误标签是否够用，必要时只增补少量标签
-- `skill` 初版完成后，重跑同一批 `dev` 题，确认这些指标确实改善：
-  - 错 `shell` 命令显著下降
-  - 路径/编码相关失败显著下降
-  - 出错后能在 1-2 轮内切到合理 `fallback`
-  - 工具调用更少但更有效
-- 若 `skill` 迭代已明显提高 `solve_rate` 和过程指标，则继续扩样；若仍无明显改善，再进入 `SFT` 准备
+- 鐢ㄥ綋鍓嶈繖娆℃牱鏈厛鍋?1 涓畬鏁寸ず鑼?`case`锛岀‘璁や粠鍘熷杞ㄨ抗鍒?`ReverseCaseRecord` 鐨勬暣鐞嗚鍒欏彲鎵ц
+- 鍐嶉€?5 閬撴湰鍦?`reverse` 棰橈紝楠岃瘉鍚屼竴濂楅敊璇爣绛炬槸鍚﹀鐢紝蹇呰鏃跺彧澧炶ˉ灏戦噺鏍囩
+- `skill` 鍒濈増瀹屾垚鍚庯紝閲嶈窇鍚屼竴鎵?`dev` 棰橈紝纭杩欎簺鎸囨爣纭疄鏀瑰杽锛?  - 閿?`shell` 鍛戒护鏄捐憲涓嬮檷
+  - 璺緞/缂栫爜鐩稿叧澶辫触鏄捐憲涓嬮檷
+  - 鍑洪敊鍚庤兘鍦?1-2 杞唴鍒囧埌鍚堢悊 `fallback`
+  - 宸ュ叿璋冪敤鏇村皯浣嗘洿鏈夋晥
+- 鑻?`skill` 杩唬宸叉槑鏄炬彁楂?`solve_rate` 鍜岃繃绋嬫寚鏍囷紝鍒欑户缁墿鏍凤紱鑻ヤ粛鏃犳槑鏄炬敼鍠勶紝鍐嶈繘鍏?`SFT` 鍑嗗
 
 ## Assumptions
 
-- 这份文档先作为 `Docs/Plan` 下的新训练计划
-- 当前样本主要暴露的是流程性缺陷，不是单纯知识缺口，因此默认 `skills-first`
-- 试点范围固定为 `reverse`，后续再复制到 `web/pwn`
-- `reverse` 先挂在现有 `pwn` 能力层，不在第一阶段新开插件
-- 训练与评测都要支持离线环境；比赛态不能依赖联网检索
-- 评测集绝不回灌训练
-
-## 参考依据
-
-- OpenAI Skills：适合“可重复、多步骤、需要固定格式和检查项”的任务，且推荐拆成小的可组合工作流  
+- 杩欎唤鏂囨。鍏堜綔涓?`Docs/Plan` 涓嬬殑鏂拌缁冭鍒?- 褰撳墠鏍锋湰涓昏鏆撮湶鐨勬槸娴佺▼鎬х己闄凤紝涓嶆槸鍗曠函鐭ヨ瘑缂哄彛锛屽洜姝ら粯璁?`skills-first`
+- 璇曠偣鑼冨洿鍥哄畾涓?`reverse`锛屽悗缁啀澶嶅埗鍒?`web/pwn`
+- `reverse` 鍏堟寕鍦ㄧ幇鏈?`pwn` 鑳藉姏灞傦紝涓嶅湪绗竴闃舵鏂板紑鎻掍欢
+- 璁粌涓庤瘎娴嬮兘瑕佹敮鎸佺绾跨幆澧冿紱姣旇禌鎬佷笉鑳戒緷璧栬仈缃戞绱?- 璇勬祴闆嗙粷涓嶅洖鐏岃缁?
+## 鍙傝€冧緷鎹?
+- OpenAI Skills锛氶€傚悎鈥滃彲閲嶅銆佸姝ラ銆侀渶瑕佸浐瀹氭牸寮忓拰妫€鏌ラ」鈥濈殑浠诲姟锛屼笖鎺ㄨ崘鎷嗘垚灏忕殑鍙粍鍚堝伐浣滄祦  
   <https://academy.openai.com/public/resources/skills>
-- Anthropic Agent Skills：建议“先评测再补 skill”，并根据真实失败轨迹增量迭代  
+- Anthropic Agent Skills锛氬缓璁€滃厛璇勬祴鍐嶈ˉ skill鈥濓紝骞舵牴鎹湡瀹炲け璐ヨ建杩瑰閲忚凯浠? 
   <https://claude.com/blog/equipping-agents-for-the-real-world-with-agent-skills>
-- Anthropic Tools for Agents：工具改进应走评测驱动，重点看工具错误、冗余调用、描述和返回值是否高信号  
+- Anthropic Tools for Agents锛氬伐鍏锋敼杩涘簲璧拌瘎娴嬮┍鍔紝閲嶇偣鐪嬪伐鍏烽敊璇€佸啑浣欒皟鐢ㄣ€佹弿杩板拰杩斿洖鍊兼槸鍚﹂珮淇″彿  
   <https://www.anthropic.com/engineering/writing-tools-for-agents>
-- OpenAI Evaluation Best Practices：先做贴近真实分布的 held-out eval，并持续从日志挖边界 case  
+- OpenAI Evaluation Best Practices锛氬厛鍋氳创杩戠湡瀹炲垎甯冪殑 held-out eval锛屽苟鎸佺画浠庢棩蹇楁寲杈圭晫 case  
   <https://platform.openai.com/docs/guides/evaluation-best-practices>
-- OpenAI Fine-tuning Best Practices：高质量数据优先，训练/测试要先分开，并把最优提示上下文保留进训练样本  
+- OpenAI Fine-tuning Best Practices锛氶珮璐ㄩ噺鏁版嵁浼樺厛锛岃缁?娴嬭瘯瑕佸厛鍒嗗紑锛屽苟鎶婃渶浼樻彁绀轰笂涓嬫枃淇濈暀杩涜缁冩牱鏈? 
   <https://platform.openai.com/docs/guides/fine-tuning-best-practices>
-- OpenAI Process Supervision：对多步推理任务，监督过程通常比只监督结果更可靠  
+- OpenAI Process Supervision锛氬澶氭鎺ㄧ悊浠诲姟锛岀洃鐫ｈ繃绋嬮€氬父姣斿彧鐩戠潱缁撴灉鏇村彲闈? 
   <https://openai.com/research/improving-mathematical-reasoning-with-process-supervision>
-- NIST CAISI Cyber Evals：可借鉴“任务集 + agent + 预算 + 工具指标”的安全评测组织方式  
+- NIST CAISI Cyber Evals锛氬彲鍊熼壌鈥滀换鍔￠泦 + agent + 棰勭畻 + 宸ュ叿鎸囨爣鈥濈殑瀹夊叏璇勬祴缁勭粐鏂瑰紡  
   <https://github.com/usnistgov/caisi-cyber-evals>
+

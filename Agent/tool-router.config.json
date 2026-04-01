@@ -1,20 +1,13 @@
 {
   "allowed_paths": [
     "D:\\AI\\Local",
-    "D:\\AI\\Local\\Core",
-    "D:\\AI\\Local\\Plugins",
-    "D:\\AI\\Local\\Datasets",
-    "D:\\AI\\Local\\Eval",
-    "D:\\AI\\Local\\Logs",
-    "D:\\AI\\Local\\Templates",
-    "D:\\AI\\Local\\Writeups",
     "D:\\Environment2",
     "D:\\CTF",
-    "D:\\AWDP"
+    "D:\\AWDP",
+    "E:\\比赛题目\\2026"
   ],
   "listen_host": "127.0.0.1",
   "listen_port": 8091,
-  "user_settings_path": "D:\\AI\\Local\\Agent\\user-settings.json",
   "logs": {
     "tool_log_dir": "D:\\AI\\Local\\Logs\\tools"
   },
@@ -45,5 +38,6 @@
   "timeouts": {
     "default_ms": 60000,
     "max_ms": 180000
-  }
+  },
+  "user_settings_path": "D:\\AI\\Local\\Agent\\user-settings.json"
 }

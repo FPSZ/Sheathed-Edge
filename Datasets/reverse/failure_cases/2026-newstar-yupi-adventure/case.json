@@ -1,21 +1,21 @@
-{
+﻿{
   "case_id": "2026-newstar-yupi-adventure",
   "task_meta": {
     "category": "reverse",
     "source": "local",
     "difficulty": "unknown",
     "visibility": "train-dev-only",
-    "notes": "Source trace comes from an Open WebUI local run on the Newstar reverse challenge '[re] 尤皮·埃克斯历险记'. The student trace was already exposed to the system, so it is excluded from eval."
+    "notes": "Source trace comes from an Open WebUI local run on the Newstar reverse challenge '[re] 灏ょ毊路鍩冨厠鏂巻闄╄'. The student trace was already exposed to the system, so it is excluded from eval."
   },
   "input_files": [
     {
-      "path": "D:/CTF/题目/逆向/比赛/Newstar/[re] 尤皮·埃克斯历险记.zip",
+      "path": "D:/CTF/棰樼洰/閫嗗悜/姣旇禌/Newstar/[re] 灏ょ毊路鍩冨厠鏂巻闄╄.zip",
       "sha256": "",
       "role": "archive"
     }
   ],
   "student_trace": {
-    "source": "Feed/Histroy/chat-export-1774864835443.json; Feed/Histroy/26-3-30/chat-你好.txt",
+    "source": "Feed/Histroy/chat-export-1774864835443.json; Feed/Histroy/26-3-30/chat-浣犲ソ.txt",
     "summary": "The student first wandered through unrelated workspace and knowledge-base searches, then tried multiple extraction methods on Windows. It eventually extracted the archive with .NET ZipFile, located one PE executable, ran broad strings-style scans that produced huge low-signal output, and ended with speculative flag fragments instead of a verified solve.",
     "tool_events": [
       {
@@ -117,19 +117,19 @@
   },
   "skill_delta": [
     {
-      "skill_id": "reverse-intake-and-path-normalization",
+      "skill_id": "rev-intake",
       "change": "Require the agent to validate exact Windows paths and extraction destinations before invoking archive commands on non-ASCII filenames."
     },
     {
-      "skill_id": "reverse-shell-adapter",
+      "skill_id": "rev-shell",
       "change": "On Windows PowerShell, prefer literal path handling and environment-aware extraction commands; do not assume 7z is present."
     },
     {
-      "skill_id": "reverse-static-analysis-escalation",
+      "skill_id": "rev-static",
       "change": "After prompt strings and one executable are confirmed, escalate to structured PE triage or disassembly instead of continuing broad strings dumps."
     },
     {
-      "skill_id": "reverse-final-report",
+      "skill_id": "rev-report",
       "change": "Do not present partial string fragments as likely flag material without a verification step."
     }
   ],
@@ -141,3 +141,4 @@
     "can_use_for_eval": false
   }
 }
+

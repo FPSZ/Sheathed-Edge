@@ -1,12 +1,30 @@
-# Skills
+﻿# Skills
 
-本目录存放系统级 skills 定义。
+本目录按大类组织正式技能包。
 
-当前 V1 由以下层次组成：
+当前分类：
 
-- `Core/awdp/skills`
-- `Plugins/web/skills`
-- `Plugins/pwn/skills`
+- `Skills/CTF/Re`
+  - 面向 CTF 逆向训练和做题
+- `Skills/AWDP/Pwn`
+  - 面向 AWDP / Pwn 方向的技能入口
 
-后续如果引入共享技能，可在本目录增加聚合或映射文件。
+当前已落地的 reverse skills：
 
+- `Skills/CTF/Re/rev-orch`
+- `Skills/CTF/Re/rev-intake`
+- `Skills/CTF/Re/rev-shell`
+- `Skills/CTF/Re/rev-triage`
+
+命名规则：
+
+- 类目短目录：`CTF/Re`、`AWDP/Pwn`
+- 技能短名：`rev-orch`、`rev-intake`、`rev-shell`、`rev-triage`
+
+后续预留短名：
+
+- `rev-native`
+- `rev-android`
+- `ctf-wp`
+- `rev-static`
+- `rev-report`

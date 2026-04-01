@@ -1,4 +1,4 @@
-{
+﻿{
   "case_id": "2026-newstar-yupi-adventure",
   "task_meta": {
     "category": "reverse",
@@ -34,7 +34,7 @@
   },
   "skill_delta": [
     {
-      "skill_id": "reverse-shell-adapter",
+      "skill_id": "rev-shell",
       "change": ""
     }
   ],
@@ -46,3 +46,4 @@
     "can_use_for_eval": false
   }
 }
+

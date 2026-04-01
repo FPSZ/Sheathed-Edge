@@ -1,8 +1,9 @@
-{
-  "skill_id": "reverse-shell-adapter",
+﻿{
+  "skill_id": "rev-shell",
   "trigger_case_id": "2026-newstar-yupi-adventure",
   "problem": "",
   "rule_update": "",
   "checklist_update": [],
   "requires_eval_refresh": true
 }
+

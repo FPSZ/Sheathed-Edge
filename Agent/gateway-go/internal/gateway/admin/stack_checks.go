@@ -11,6 +11,24 @@ import (
 	"time"
 )
 
+func (s *Service) selfCheckLocalTerminalUser() string {
+	settings, err := s.readUserSettings()
+	if err == nil {
+		for _, workspace := range settings {
+			email := normalizeEmail(workspace.UserEmail)
+			if email == "" {
+				continue
+			}
+			for _, target := range workspace.EnabledExecutionTargets {
+				if strings.EqualFold(strings.TrimSpace(target), "local") {
+					return email
+				}
+			}
+		}
+	}
+	return primaryLocalTerminalUser
+}
+
 func (s *Service) StartAll(ctx context.Context) (*StartAllResponse, error) {
 	results := make([]ServiceActionResult, 0, 5)
 
@@ -163,12 +181,13 @@ func (s *Service) SelfCheck(ctx context.Context) (*SelfCheckResponse, error) {
 			return "stream response returned SSE frames", nil, nil
 		}),
 		s.runCheck(ctx, "terminal.local", "Local terminal", func(checkCtx context.Context) (string, map[string]any, error) {
+			userEmail := s.selfCheckLocalTerminalUser()
 			body := map[string]any{
 				"command":    "Get-Location | Select-Object -ExpandProperty Path",
 				"shell":      "powershell",
 				"workdir":    "D:\\AI\\Local",
 				"timeout_ms": 10000,
-				"user_email": "admin-self-check@local",
+				"user_email": userEmail,
 			}
 			var payload map[string]any
 			if err := s.postJSON(checkCtx, strings.TrimRight(s.cfg.ToolRouter.BaseURL, "/")+"/api/tools/terminal", body, &payload); err != nil {
@@ -177,7 +196,10 @@ func (s *Service) SelfCheck(ctx context.Context) (*SelfCheckResponse, error) {
 			if ok, _ := payload["ok"].(bool); !ok {
 				return "", payload, fmt.Errorf("%v", payload["summary"])
 			}
-			return "local terminal execution ok", map[string]any{"summary": payload["summary"]}, nil
+			return "local terminal execution ok", map[string]any{
+				"summary":    payload["summary"],
+				"user_email": userEmail,
+			}, nil
 		}),
 		s.selfCheckSSHTerminal(ctx),
 	}

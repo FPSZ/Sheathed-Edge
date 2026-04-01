@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/FPSZ/Sheathed-Edge/Agent/gateway-go/internal/gateway/pathutil"
 )
 
 const (
@@ -203,22 +205,24 @@ func (s *Service) startHostAgent(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	binary := s.cfg.Admin.HostAgentBinary
-	cfgPath := s.cfg.Admin.HostAgentConfig
+	binary := strings.TrimSpace(s.cfg.Admin.HostAgentBinary)
+	cfgPath := strings.TrimSpace(s.cfg.Admin.HostAgentConfig)
 	if binary == "" {
 		return fmt.Errorf("host_agent_binary not configured")
 	}
-	binary = normalizeWindowsPath(binary)
-	cfgPath = normalizeWindowsPath(cfgPath)
-	if _, err := os.Stat(binary); err != nil {
+	binaryRuntimePath := pathutil.NormalizeRuntimePath(binary)
+	if _, err := os.Stat(binaryRuntimePath); err != nil {
 		return fmt.Errorf("host-agent binary not found: %s", binary)
 	}
 	if strings.TrimSpace(cfgPath) == "" {
 		return fmt.Errorf("host_agent_config not configured")
 	}
-	if _, err := os.Stat(cfgPath); err != nil {
+	cfgRuntimePath := pathutil.NormalizeRuntimePath(cfgPath)
+	if _, err := os.Stat(cfgRuntimePath); err != nil {
 		return fmt.Errorf("host-agent config not found: %s", cfgPath)
 	}
+	binary = normalizeWindowsPath(binary)
+	cfgPath = normalizeWindowsPath(cfgPath)
 	hostAgentPort := "8101"
 	hostAgentHealthURL := "http://127.0.0.1:8101/healthz"
 	if parsed, err := url.Parse(strings.TrimSpace(s.cfg.Admin.HostAgentURL)); err == nil {

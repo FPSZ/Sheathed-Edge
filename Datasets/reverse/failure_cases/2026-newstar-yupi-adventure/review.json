@@ -1,4 +1,4 @@
-{
+﻿{
   "case_id": "2026-newstar-yupi-adventure",
   "student_vs_teacher": {
     "missed_steps": [
@@ -31,17 +31,17 @@
   "next_actions": [
     {
       "type": "skill_update",
-      "target": "reverse-intake-and-path-normalization",
+      "target": "rev-intake",
       "note": "Make non-ASCII Windows path normalization mandatory before extraction or file reads."
     },
     {
       "type": "skill_update",
-      "target": "reverse-shell-adapter",
+      "target": "rev-shell",
       "note": "Teach explicit Windows fallback ordering: Expand-Archive -> .NET ZipFile -> external archiver only if available."
     },
     {
       "type": "skill_update",
-      "target": "reverse-static-analysis-escalation",
+      "target": "rev-static",
       "note": "After one executable is confirmed, require focused PE triage before any large raw string dump."
     },
     {
@@ -51,3 +51,4 @@
     }
   ]
 }
+

@@ -1,20 +1,39 @@
 [
-  {
-    "id": "fpsz-linux-vm",
-    "label": "fpsz Linux VM",
-    "enabled": true,
-    "host": "192.168.25.129",
-    "port": 22,
-    "username": "fpsz",
-    "auth_type": "password",
-    "password": "Ljr@51597",
-    "remote_shell_default": "bash",
-    "allowed_paths": [
-      "/home/fpsz",
-      "/home/fpsz/\u684c\u9762/CTF"
-    ],
-    "default_workdir": "/home/fpsz/\u684c\u9762/CTF",
-    "host_key_status": "trusted",
-    "host_key_fingerprint": "SHA256:2GqlKCo3n4fsBfGxjxe+6nnOiWRYjJcmGaVW38ialpw"
-  }
+    {
+        "id":  "fpsz-linux-vm",
+        "label":  "fpsz Linux VM",
+        "enabled":  true,
+        "host":  "192.168.25.129",
+        "port":  22,
+        "username":  "fpsz",
+        "auth_type":  "password",
+        "password":  "Ljr@51597",
+        "remote_shell_default":  "bash",
+        "allowed_paths":  [
+                              "/home/fpsz",
+                              "/home/fpsz/妗岄潰/CTF"
+                          ],
+        "default_workdir":  "/home/fpsz/妗岄潰/CTF",
+        "host_key_status":  "trusted",
+        "host_key_fingerprint":  "SHA256:2GqlKCo3n4fsBfGxjxe+6nnOiWRYjJcmGaVW38ialpw",
+        "has_password":  true
+    },
+    {
+        "id":  "huang-local-win",
+        "label":  "Huang",
+        "enabled":  true,
+        "host":  "100.2.178.239",
+        "port":  22,
+        "username":  "space",
+        "auth_type":  "private_key",
+        "private_key":  "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW\nQyNTUxOQAAACB0PrL+e9INMBDOo9FCWJwf1k+UxS13Gidc8qblDdkaQAAAAJBeT06bXk9O\nmwAAAAtzc2gtZWQyNTUxOQAAACB0PrL+e9INMBDOo9FCWJwf1k+UxS13Gidc8qblDdkaQA\nAAAEC4SaqSm17emB3LMF+Yotu+YmM/0POWafsY6Z4snOwnInQ+sv570g0wEM6j0UJYnB/W\nT5TFLXcaJ1zypuUN2RpAAAAAC3NwYWNlQHNwYWNlAQI=\n-----END OPENSSH PRIVATE KEY-----",
+        "remote_shell_default":  "powershell",
+        "allowed_paths":  [
+                              "E:\\比赛题目\\2026"
+                          ],
+        "host_key_status":  "trusted",
+        "host_key_fingerprint":  "SHA256:g8jQikhikXpTLad4JK3QmyU1pECmPD+g6pX4qYIvS1g",
+        "has_private_key":  true,
+        "default_workdir":  "E:\\比赛题目\\2026"
+    }
 ]

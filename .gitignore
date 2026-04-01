@@ -15,6 +15,7 @@ Thumbs.db
 *.pem
 **/.webui_secret_key
 /Feed
+/SSH
 
 # Runtime logs and local state
 Logs/**

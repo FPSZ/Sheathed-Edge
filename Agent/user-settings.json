@@ -16,5 +16,44 @@
       "local-workspace"
     ],
     "disabled_mcp_tools_by_server": {}
+  },
+  {
+    "user_email": "2286923612@qq.com",
+    "label": "Huang",
+    "terminal_allowed_paths": [
+      "D:\\AI\\Local",
+      "D:\\CTF",
+      "D:\\Environment2"
+    ],
+    "default_local_workdir": "",
+    "enabled_execution_targets": [],
+    "enabled_mcp_server_ids": [],
+    "disabled_mcp_tools_by_server": {}
+  },
+  {
+    "user_email": "2642246370@qq.com",
+    "label": "Wu",
+    "terminal_allowed_paths": [
+      "D:\\AI\\Local",
+      "D:\\CTF",
+      "D:\\Environment2"
+    ],
+    "default_local_workdir": "",
+    "enabled_execution_targets": [],
+    "enabled_mcp_server_ids": [],
+    "disabled_mcp_tools_by_server": {}
+  },
+  {
+    "user_email": "3337153688@qq.com",
+    "label": "Tang",
+    "terminal_allowed_paths": [
+      "D:\\AI\\Local",
+      "D:\\CTF",
+      "D:\\Environment2"
+    ],
+    "default_local_workdir": "",
+    "enabled_execution_targets": [],
+    "enabled_mcp_server_ids": [],
+    "disabled_mcp_tools_by_server": {}
   }
 ]

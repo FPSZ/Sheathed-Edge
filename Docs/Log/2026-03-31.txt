@@ -1,14 +1,25 @@
-[16:28]
-任务：补写训练工程总路线图，把现有 `reverse` 试点、Axolotl 脚手架、后续 eval / review / skills / SFT 节奏收口成一份可执行主文档。
-结果：已新增 `Docs/Plan/训练评测/可控式训练工程路线图V2.md`，将训练路线固定为 `skills-first + eval-first + human-in-the-loop + SFT second`，并明确当前不做自学习、不做自动回灌、不做线上日志直喂训练。文档已按 GitHub 项目职责拆分 `Axolotl / Inspect AI / AgentEvals / CAISI / inspect_evals` 的边界：`Axolotl` 只负责训练，`Inspect AI` 负责 dev/eval 编排，`AgentEvals` 负责过程 judge，`CAISI` 与 `inspect_evals` 只作 benchmark 与目录结构参考。路线图已明确仓库衔接方式，继续沿用 `Feed/Histroy`、`Datasets/reverse`、`Eval/reverse`、`Training/axolotl`、`Core/awdp/skills`、`Plugins/pwn/skills` 作为现阶段真源，并新增 `Phase 0 -> Phase 4` 的分阶段路线、训练入库门禁、eval 隔离规则和 operator workflow。
-修改：
-- 新增 `Docs/Plan/训练评测/可控式训练工程路线图V2.md`
-- 更新 `Docs/Plan/README.md`
-补充进展：
-- 路线图已把“学生做题 -> teacher 复做 -> 人工差异审查 -> 更新 skills / 训练候选 -> 回归 eval”写成固定工作流，后续可以直接据此搭 `Training/inspect` 和 review 工具链
-- 当前训练工程的边界已经进一步收口：`skills` 仍是第一修正手段，`SFT` 只在 dev 改善且 eval 不回归时才允许进入
-下一步：
-- 基于现有 `2026-newstar-yupi-adventure` 样本补齐首个完整 `ReverseCaseRecord / TraceReviewRecord / SkillDeltaRecord / ReverseEvalRecord`
-- 给 `Training/inspect/` 补任务 runner 和 reverse dev/eval 模板
-- 按路线图先推进第一批 reverse skills，而不是直接开正式训练
-状态：训练工程顶层路线图已落盘，当前仓库已具备从现有 reverse 样本继续推进 `review -> skills -> eval -> 小规模 SFT` 的统一入口。
+﻿[16:28]
+浠诲姟锛氳ˉ鍐欒缁冨伐绋嬫€昏矾绾垮浘锛屾妸鐜版湁 `reverse` 璇曠偣銆丄xolotl 鑴氭墜鏋躲€佸悗缁?eval / review / skills / SFT 鑺傚鏀跺彛鎴愪竴浠藉彲鎵ц涓绘枃妗ｃ€?缁撴灉锛氬凡鏂板 `Docs/Plan/璁粌璇勬祴/鍙帶寮忚缁冨伐绋嬭矾绾垮浘V2.md`锛屽皢璁粌璺嚎鍥哄畾涓?`skills-first + eval-first + human-in-the-loop + SFT second`锛屽苟鏄庣‘褰撳墠涓嶅仛鑷涔犮€佷笉鍋氳嚜鍔ㄥ洖鐏屻€佷笉鍋氱嚎涓婃棩蹇楃洿鍠傝缁冦€傛枃妗ｅ凡鎸?GitHub 椤圭洰鑱岃矗鎷嗗垎 `Axolotl / Inspect AI / AgentEvals / CAISI / inspect_evals` 鐨勮竟鐣岋細`Axolotl` 鍙礋璐ｈ缁冿紝`Inspect AI` 璐熻矗 dev/eval 缂栨帓锛宍AgentEvals` 璐熻矗杩囩▼ judge锛宍CAISI` 涓?`inspect_evals` 鍙綔 benchmark 涓庣洰褰曠粨鏋勫弬鑰冦€傝矾绾垮浘宸叉槑纭粨搴撹鎺ユ柟寮忥紝缁х画娌跨敤 `Feed/Histroy`銆乣Datasets/reverse`銆乣Eval/reverse`銆乣Training/axolotl`銆乣Core/awdp/skills`銆乣Plugins/pwn/skills` 浣滀负鐜伴樁娈电湡婧愶紝骞舵柊澧?`Phase 0 -> Phase 4` 鐨勫垎闃舵璺嚎銆佽缁冨叆搴撻棬绂併€乪val 闅旂瑙勫垯鍜?operator workflow銆?淇敼锛?- 鏂板 `Docs/Plan/璁粌璇勬祴/鍙帶寮忚缁冨伐绋嬭矾绾垮浘V2.md`
+- 鏇存柊 `Docs/Plan/README.md`
+琛ュ厖杩涘睍锛?- 璺嚎鍥惧凡鎶娾€滃鐢熷仛棰?-> teacher 澶嶅仛 -> 浜哄伐宸紓瀹℃煡 -> 鏇存柊 skills / 璁粌鍊欓€?-> 鍥炲綊 eval鈥濆啓鎴愬浐瀹氬伐浣滄祦锛屽悗缁彲浠ョ洿鎺ユ嵁姝ゆ惌 `Training/inspect` 鍜?review 宸ュ叿閾?- 褰撳墠璁粌宸ョ▼鐨勮竟鐣屽凡缁忚繘涓€姝ユ敹鍙ｏ細`skills` 浠嶆槸绗竴淇鎵嬫锛宍SFT` 鍙湪 dev 鏀瑰杽涓?eval 涓嶅洖褰掓椂鎵嶅厑璁歌繘鍏?涓嬩竴姝ワ細
+- 鍩轰簬鐜版湁 `2026-newstar-yupi-adventure` 鏍锋湰琛ラ綈棣栦釜瀹屾暣 `ReverseCaseRecord / TraceReviewRecord / SkillDeltaRecord / ReverseEvalRecord`
+- 缁?`Training/inspect/` 琛ヤ换鍔?runner 鍜?reverse dev/eval 妯℃澘
+- 鎸夎矾绾垮浘鍏堟帹杩涚涓€鎵?reverse skills锛岃€屼笉鏄洿鎺ュ紑姝ｅ紡璁粌
+鐘舵€侊細璁粌宸ョ▼椤跺眰璺嚎鍥惧凡钀界洏锛屽綋鍓嶄粨搴撳凡鍏峰浠庣幇鏈?reverse 鏍锋湰缁х画鎺ㄨ繘 `review -> skills -> eval -> 灏忚妯?SFT` 鐨勭粺涓€鍏ュ彛銆?[17:08]
+浠诲姟锛氬熀浜庢棫澶囦唤閲岀殑 CTF skills 楠ㄦ灦锛岄噸寤洪鎵归潰鍚?`Easy` 棰樿缁冪殑 reverse 鎶€鑳藉寘銆?缁撴灉锛氬凡鍦?`Skills/` 涓嬫柊澧?4 涓寮?reverse skill 鍖咃細`rev-orch`銆乣rev-intake`銆乣rev-shell`銆乣rev-triage`銆傝繖鎵规妧鑳戒笉鍐嶆寕鍦?`pwn-skills.md` 鐨勬ā绯婃€昏〃閲岋紝鑰屾槸鎸夌嫭绔嬬洰褰?+ `SKILL.md` + 蹇呰 `references/` 鐨勫舰寮忚惤鐩樸€傚唴瀹逛笂缁ф壙浜嗘棫 `rev-orch` 涓?`rev-native` 鐨勬祦绋嬮鏋讹紝浣嗘寜褰撳墠鏈湴绂荤嚎鐜閲嶅啓锛岄噸鐐硅鐩栦腑鏂囪矾寰勩€丳owerShell/WSL 鍛戒护閫傞厤銆佽В鍖呯ǔ瀹氬寲銆佷簩杩涘埗瀹舵棌鍒濈瓫鍜?challenge card 杈撳嚭锛屼笉鐩存帴寮曞叆 MCP 娣辨按鍖轰緷璧栥€?淇敼锛?- 鏂板 `Skills/rev-orch/SKILL.md`
+- 鏂板 `Skills/rev-orch/references/triage-checklist.md`
+- 鏂板 `Skills/rev-orch/references/evidence-log-template.md`
+- 鏂板 `Skills/rev-orch/references/challenge-card-template.md`
+- 鏂板 `Skills/rev-intake/SKILL.md`
+- 鏂板 `Skills/rev-intake/references/workspace-layout.md`
+- 鏂板 `Skills/rev-shell/SKILL.md`
+- 鏂板 `Skills/rev-shell/references/powershell-reverse-cheatsheet.md`
+- 鏂板 `Skills/rev-triage/SKILL.md`
+- 鏂板 `Skills/rev-triage/references/binary-family-signals.md`
+- 閲嶅啓 `Skills/README.md`
+琛ュ厖杩涘睍锛?- 鏂?skill 鍛藉悕宸蹭笌鐜版湁 `Datasets/reverse` 涓殑 `skill_delta` 涓讳綋鏂瑰悜瀵归綈锛屽悗缁彲浠ョ洿鎺ユ妸 review 缁撴灉鏄犲皠鍒拌繖浜?skill
+- `Skills/README.md` 鐜板凡鎶?reverse 鎶€鑳藉寘鍒椾负鐙珛鍏ュ彛锛屽苟鏄庣‘绗簩鎵瑰緟琛ョ殑 `rev-native / rev-android / ctf-wp / rev-static / rev-report`
+涓嬩竴姝ワ細
+- 鐢?`Feed/CTF/Re/Easy` 棰樼洰閫愪釜楠岃瘉杩?4 涓?skill 鐨勮鐩栬竟鐣?- 鍐嶈ˉ绗簩鎵?`rev-static` 鍜?`rev-report`
+- 鏈€鍚庢妸 easy 棰樿缁冨垎绫绘寮忓啓鍥炶缁冭鍒掍笌 eval 鏂规
+鐘舵€侊細棣栨壒 reverse skill 鍖呭凡姝ｅ紡钀藉埌浠撳簱锛屽悗缁?easy 棰樿缁冨拰鍒嗙被鍙互鐩存帴鍥寸粫杩?4 涓?skill 鎺ㄨ繘銆?
