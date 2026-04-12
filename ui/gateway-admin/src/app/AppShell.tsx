@@ -26,6 +26,10 @@ const pageMeta: Record<string, { title: string; subtitle: string }> = {
     title: "模式",
     subtitle: "AWDP 能力布局",
   },
+  "/admin/agent-layers": {
+    title: "Agent Layers",
+    subtitle: "Agent Router 与 Family Skills 预设",
+  },
   "/admin/mcp": {
     title: "MCP 服务",
     subtitle: "外部工具控制面",

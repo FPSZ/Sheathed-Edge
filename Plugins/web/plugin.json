@@ -3,6 +3,7 @@
   "type": "plugin",
   "extends_core_mode": "awdp",
   "prompt_files": [
+    "..\\..\\Core\\awdp\\prompts\\agent.md",
     "prompts/fragment.md"
   ],
   "skill_files": [

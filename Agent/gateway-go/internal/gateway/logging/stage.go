@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/FPSZ/Sheathed-Edge/Agent/gateway-go/internal/gateway/mode"
 )
 
 type StageLogger struct {
@@ -20,6 +22,7 @@ type StageTrace struct {
 	mode      string
 	plugins   []string
 	userEmail string
+	agentLayers mode.SessionAgentLayers
 }
 
 type StageEntry struct {
@@ -28,6 +31,7 @@ type StageEntry struct {
 	UserEmail  string   `json:"user_email,omitempty"`
 	Mode       string   `json:"mode,omitempty"`
 	Plugins    []string `json:"plugins,omitempty"`
+	AgentLayers mode.SessionAgentLayers `json:"agent_layers,omitempty"`
 	Stage      string   `json:"stage"`
 	DurationMS int64    `json:"duration_ms"`
 	OK         bool     `json:"ok"`
@@ -51,7 +55,7 @@ func (l *StageLogger) NewTrace(requestID string) *StageTrace {
 	}
 }
 
-func (t *StageTrace) SetContext(mode string, plugins []string, userEmail string) {
+func (t *StageTrace) SetContext(mode string, plugins []string, userEmail string, agentLayers mode.SessionAgentLayers) {
 	if t == nil {
 		return
 	}
@@ -60,6 +64,7 @@ func (t *StageTrace) SetContext(mode string, plugins []string, userEmail string)
 	t.mode = mode
 	t.plugins = append([]string{}, plugins...)
 	t.userEmail = userEmail
+	t.agentLayers = agentLayers
 }
 
 func (t *StageTrace) Begin(stage string) *StageSpan {
@@ -79,6 +84,7 @@ func (s *StageSpan) End(ok bool, reason string) {
 	mode := s.trace.mode
 	plugins := append([]string{}, s.trace.plugins...)
 	userEmail := s.trace.userEmail
+	agentLayers := s.trace.agentLayers
 	s.trace.mu.RUnlock()
 
 	entry := StageEntry{
@@ -87,6 +93,7 @@ func (s *StageSpan) End(ok bool, reason string) {
 		UserEmail:  userEmail,
 		Mode:       mode,
 		Plugins:    plugins,
+		AgentLayers: agentLayers,
 		Stage:      s.stage,
 		DurationMS: time.Since(s.start).Milliseconds(),
 		OK:         ok,

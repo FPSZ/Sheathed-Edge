@@ -1,6 +1,7 @@
 import { createBrowserRouter } from "react-router-dom";
 
 import { AppShell } from "./AppShell";
+import { AgentLayersPage } from "../pages/AgentLayersPage";
 import { DashboardPage } from "../pages/DashboardPage";
 import { LogsPage } from "../pages/LogsPage";
 import { MCPPage } from "../pages/MCPPage";
@@ -17,6 +18,7 @@ export const router = createBrowserRouter(
         { index: true, element: <DashboardPage /> },
         { path: "models", element: <ModelsPage /> },
         { path: "modes", element: <ModesPage /> },
+        { path: "agent-layers", element: <AgentLayersPage /> },
         { path: "mcp", element: <MCPPage /> },
         { path: "logs", element: <LogsPage /> },
         { path: "settings", element: <SettingsPage /> },

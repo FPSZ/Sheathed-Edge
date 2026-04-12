@@ -35,6 +35,13 @@ type Active struct {
 	RetrievalRoots     []string
 	EvalTags           []string
 	PluginCapabilities []string
+	AgentLayers        SessionAgentLayers
+}
+
+type SessionAgentLayers struct {
+	EnableAgentRouter bool `json:"enable_agent_router"`
+	EnablePwnSkills   bool `json:"enable_pwn_skills"`
+	EnableWebSkills   bool `json:"enable_web_skills"`
 }
 
 type Loader struct {
@@ -45,12 +52,14 @@ func NewLoader(cfg *config.Config) *Loader {
 	return &Loader{cfg: cfg}
 }
 
-func (l *Loader) Load(plugins []string) (*Active, error) {
+func (l *Loader) Load(plugins []string, layers *SessionAgentLayers) (*Active, error) {
 	corePath := filepath.Join(l.cfg.Modes.CoreRoot, l.cfg.Modes.DefaultMode, "mode.json")
 	core, err := loadConfig(corePath)
 	if err != nil {
 		return nil, err
 	}
+
+	effectiveLayers := defaultSessionLayers(layers)
 
 	active := &Active{
 		Name:               core.Name,
@@ -58,6 +67,7 @@ func (l *Loader) Load(plugins []string) (*Active, error) {
 		RetrievalRoots:     append([]string{}, core.RetrievalRoots...),
 		EvalTags:           append([]string{}, core.EvalTags...),
 		PluginCapabilities: append([]string{}, core.PluginCapabilities...),
+		AgentLayers:        effectiveLayers,
 	}
 
 	var promptParts []string
@@ -69,6 +79,15 @@ func (l *Loader) Load(plugins []string) (*Active, error) {
 			return nil, fmt.Errorf("read core prompt %s: %w", rel, err)
 		}
 		promptParts = append(promptParts, strings.TrimSpace(string(content)))
+	}
+	if effectiveLayers.EnableAgentRouter {
+		agentPath := filepath.Join(coreDir, "prompts", "agent.md")
+		content, err := os.ReadFile(agentPath)
+		if err != nil {
+			return nil, fmt.Errorf("read agent router prompt %s: %w", agentPath, err)
+		}
+		promptParts = append(promptParts, strings.TrimSpace(string(content)))
+		conversationPromptParts = append(conversationPromptParts, strings.TrimSpace(string(content)))
 	}
 	conversationFiles := core.ConversationPromptFiles
 	if len(conversationFiles) == 0 {
@@ -99,6 +118,9 @@ func (l *Loader) Load(plugins []string) (*Active, error) {
 
 		pluginDir := filepath.Dir(pluginPath)
 		for _, rel := range pcfg.PromptFiles {
+			if isAgentRouterPrompt(rel) {
+				continue
+			}
 			content, err := os.ReadFile(filepath.Join(pluginDir, rel))
 			if err != nil {
 				return nil, fmt.Errorf("read plugin prompt %s: %w", rel, err)
@@ -110,6 +132,9 @@ func (l *Loader) Load(plugins []string) (*Active, error) {
 			pluginConversationFiles = pcfg.PromptFiles
 		}
 		for _, rel := range pluginConversationFiles {
+			if isAgentRouterPrompt(rel) {
+				continue
+			}
 			content, err := os.ReadFile(filepath.Join(pluginDir, rel))
 			if err != nil {
 				return nil, fmt.Errorf("read plugin conversation prompt %s: %w", rel, err)
@@ -121,6 +146,26 @@ func (l *Loader) Load(plugins []string) (*Active, error) {
 	active.SystemPrompt = strings.Join(promptParts, "\n\n")
 	active.ConversationPrompt = strings.Join(conversationPromptParts, "\n\n")
 	return active, nil
+}
+
+func defaultSessionLayers(layers *SessionAgentLayers) SessionAgentLayers {
+	if layers == nil {
+		return SessionAgentLayers{
+			EnableAgentRouter: true,
+			EnablePwnSkills:   true,
+			EnableWebSkills:   true,
+		}
+	}
+	return SessionAgentLayers{
+		EnableAgentRouter: layers.EnableAgentRouter,
+		EnablePwnSkills:   layers.EnablePwnSkills,
+		EnableWebSkills:   layers.EnableWebSkills,
+	}
+}
+
+func isAgentRouterPrompt(rel string) bool {
+	normalized := strings.ToLower(strings.ReplaceAll(rel, "/", `\`))
+	return strings.HasSuffix(normalized, `core\awdp\prompts\agent.md`) || strings.HasSuffix(normalized, `prompts\agent.md`)
 }
 
 func BuildLabel(active *Active) string {

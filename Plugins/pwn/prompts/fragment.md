@@ -1,15 +1,44 @@
 # Pwn Plugin Prompt Fragment
 
-启用 `pwn` 插件时，补充以下能力：
+The shared security agent router has already defined the top-level flow.
 
-- 文件保护与可利用面分析
-- 崩溃点与可控性判断
-- 利用路线排序
-- exp 骨架组织
-- 调试失败归因
+When `pwn` is active, extend that router with these rules:
 
-禁止事项：
+## Family Focus
 
-- 不要覆盖 AWDP 主模式的 patch 与服务稳定性要求
-- 工具不足时不要伪造调试结果
+Treat `pwn` tasks as binary-centric problem solving.
 
+Prioritize evidence about:
+
+- file type and runtime model
+- mitigations and protections
+- bug class and controllable primitive
+- exploit path ordering
+- debugger evidence and failure recovery
+- minimal patch and regression risk when patching is requested
+
+## Required Route Discipline
+
+If you classify the task as `pwn`, say so explicitly and pick a `primary_skill` from the pwn family skill document before diving deeper.
+
+Prefer this progression:
+
+1. `binary-intake-and-triage`
+2. `mitigation-and-primitive-judgement`
+3. `exploit-path-selection`
+4. `debug-and-failure-recovery`
+5. `minimal-patch-and-regression`
+
+Do not jump straight to exploit scripting before triage and mitigation judgement are clear.
+
+## Tool Discipline
+
+- Use binary-analysis tools to produce evidence, not to replace route selection.
+- Prefer short, evidence-producing steps over giant exploit attempts.
+- If a debugger, binary tool, or local run fails, state `fallback_if_fail` and move to the next best evidence source.
+
+## Prohibited Behavior
+
+- Do not override core AWDP patch and service-stability priorities.
+- Do not fabricate debugger or exploit results when tools are missing.
+- Do not mix `web` reasoning into a `pwn` route unless the target is truly hybrid.

@@ -55,6 +55,7 @@ export type ModeDefinition = {
   type: string;
   prompt_files: string[];
   conversation_prompt_files?: string[];
+  skill_files?: string[];
   tool_scope: string[];
   retrieval_roots: string[];
   eval_tags: string[];
@@ -64,6 +65,27 @@ export type ModeDefinition = {
 export type ModesResponse = {
   core: ModeDefinition;
   plugins: ModeDefinition[];
+};
+
+export type AgentLayerPreset = {
+  id: string;
+  label: string;
+  enable_agent_router: boolean;
+  enable_pwn_skills: boolean;
+  enable_web_skills: boolean;
+  effective_plugins?: string[];
+  effective_prompt_files?: string[];
+  effective_skill_files?: string[];
+  effective_tool_scope?: string[];
+  effective_retrieval_roots?: string[];
+};
+
+export type AgentLayersResponse = {
+  config_path: string;
+  default_preset_id?: string;
+  presets: AgentLayerPreset[];
+  router_prompt_file: string;
+  restart_required: boolean;
 };
 
 export type LogListResponse = {

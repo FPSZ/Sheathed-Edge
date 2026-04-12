@@ -25,6 +25,7 @@ type Service struct {
 	sshBindingsPath      string
 	mcpServersPath       string
 	mcpToolCachePath     string
+	agentLayersPath      string
 }
 
 func NewService(cfg *config.Config, providerClient *provider.Client, gatewayConfigPath string) *Service {
@@ -38,6 +39,7 @@ func NewService(cfg *config.Config, providerClient *provider.Client, gatewayConf
 	sshBindingsPath := ""
 	mcpServersPath := ""
 	mcpToolCachePath := ""
+	agentLayersPath := ""
 	if strings.TrimSpace(gatewayConfigPath) != "" {
 		toolRouterProjectDir = config.ResolveSiblingPath(gatewayConfigPath, "tool-router-rs")
 		userSettingsPath = config.ResolveSiblingPath(gatewayConfigPath, "user-settings.json")
@@ -45,6 +47,7 @@ func NewService(cfg *config.Config, providerClient *provider.Client, gatewayConf
 		sshBindingsPath = config.ResolveSiblingPath(gatewayConfigPath, "ssh-user-bindings.json")
 		mcpServersPath = config.ResolveSiblingPath(gatewayConfigPath, "mcp-servers.json")
 		mcpToolCachePath = config.ResolveSiblingPath(gatewayConfigPath, "mcp-tool-cache.json")
+		agentLayersPath = config.ResolveSiblingPath(gatewayConfigPath, "agent-layer-presets.json")
 	}
 	return &Service{
 		cfg:      cfg,
@@ -60,6 +63,7 @@ func NewService(cfg *config.Config, providerClient *provider.Client, gatewayConf
 		sshBindingsPath:      sshBindingsPath,
 		mcpServersPath:       mcpServersPath,
 		mcpToolCachePath:     mcpToolCachePath,
+		agentLayersPath:      agentLayersPath,
 	}
 }
 

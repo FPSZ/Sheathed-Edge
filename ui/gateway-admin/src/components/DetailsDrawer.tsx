@@ -27,6 +27,7 @@ type DrawerRoute =
   | "/admin"
   | "/admin/models"
   | "/admin/modes"
+  | "/admin/agent-layers"
   | "/admin/mcp"
   | "/admin/logs"
   | "/admin/settings";

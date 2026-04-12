@@ -21,6 +21,7 @@ type SessionEntry struct {
 	UserEmail        string               `json:"user_email,omitempty"`
 	Mode             string               `json:"mode"`
 	Plugins          []string             `json:"plugins,omitempty"`
+	AgentLayers      mode.SessionAgentLayers `json:"agent_layers,omitempty"`
 	Status           string               `json:"status"`
 	Failure          string               `json:"failure,omitempty"`
 	RetrievalSources []retrieval.Fragment `json:"retrieval_sources,omitempty"`
@@ -62,6 +63,7 @@ func NewSessionEntry(requestID string, active *mode.Active, req types.ChatComple
 	if active != nil {
 		entry.Mode = mode.BuildLabel(active)
 		entry.Plugins = append([]string{}, active.Plugins...)
+		entry.AgentLayers = active.AgentLayers
 	}
 	return entry
 }

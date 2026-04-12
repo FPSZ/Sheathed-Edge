@@ -16,16 +16,17 @@ type ControlState struct {
 }
 
 type ModelProfile struct {
-	ID         string `json:"id"`
-	Label      string `json:"label"`
-	ModelPath  string `json:"model_path"`
-	Quant      string `json:"quant"`
-	CtxSize    int    `json:"ctx_size"`
-	Parallel   int    `json:"parallel"`
-	Threads    int    `json:"threads"`
-	NGPULayers int    `json:"n_gpu_layers"`
-	FlashAttn  bool   `json:"flash_attn"`
-	Enabled    bool   `json:"enabled"`
+	ID              string `json:"id"`
+	Label           string `json:"label"`
+	ModelPath       string `json:"model_path"`
+	Quant           string `json:"quant"`
+	ReasoningFormat string `json:"reasoning_format,omitempty"`
+	CtxSize         int    `json:"ctx_size"`
+	Parallel        int    `json:"parallel"`
+	Threads         int    `json:"threads"`
+	NGPULayers      int    `json:"n_gpu_layers"`
+	FlashAttn       bool   `json:"flash_attn"`
+	Enabled         bool   `json:"enabled"`
 }
 
 type ActiveModel struct {
@@ -59,6 +60,7 @@ type ModeDefinition struct {
 	Type                    string   `json:"type"`
 	PromptFiles             []string `json:"prompt_files"`
 	ConversationPromptFiles []string `json:"conversation_prompt_files,omitempty"`
+	SkillFiles              []string `json:"skill_files,omitempty"`
 	ToolScope               []string `json:"tool_scope"`
 	RetrievalRoots          []string `json:"retrieval_roots"`
 	EvalTags                []string `json:"eval_tags"`
@@ -68,6 +70,32 @@ type ModeDefinition struct {
 type ModesResponse struct {
 	Core    ModeDefinition   `json:"core"`
 	Plugins []ModeDefinition `json:"plugins"`
+}
+
+type AgentLayerPreset struct {
+	ID                    string   `json:"id"`
+	Label                 string   `json:"label"`
+	EnableAgentRouter     bool     `json:"enable_agent_router"`
+	EnablePwnSkills       bool     `json:"enable_pwn_skills"`
+	EnableWebSkills       bool     `json:"enable_web_skills"`
+	EffectivePlugins      []string `json:"effective_plugins,omitempty"`
+	EffectivePromptFiles  []string `json:"effective_prompt_files,omitempty"`
+	EffectiveSkillFiles   []string `json:"effective_skill_files,omitempty"`
+	EffectiveToolScope    []string `json:"effective_tool_scope,omitempty"`
+	EffectiveRetrieval    []string `json:"effective_retrieval_roots,omitempty"`
+}
+
+type AgentLayersResponse struct {
+	ConfigPath       string             `json:"config_path"`
+	DefaultPresetID  string             `json:"default_preset_id,omitempty"`
+	Presets          []AgentLayerPreset `json:"presets"`
+	RouterPromptFile string             `json:"router_prompt_file"`
+	RestartRequired  bool               `json:"restart_required"`
+}
+
+type UpdateAgentLayersRequest struct {
+	DefaultPresetID string             `json:"default_preset_id,omitempty"`
+	Presets         []AgentLayerPreset `json:"presets"`
 }
 
 type UserSummary struct {

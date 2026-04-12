@@ -1,10 +1,11 @@
-import { Activity, Bot, LayoutDashboard, Logs, PlugZap, Settings } from "lucide-react";
+import { Activity, Bot, Layers3, LayoutDashboard, Logs, PlugZap, Settings } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 const items = [
   { to: "/admin", label: "总览", icon: LayoutDashboard, end: true },
   { to: "/admin/models", label: "模型", icon: Bot },
   { to: "/admin/modes", label: "模式", icon: Activity },
+  { to: "/admin/agent-layers", label: "Agent Layers", icon: Layers3 },
   { to: "/admin/mcp", label: "MCP", icon: PlugZap },
   { to: "/admin/logs", label: "日志", icon: Logs },
   { to: "/admin/settings", label: "设置", icon: Settings },

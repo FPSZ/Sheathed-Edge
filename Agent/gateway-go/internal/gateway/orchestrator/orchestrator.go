@@ -36,7 +36,7 @@ func New(modeLoader *mode.Loader, retrievalSvc *retrieval.Service, providerClien
 
 func (o *Orchestrator) PrepareStreamingRequest(req types.ChatCompletionRequest, responseModel string) (types.ChatCompletionRequest, bool, error) {
 	plugins := extractPlugins(req)
-	active, err := o.modeLoader.Load(plugins)
+	active, err := o.modeLoader.Load(plugins, extractAgentLayers(req))
 	if err != nil {
 		return types.ChatCompletionRequest{}, false, err
 	}
@@ -76,79 +76,14 @@ func (o *Orchestrator) PrepareNativeStreamingRequest(req types.ChatCompletionReq
 }
 
 func (o *Orchestrator) RunTurn(ctx context.Context, requestID string, responseModel string, req types.ChatCompletionRequest, trace *logging.StageTrace) (*types.ChatCompletionResponse, *mode.Active, []retrieval.Fragment, error) {
-	var (
-		active        *mode.Active
-		fragments     []retrieval.Fragment
-		finalResp     *types.ChatCompletionResponse
-		runErr        error
-		answerPreview string
-	)
-	defer func() {
-		if o.logger == nil {
-			return
-		}
-		status := "ok"
-		failure := ""
-		if runErr != nil {
-			status = "failed"
-			failure = runErr.Error()
-		}
-		if finalResp != nil {
-			answerPreview = envelope.FirstContent(finalResp)
-		}
-		o.logger.Append(logging.NewSessionEntry(requestID, active, req, fragments, answerPreview, status, failure))
-	}()
-
-	plugins := extractPlugins(req)
-	var err error
-	active, err = o.modeLoader.Load(plugins)
-	if err != nil {
-		runErr = err
-		return nil, nil, nil, err
-	}
-	if trace != nil {
-		trace.SetContext(mode.BuildLabel(active), active.Plugins, req.UserEmail)
-	}
-
-	query := latestUserMessage(req.Messages)
-	turnKind := classifyTurn(query)
-	turnPrompt := active.SystemPrompt
-	if turnKind == turnKindConversation {
-		turnPrompt = buildConversationPrompt(active.ConversationPrompt)
-	} else {
-		retrievalCtx, cancel := context.WithCancel(ctx)
-		fragments, _ = o.retrieval.Search(retrievalCtx, query, active.RetrievalRoots)
-		cancel()
-	}
-
-	upstreamReq := req
-	upstreamReq.Model = responseModel
-	upstreamReq.Messages = prependSystemContext(req.Messages, turnPrompt, fragments)
-	upstreamReq.Stream = false
-
-	firstSpan := trace.Begin("provider_first")
-	result, err := o.provider.ChatCompletion(ctx, upstreamReq)
-	if err != nil {
-		firstSpan.End(false, err.Error())
-		runErr = err
-		return nil, active, fragments, err
-	}
-	firstSpan.End(true, "")
-
-	parseSpan := trace.Begin("envelope_parse")
-	finalResp, err = o.resolveEnvelope(ctx, responseModel, req, active, turnPrompt, result, trace)
-	if err != nil {
-		parseSpan.End(false, err.Error())
-		runErr = err
-		return nil, active, fragments, err
-	}
-	parseSpan.End(true, "")
-
-	finalResp.Model = responseModel
-	return finalResp, active, fragments, nil
+	return o.executeTurnLogic(ctx, requestID, responseModel, req, false, trace)
 }
 
 func (o *Orchestrator) RunNativeToolTurn(ctx context.Context, requestID string, responseModel string, req types.ChatCompletionRequest, trace *logging.StageTrace) (*types.ChatCompletionResponse, *mode.Active, []retrieval.Fragment, error) {
+	return o.executeTurnLogic(ctx, requestID, responseModel, req, true, trace)
+}
+
+func (o *Orchestrator) executeTurnLogic(ctx context.Context, requestID string, responseModel string, originalReq types.ChatCompletionRequest, isNativeTools bool, trace *logging.StageTrace) (*types.ChatCompletionResponse, *mode.Active, []retrieval.Fragment, error) {
 	var (
 		active        *mode.Active
 		fragments     []retrieval.Fragment
@@ -167,205 +102,236 @@ func (o *Orchestrator) RunNativeToolTurn(ctx context.Context, requestID string, 
 			failure = runErr.Error()
 		}
 		if finalResp != nil {
-			answerPreview = envelope.FirstContent(finalResp)
+			if isNativeTools {
+				if len(finalResp.Choices) > 0 {
+					answerPreview = finalResp.Choices[0].Message.Content
+				}
+			} else {
+				answerPreview = envelope.FirstContent(finalResp)
+			}
 		}
-		o.logger.Append(logging.NewSessionEntry(requestID, active, req, fragments, answerPreview, status, failure))
+		o.logger.Append(logging.NewSessionEntry(requestID, active, originalReq, fragments, answerPreview, status, failure))
 	}()
 
 	var turnPrompt string
 	var err error
-	active, fragments, turnPrompt, err = o.loadTurnContext(ctx, req)
+	active, fragments, turnPrompt, err = o.loadTurnContext(ctx, originalReq)
 	if err != nil {
 		runErr = err
 		return nil, nil, nil, err
 	}
 	if trace != nil {
-		trace.SetContext(mode.BuildLabel(active), active.Plugins, req.UserEmail)
+		trace.SetContext(mode.BuildLabel(active), active.Plugins, originalReq.UserEmail, active.AgentLayers)
 	}
 
-	upstreamReq := req
-	upstreamReq.Model = responseModel
-	upstreamReq.Stream = false
-	upstreamReq.Messages = prependSystemContext(req.Messages, buildNativeToolPrompt(turnPrompt), fragments)
-
-	firstSpan := trace.Begin("provider_first")
-	finalResp, err = o.provider.ChatCompletion(ctx, upstreamReq)
-	if err != nil {
-		firstSpan.End(false, err.Error())
-		runErr = err
-		return nil, active, fragments, err
+	req := originalReq
+	req.Model = responseModel
+	req.Stream = false
+	
+	if isNativeTools {
+		req.Messages = prependSystemContext(originalReq.Messages, buildNativeToolPrompt(turnPrompt), fragments)
+	} else {
+		req.Messages = prependSystemContext(originalReq.Messages, turnPrompt, fragments)
 	}
-	firstSpan.End(true, "")
 
-	finalResp.Model = responseModel
+	const maxTurns = 10
+
+	for turn := 0; turn < maxTurns; turn++ {
+		span := trace.Begin(fmt.Sprintf("provider_turn_%d", turn))
+		resp, err := o.provider.ChatCompletion(ctx, req)
+		if err != nil {
+			span.End(false, err.Error())
+			runErr = err
+			return nil, active, fragments, err
+		}
+		span.End(true, "")
+
+		if isNativeTools {
+			if len(resp.Choices) == 0 {
+				finalResp = resp
+				return finalResp, active, fragments, nil
+			}
+			msg := resp.Choices[0].Message
+			
+			if len(msg.ToolCalls) == 0 {
+				finalResp = resp
+				return finalResp, active, fragments, nil
+			}
+
+			req.Messages = append(req.Messages, msg)
+			hasToolError := false
+
+			for _, tc := range msg.ToolCalls {
+				if tc.Function.Name == "terminal" {
+					req.Messages = append(req.Messages, types.ChatMessage{
+						Role:       "tool",
+						ToolCallID: tc.ID,
+						Content:    "terminal is handled by the Open WebUI external OpenAPI tool path, not the Gateway legacy tool path",
+					})
+					hasToolError = true
+					continue
+				}
+
+				var args map[string]any
+				if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
+					req.Messages = append(req.Messages, types.ChatMessage{
+						Role:       "tool",
+						ToolCallID: tc.ID,
+						Content:    fmt.Sprintf("invalid arguments json: %v", err),
+					})
+					hasToolError = true
+					continue
+				}
+
+				resolveSpan := trace.Begin("tool_resolve")
+				resolveResp, err := o.toolClient.Resolve(ctx, toolclient.ResolveRequest{
+					SessionID: resp.ID,
+					Mode:      mode.BuildLabel(active),
+					Tool:      tc.Function.Name,
+					UserEmail: originalReq.UserEmail,
+					Arguments: args,
+				})
+				if err != nil || !resolveResp.Allowed {
+					reason := "tool resolve denied"
+					if err != nil {
+						reason = fmt.Sprintf("tool resolve failed: %v", err)
+					} else if resolveResp != nil && resolveResp.Reason != "" {
+						reason = resolveResp.Reason
+					}
+					resolveSpan.End(false, reason)
+					req.Messages = append(req.Messages, types.ChatMessage{
+						Role:       "tool",
+						ToolCallID: tc.ID,
+						Content:    reason,
+					})
+					hasToolError = true
+					continue
+				}
+				resolveSpan.End(true, "")
+
+				execSpan := trace.Begin(fmt.Sprintf("tool_execute_%s", tc.Function.Name))
+				execResp, err := o.toolClient.Execute(ctx, toolclient.ExecuteRequest{
+					SessionID: resp.ID,
+					Mode:      mode.BuildLabel(active),
+					Tool:      tc.Function.Name,
+					UserEmail: originalReq.UserEmail,
+					Arguments: resolveResp.NormalizedArguments,
+				})
+				if err != nil || !execResp.OK {
+					reason := "tool execute failed"
+					if err != nil {
+						reason = err.Error()
+					} else if execResp != nil && execResp.Error != nil && execResp.Error.Message != "" {
+						reason = execResp.Error.Message
+					}
+					execSpan.End(false, reason)
+					req.Messages = append(req.Messages, types.ChatMessage{
+						Role:       "tool",
+						ToolCallID: tc.ID,
+						Content:    reason,
+					})
+					hasToolError = true
+					continue
+				}
+				execSpan.End(true, "")
+
+				req.Messages = append(req.Messages, types.ChatMessage{
+					Role:       "tool",
+					ToolCallID: tc.ID,
+					Content:    buildToolResultBlock(execResp),
+				})
+			}
+			
+			if hasToolError {
+				req.Messages = append(req.Messages, types.ChatMessage{
+					Role:    "user",
+					Content: "Some tools failed. Please analyze the errors and either fix your arguments or answer directly without using tools.",
+				})
+			}
+			continue
+		} else {
+			content := envelope.FirstContent(resp)
+			if env, ok := envelope.Parse(content); ok {
+				if env.Type == "answer" {
+					finalResp = envelope.UnwrapAnswer(resp, env)
+					return finalResp, active, fragments, nil
+				}
+				if env.Type == "tool_call" {
+					if env.Tool == "terminal" {
+						req.Messages = append(req.Messages, 
+							types.ChatMessage{Role: "assistant", Content: content},
+							types.ChatMessage{Role: "user", Content: buildFailClosedBlock(env.Tool, "terminal is handled by the Open WebUI external OpenAPI tool path, not the Gateway legacy tool path")},
+							types.ChatMessage{Role: "user", Content: "Do not call any more tools. Return only a final answer envelope JSON with type=answer."},
+						)
+						continue
+					}
+
+					resolveSpan := trace.Begin("tool_resolve")
+					resolveResp, err := o.toolClient.Resolve(ctx, toolclient.ResolveRequest{
+						SessionID: resp.ID, Mode: mode.BuildLabel(active), Tool: env.Tool, UserEmail: originalReq.UserEmail, Arguments: env.Arguments,
+					})
+					if err != nil || !resolveResp.Allowed {
+						reason := "tool resolve denied"
+						if err != nil {
+							reason = fmt.Sprintf("tool resolve failed: %v", err)
+						} else if resolveResp != nil && resolveResp.Reason != "" {
+							reason = resolveResp.Reason
+						}
+						resolveSpan.End(false, reason)
+						req.Messages = append(req.Messages,
+							types.ChatMessage{Role: "assistant", Content: content},
+							types.ChatMessage{Role: "user", Content: buildFailClosedBlock(env.Tool, reason)},
+							types.ChatMessage{Role: "user", Content: "Do not call any more tools. Return only a final answer envelope JSON with type=answer."},
+						)
+						continue
+					}
+					resolveSpan.End(true, "")
+
+					execSpan := trace.Begin("tool_execute")
+					execResp, err := o.toolClient.Execute(ctx, toolclient.ExecuteRequest{
+						SessionID: resp.ID, Mode: mode.BuildLabel(active), Tool: env.Tool, UserEmail: originalReq.UserEmail, Arguments: resolveResp.NormalizedArguments,
+					})
+					if err != nil || !execResp.OK {
+						reason := "tool execute failed"
+						if err != nil {
+							reason = err.Error()
+						} else if execResp != nil && execResp.Error != nil && execResp.Error.Message != "" {
+							reason = execResp.Error.Message
+						}
+						execSpan.End(false, reason)
+						req.Messages = append(req.Messages,
+							types.ChatMessage{Role: "assistant", Content: content},
+							types.ChatMessage{Role: "user", Content: buildFailClosedBlock(env.Tool, reason)},
+							types.ChatMessage{Role: "user", Content: "Do not call any more tools. Return only a final answer envelope JSON with type=answer."},
+						)
+						continue
+					}
+					execSpan.End(true, "")
+
+					req.Messages = append(req.Messages,
+						types.ChatMessage{Role: "assistant", Content: content},
+						types.ChatMessage{Role: "user", Content: buildToolResultBlock(execResp)},
+						types.ChatMessage{Role: "user", Content: "Use the tool result to answer the latest user request directly. Return only a final answer envelope JSON with type=answer."},
+					)
+					continue
+				}
+			}
+
+			if envelope.LooksLikeJSONObject(content) {
+				req.Messages = append(req.Messages,
+					types.ChatMessage{Role: "assistant", Content: content},
+					types.ChatMessage{Role: "user", Content: "Your previous output looked like malformed JSON. If you need a tool, emit a valid action envelope JSON. Otherwise answer normally under the output contract without partial JSON."},
+				)
+				continue
+			}
+
+			finalResp = resp
+			return finalResp, active, fragments, nil
+		}
+	}
+
+	finalResp = failClosedToolResponse(responseModel, "", "Exceeded maximum query loops (N=10) without returning a final answer.")
 	return finalResp, active, fragments, nil
-}
-
-func (o *Orchestrator) resolveEnvelope(ctx context.Context, responseModel string, originalReq types.ChatCompletionRequest, active *mode.Active, turnPrompt string, providerResp *types.ChatCompletionResponse, trace *logging.StageTrace) (*types.ChatCompletionResponse, error) {
-	content := envelope.FirstContent(providerResp)
-	if env, ok := envelope.Parse(content); ok {
-		switch env.Type {
-		case "answer":
-			return envelope.UnwrapAnswer(providerResp, env), nil
-		case "tool_call":
-			return o.handleToolCall(ctx, responseModel, originalReq, active, turnPrompt, env, providerResp, trace)
-		default:
-			return nil, fmt.Errorf("unsupported envelope type: %s", env.Type)
-		}
-	}
-	if envelope.LooksLikeJSONObject(content) {
-		return o.repairEnvelope(ctx, responseModel, originalReq, turnPrompt, providerResp)
-	}
-	return providerResp, nil
-}
-
-func (o *Orchestrator) handleToolCall(ctx context.Context, responseModel string, originalReq types.ChatCompletionRequest, active *mode.Active, turnPrompt string, env envelope.Action, providerResp *types.ChatCompletionResponse, trace *logging.StageTrace) (*types.ChatCompletionResponse, error) {
-	if env.Tool == "terminal" {
-		return o.fallbackWithoutTools(
-			ctx,
-			responseModel,
-			originalReq,
-			turnPrompt,
-			providerResp,
-			env.Tool,
-			"terminal is handled by the Open WebUI external OpenAPI tool path, not the Gateway legacy tool path",
-			trace,
-		)
-	}
-
-	sessionID := providerResp.ID
-	resolveSpan := trace.Begin("tool_resolve")
-	resolveResp, err := o.toolClient.Resolve(ctx, toolclient.ResolveRequest{
-		SessionID: sessionID,
-		Mode:      mode.BuildLabel(active),
-		Tool:      env.Tool,
-		UserEmail: originalReq.UserEmail,
-		Arguments: env.Arguments,
-	})
-	if err != nil {
-		resolveSpan.End(false, err.Error())
-		return o.fallbackWithoutTools(ctx, responseModel, originalReq, turnPrompt, providerResp, env.Tool, fmt.Sprintf("tool resolve failed: %v", err), trace)
-	}
-	if !resolveResp.Allowed {
-		reason := strings.TrimSpace(resolveResp.Reason)
-		if reason == "" {
-			reason = "tool resolve denied"
-		}
-		resolveSpan.End(false, reason)
-		return o.fallbackWithoutTools(ctx, responseModel, originalReq, turnPrompt, providerResp, env.Tool, reason, trace)
-	}
-	resolveSpan.End(true, "")
-
-	execSpan := trace.Begin("tool_execute")
-	execResp, err := o.toolClient.Execute(ctx, toolclient.ExecuteRequest{
-		SessionID: sessionID,
-		Mode:      mode.BuildLabel(active),
-		Tool:      env.Tool,
-		UserEmail: originalReq.UserEmail,
-		Arguments: resolveResp.NormalizedArguments,
-	})
-	if err != nil {
-		execSpan.End(false, err.Error())
-		return o.fallbackWithoutTools(ctx, responseModel, originalReq, turnPrompt, providerResp, env.Tool, fmt.Sprintf("tool execute failed: %v", err), trace)
-	}
-	if !execResp.OK {
-		reason := "tool execute failed"
-		if execResp.Error != nil && execResp.Error.Message != "" {
-			reason = execResp.Error.Message
-		}
-		execSpan.End(false, reason)
-		return o.fallbackWithoutTools(ctx, responseModel, originalReq, turnPrompt, providerResp, env.Tool, reason, trace)
-	}
-	execSpan.End(true, "")
-
-	nextReq := originalReq
-	nextReq.Model = responseModel
-	nextReq.Stream = false
-	nextReq.Messages = append(
-		prependSystemContext(originalReq.Messages, turnPrompt, nil),
-		types.ChatMessage{Role: "assistant", Content: envelope.FirstContent(providerResp)},
-		types.ChatMessage{Role: "user", Content: buildToolResultBlock(execResp)},
-		types.ChatMessage{Role: "user", Content: "You have exactly one tool result block. Do not request more tools. Return only a final answer envelope JSON with type=answer. Use the tool result to answer the latest user request directly. Do not echo raw tool JSON unless the user explicitly asked for raw JSON. If the user asked for a summary, produce concise natural-language summary points instead of copying the result object."},
-	)
-
-	secondSpan := trace.Begin("provider_second")
-	resp, err := o.provider.ChatCompletion(ctx, nextReq)
-	if err != nil {
-		secondSpan.End(false, err.Error())
-		return o.fallbackWithoutTools(ctx, responseModel, originalReq, turnPrompt, providerResp, env.Tool, fmt.Sprintf("provider second pass failed: %v", err), trace)
-	}
-	secondSpan.End(true, "")
-
-	secondEnv, ok := envelope.Parse(envelope.FirstContent(resp))
-	if !ok {
-		return resp, nil
-	}
-	if secondEnv.Type == "tool_call" {
-		return failClosedToolResponse(responseModel, env.Tool, execResp.Summary), nil
-	}
-	if secondEnv.Type != "answer" {
-		return nil, fmt.Errorf("provider second pass returned unsupported envelope type: %s", secondEnv.Type)
-	}
-	return envelope.UnwrapAnswer(resp, secondEnv), nil
-}
-
-func (o *Orchestrator) fallbackWithoutTools(ctx context.Context, responseModel string, originalReq types.ChatCompletionRequest, turnPrompt string, providerResp *types.ChatCompletionResponse, toolName, cause string, trace *logging.StageTrace) (*types.ChatCompletionResponse, error) {
-	req := originalReq
-	req.Model = responseModel
-	req.Stream = false
-	req.Messages = append(
-		prependSystemContext(originalReq.Messages, turnPrompt, nil),
-		types.ChatMessage{Role: "assistant", Content: envelope.FirstContent(providerResp)},
-		types.ChatMessage{Role: "user", Content: buildFailClosedBlock(toolName, cause)},
-		types.ChatMessage{Role: "user", Content: "Do not call any more tools. Return only a final answer envelope JSON with type=answer. Answer the latest user request directly in natural language. Do not echo raw failure JSON. If evidence is insufficient, say so explicitly and answer conservatively."},
-	)
-
-	secondSpan := trace.Begin("provider_second")
-	resp, err := o.provider.ChatCompletion(ctx, req)
-	if err != nil {
-		secondSpan.End(false, err.Error())
-		return nil, err
-	}
-	secondSpan.End(true, "")
-
-	env, ok := envelope.Parse(envelope.FirstContent(resp))
-	if !ok {
-		return resp, nil
-	}
-	if env.Type == "answer" {
-		return envelope.UnwrapAnswer(resp, env), nil
-	}
-	return failClosedToolResponse(responseModel, toolName, cause), nil
-}
-
-func (o *Orchestrator) repairEnvelope(ctx context.Context, responseModel string, originalReq types.ChatCompletionRequest, turnPrompt string, providerResp *types.ChatCompletionResponse) (*types.ChatCompletionResponse, error) {
-	req := originalReq
-	req.Model = responseModel
-	req.Stream = false
-	req.Messages = append(
-		prependSystemContext(originalReq.Messages, turnPrompt, nil),
-		types.ChatMessage{Role: "assistant", Content: envelope.FirstContent(providerResp)},
-		types.ChatMessage{Role: "user", Content: "Your previous output looked like malformed JSON. If you need a tool, emit a valid action envelope JSON. Otherwise answer normally under the output contract without partial JSON."},
-	)
-	resp, err := o.provider.ChatCompletion(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-	return o.normalizeEnvelopeResponse(resp)
-}
-
-func (o *Orchestrator) normalizeEnvelopeResponse(resp *types.ChatCompletionResponse) (*types.ChatCompletionResponse, error) {
-	env, ok := envelope.Parse(envelope.FirstContent(resp))
-	if !ok {
-		return nil, fmt.Errorf("provider returned malformed envelope after repair")
-	}
-	if env.Type == "answer" {
-		return envelope.UnwrapAnswer(resp, env), nil
-	}
-	if env.Type == "tool_call" {
-		return resp, nil
-	}
-	return nil, fmt.Errorf("provider returned unsupported envelope type: %s", env.Type)
 }
 
 func prependSystemContext(messages []types.ChatMessage, systemPrompt string, fragments []retrieval.Fragment) []types.ChatMessage {
@@ -398,7 +364,7 @@ func prependSystemContext(messages []types.ChatMessage, systemPrompt string, fra
 
 func (o *Orchestrator) loadTurnContext(ctx context.Context, req types.ChatCompletionRequest) (*mode.Active, []retrieval.Fragment, string, error) {
 	plugins := extractPlugins(req)
-	active, err := o.modeLoader.Load(plugins)
+	active, err := o.modeLoader.Load(plugins, extractAgentLayers(req))
 	if err != nil {
 		return nil, nil, "", err
 	}
@@ -427,7 +393,66 @@ func extractPlugins(req types.ChatCompletionRequest) []string {
 			}
 		}
 	}
-	return uniqueStrings(nil, out)
+	out = uniqueStrings(nil, out)
+	layers := extractAgentLayers(req)
+	if layers != nil {
+		out = applyLayerPluginFilter(out, *layers)
+	}
+	return out
+}
+
+func extractAgentLayers(req types.ChatCompletionRequest) *mode.SessionAgentLayers {
+	if req.Metadata == nil {
+		return nil
+	}
+	raw, ok := req.Metadata["agent_layers"]
+	if !ok || raw == nil {
+		return nil
+	}
+
+	payload, err := json.Marshal(raw)
+	if err != nil {
+		return nil
+	}
+	var parsed mode.SessionAgentLayers
+	if err := json.Unmarshal(payload, &parsed); err != nil {
+		return nil
+	}
+	return &parsed
+}
+
+func applyLayerPluginFilter(plugins []string, layers mode.SessionAgentLayers) []string {
+	out := make([]string, 0, len(plugins)+2)
+	seen := make(map[string]struct{}, len(plugins))
+	for _, plugin := range plugins {
+		switch plugin {
+		case "pwn":
+			if !layers.EnablePwnSkills {
+				continue
+			}
+		case "web":
+			if !layers.EnableWebSkills {
+				continue
+			}
+		}
+		if _, exists := seen[plugin]; exists {
+			continue
+		}
+		seen[plugin] = struct{}{}
+		out = append(out, plugin)
+	}
+	if layers.EnablePwnSkills {
+		if _, exists := seen["pwn"]; !exists {
+			out = append(out, "pwn")
+			seen["pwn"] = struct{}{}
+		}
+	}
+	if layers.EnableWebSkills {
+		if _, exists := seen["web"]; !exists {
+			out = append(out, "web")
+		}
+	}
+	return out
 }
 
 func latestUserMessage(messages []types.ChatMessage) string {

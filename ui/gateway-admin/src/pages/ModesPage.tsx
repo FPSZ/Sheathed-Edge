@@ -42,6 +42,7 @@ function ModeCard({ title, mode }: { title: string; mode: ModeDefinition }) {
       <div className="mt-1 text-sm text-slate-500">{mode.type}</div>
 
       <Block label="Prompt Files" items={mode.prompt_files} />
+      <Block label="Skill Files" items={mode.skill_files ?? []} />
       <Block label="Tool Scope" items={mode.tool_scope} />
       <Block label="Retrieval Roots" items={mode.retrieval_roots} />
       <Block label="Eval Tags" items={mode.eval_tags} />

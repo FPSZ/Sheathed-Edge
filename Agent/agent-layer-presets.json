@@ -1,0 +1,33 @@
+{
+  "default_preset_id": "router-only",
+  "presets": [
+    {
+      "id": "router-only",
+      "label": "Router Only",
+      "enable_agent_router": true,
+      "enable_pwn_skills": false,
+      "enable_web_skills": false
+    },
+    {
+      "id": "router-pwn",
+      "label": "Router + Pwn",
+      "enable_agent_router": true,
+      "enable_pwn_skills": true,
+      "enable_web_skills": false
+    },
+    {
+      "id": "router-web",
+      "label": "Router + Web",
+      "enable_agent_router": true,
+      "enable_pwn_skills": false,
+      "enable_web_skills": true
+    },
+    {
+      "id": "router-pwn-web",
+      "label": "Router + Pwn + Web",
+      "enable_agent_router": true,
+      "enable_pwn_skills": true,
+      "enable_web_skills": true
+    }
+  ]
+}

@@ -68,6 +68,7 @@ func NewServer(configPath string) (*Server, error) {
 	mux.HandleFunc("/internal/admin/models", s.handleAdminModels)
 	mux.HandleFunc("/internal/admin/models/update", s.handleAdminModelUpdate)
 	mux.HandleFunc("/internal/admin/modes", s.handleAdminModes)
+	mux.HandleFunc("/internal/admin/agent-layers", s.handleAdminAgentLayers)
 	mux.HandleFunc("/internal/admin/users", s.handleAdminUsers)
 	mux.HandleFunc("/internal/admin/users/workspace", s.handleAdminUserWorkspace)
 	mux.HandleFunc("/internal/admin/logs/sessions", s.handleAdminSessionLogs)
