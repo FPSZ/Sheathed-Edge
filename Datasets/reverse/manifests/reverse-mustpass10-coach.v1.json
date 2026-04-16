@@ -1,0 +1,30 @@
+{
+  "version": "mustpass10-coach-v1",
+  "patterns": [
+    {
+      "skill_id": "rev-mustpass10-custom-alphabet",
+      "label": "custom_alphabet_decode",
+      "coach_text": "当 strings 同时给出一段自定义字母表和一段密文时，先判断程序是在做编码还是解码。不要把第一次映射得到的可读串直接当最终答案。若是自定义 base64 或变体字典，必须显式建立 custom->standard 或 standard->custom 的索引映射，并再验证输出是否符合题目的 flag 形态。"
+    },
+    {
+      "skill_id": "rev-mustpass10-file-read-arithmetic",
+      "label": "file_read_arithmetic",
+      "coach_text": "当 strings 几乎没有直接 flag 线索，但能看到 `flag` 文件名、`%ld` 或数值输出信号时，优先怀疑“读取真实 flag 后按索引做算术变换并打印结果”。这时不要停在 entry 摘要，必须用一条窄命令看主逻辑循环，并把奇偶分支或按索引分支分别逆回去。"
+    },
+    {
+      "skill_id": "rev-mustpass10-runtime-mutation",
+      "label": "runtime_mutation_candidate",
+      "coach_text": "当 strings 已经出现一个几乎像 flag 的候选时，不要直接提交。先检查 compare 前是否存在微小运行时改写，例如 o->0、l->1、大小写修正、按索引改字节。候选字符串只是 pre-mutation hint，不是自动成立的 final answer。"
+    },
+    {
+      "skill_id": "rev-mustpass10-permutation-xor",
+      "label": "permutation_then_transform",
+      "coach_text": "对于定长 transform 题，不要把“置换”和“按索引字节变换”混成一句数学描述。先恢复 forward order，再按完全相反的顺序逆回去。如果长度不对，先检查是否漏了尾部索引，或者把顺序写反了。"
+    },
+    {
+      "skill_id": "rev-mustpass10-packed-early-stop",
+      "label": "packed_early_stop",
+      "coach_text": "当题目名、样本外观或 strings 明显指向 UPX/简单壳时，优先做 packer judgement。若 strings 已有完整 flag，立刻收束；若没有，再把“确认 packer / 简单脱壳”作为下一小步，不要被 anti-debug 或 entry walkthrough 拖进深坑。"
+    }
+  ]
+}

@@ -15,6 +15,7 @@
 - `Skills/CTF/Re/rev-intake`
 - `Skills/CTF/Re/rev-shell`
 - `Skills/CTF/Re/rev-triage`
+- `Skills/CTF/Re/ctf-wp`
 
 命名规则：
 
@@ -25,6 +26,5 @@
 
 - `rev-native`
 - `rev-android`
-- `ctf-wp`
 - `rev-static`
 - `rev-report`

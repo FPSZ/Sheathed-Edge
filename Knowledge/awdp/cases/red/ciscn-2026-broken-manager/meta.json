@@ -1,0 +1,25 @@
+{
+  "id": "awdp-red-ciscn-2026-broken-manager",
+  "role": "red",
+  "task_family": "pwn",
+  "competition_mode": "awdp",
+  "awdp_role": "red",
+  "title": "CISCN 半决赛 2026 / broken_manager",
+  "summary": "公开复盘较完整，关键词是自定义 allocator、异常路径信息泄露、sigaltstack 复入 main。",
+  "tags": [
+    "awdp",
+    "red",
+    "ciscn",
+    "pwn",
+    "custom-allocator",
+    "sigaltstack",
+    "uaf"
+  ],
+  "status": "candidate",
+  "confidence": "high",
+  "verified_local_match": false,
+  "source_urls": [
+    "https://www.cnblogs.com/alexander17/p/19761028"
+  ],
+  "local_root": "D:\\AWDP\\CISCN半决赛\\攻防\\PWN\\broken_manager\\broken_manager"
+}

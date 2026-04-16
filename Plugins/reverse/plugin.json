@@ -1,0 +1,28 @@
+{
+  "name": "reverse",
+  "type": "plugin",
+  "extends_core_mode": "awdp",
+  "prompt_files": [
+    "..\\..\\Core\\awdp\\prompts\\agent.md",
+    "..\\..\\Core\\awdp\\prompts\\binary-core.md",
+    "prompts/fragment.md"
+  ],
+  "skill_files": [
+    "skills/reverse-skills.md"
+  ],
+  "tool_scope": [
+    "radare2",
+    "terminal:reverse"
+  ],
+  "retrieval_roots": [
+    "D:\\AI\\Local\\Plugins\\reverse\\datasets"
+  ],
+  "eval_tags": [
+    "reverse"
+  ],
+  "plugin_capabilities": [
+    "reverse_triage",
+    "algorithm_recovery",
+    "flag_extraction"
+  ]
+}

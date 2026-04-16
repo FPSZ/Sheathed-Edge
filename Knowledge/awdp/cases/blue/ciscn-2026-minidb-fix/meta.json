@@ -1,0 +1,25 @@
+{
+  "id": "awdp-blue-ciscn-2026-minidb-fix",
+  "role": "blue",
+  "task_family": "pwn",
+  "competition_mode": "awdp",
+  "awdp_role": "blue",
+  "title": "CISCN 半决赛 2026 / minidb Fix",
+  "summary": "MiniDB 的补丁更依赖事务分支理解，当前适合先作为高价值 blue candidate，修补时避免粗暴 NOP free。",
+  "tags": [
+    "awdp",
+    "blue",
+    "ciscn",
+    "pwn",
+    "transaction-fix",
+    "uaf-fix"
+  ],
+  "status": "candidate",
+  "confidence": "medium",
+  "verified_local_match": true,
+  "source_urls": [
+    "https://www.cnblogs.com/S1nyer/p/19788479",
+    "https://www.cnblogs.com/alexander17/p/19761028"
+  ],
+  "local_root": "D:\\AWDP\\CISCN半决赛\\攻防\\PWN\\minidb\\minidb"
+}

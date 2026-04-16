@@ -7,17 +7,23 @@ use serde_json::{Map, Value};
 
 use crate::{
     config::normalize_runtime_path,
+    mcp,
     models::{AppState, ExecutionTarget, ToolDef, UserWorkspace},
     ssh,
 };
 
-pub fn check_tool_access<'a>(
-    state: &'a AppState,
+pub fn check_tool_access(
+    state: &AppState,
     tool: &str,
     mode: &str,
     arguments: &Value,
-) -> std::result::Result<&'a ToolDef, (String, String)> {
-    let Some(def) = state.tools.get(tool) else {
+) -> std::result::Result<ToolDef, (String, String)> {
+    let def = if let Some(def) = state.tools.get(tool) {
+        def.clone()
+    } else if let Some(user_email) = arguments.get("user_email").and_then(Value::as_str) {
+        mcp::resolve_dynamic_tool(state, tool, mode, user_email)?
+            .ok_or_else(|| ("tool_not_found".into(), format!("unknown tool: {tool}")))?
+    } else {
         return Err(("tool_not_found".into(), format!("unknown tool: {tool}")));
     };
     if !def.entry.enabled {
@@ -45,7 +51,7 @@ pub fn check_tool_access<'a>(
     }
 
     if tool == "terminal" {
-        validate_terminal_access(state, def, arguments)?;
+        validate_terminal_access(state, &def, arguments)?;
     }
 
     Ok(def)
@@ -94,9 +100,14 @@ fn normalize_terminal_arguments(state: &AppState, tool: &str, arguments: &mut Ma
         return;
     };
 
+    let user_workspace = arguments
+        .get("user_email")
+        .and_then(Value::as_str)
+        .and_then(|user_email| load_user_workspace(state, user_email));
+
     if !arguments.contains_key("available_execution_targets") {
-        if let Some(user_email) = arguments.get("user_email").and_then(Value::as_str) {
-            let targets = available_execution_targets_for_user(state, user_email);
+        if let Some(workspace) = user_workspace.as_ref() {
+            let targets = build_execution_targets(state, workspace);
             if !targets.is_empty() {
                 arguments.insert(
                     "available_execution_targets".into(),
@@ -113,7 +124,11 @@ fn normalize_terminal_arguments(state: &AppState, tool: &str, arguments: &mut Ma
             .and_then(Value::as_str)
             .is_some_and(|value| value.trim().is_empty());
     if transport_is_missing {
-        arguments.insert("transport".into(), Value::String("local".into()));
+        let preferred_transport = preferred_terminal_transport(user_workspace.as_ref());
+        arguments.insert(
+            "transport".into(),
+            Value::String(preferred_transport.to_string()),
+        );
     }
 
     let transport = arguments
@@ -149,6 +164,18 @@ fn normalize_terminal_arguments(state: &AppState, tool: &str, arguments: &mut Ma
     } else if transport == "ssh" {
         if let Some(host_id) = arguments.get("host_id").and_then(Value::as_str) {
             arguments.insert("host_id".into(), Value::String(host_id.trim().to_string()));
+        }
+
+        let host_id_is_missing = !arguments.contains_key("host_id")
+            || arguments.get("host_id").is_some_and(Value::is_null)
+            || arguments
+                .get("host_id")
+                .and_then(Value::as_str)
+                .is_some_and(|value| value.trim().is_empty());
+        if host_id_is_missing {
+            if let Some(host_id) = preferred_ssh_host_id(user_workspace.as_ref()) {
+                arguments.insert("host_id".into(), Value::String(host_id));
+            }
         }
 
         let workdir_is_missing = !arguments.contains_key("workdir")
@@ -348,7 +375,57 @@ fn available_execution_targets_for_user(
     build_execution_targets(state, &workspace)
 }
 
-fn load_user_workspace(state: &AppState, user_email: &str) -> Option<UserWorkspace> {
+fn preferred_terminal_transport(workspace: Option<&UserWorkspace>) -> &'static str {
+    let Some(workspace) = workspace else {
+        return "local";
+    };
+
+    if preferred_ssh_host_id(Some(workspace)).is_some() {
+        return "ssh";
+    }
+
+    let targets = hydrated_execution_targets(workspace);
+    if targets
+        .iter()
+        .any(|target| target.eq_ignore_ascii_case("local"))
+    {
+        "local"
+    } else if targets
+        .iter()
+        .any(|target| target.to_ascii_lowercase().starts_with("ssh:"))
+    {
+        "ssh"
+    } else {
+        "local"
+    }
+}
+
+fn preferred_ssh_host_id(workspace: Option<&UserWorkspace>) -> Option<String> {
+    let workspace = workspace?;
+    let default_host_id = workspace.default_ssh_host_id.trim();
+    if !default_host_id.is_empty() {
+        return Some(default_host_id.to_string());
+    }
+
+    let targets = hydrated_execution_targets(workspace);
+    if targets
+        .iter()
+        .any(|target| target.eq_ignore_ascii_case("local"))
+    {
+        return None;
+    }
+
+    let mut ssh_targets = targets
+        .into_iter()
+        .filter_map(|target| target.strip_prefix("ssh:").map(str::to_string));
+    let first = ssh_targets.next()?;
+    if ssh_targets.next().is_none() {
+        return Some(first);
+    }
+    None
+}
+
+pub fn load_user_workspace(state: &AppState, user_email: &str) -> Option<UserWorkspace> {
     let normalized_email = user_email.trim().to_ascii_lowercase();
     if normalized_email.is_empty() {
         return None;
@@ -532,7 +609,11 @@ fn is_within_allowed_path_windows(candidate: &str, allowed: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{runtime_path_to_windows, windows_path_to_wsl};
+    use super::{
+        preferred_ssh_host_id, preferred_terminal_transport, runtime_path_to_windows,
+        windows_path_to_wsl,
+    };
+    use crate::models::UserWorkspace;
 
     #[test]
     fn converts_wsl_path_to_windows_path() {
@@ -545,5 +626,47 @@ mod tests {
             windows_path_to_wsl("D:/Environment2/Create").as_deref(),
             Some("/mnt/d/Environment2/Create")
         );
+    }
+
+    #[test]
+    fn prefers_default_ssh_transport_when_workspace_declares_one() {
+        let workspace = UserWorkspace {
+            user_email: "teammate@example.com".into(),
+            default_ssh_host_id: "team-a-box".into(),
+            ..Default::default()
+        };
+
+        assert_eq!(preferred_terminal_transport(Some(&workspace)), "ssh");
+        assert_eq!(
+            preferred_ssh_host_id(Some(&workspace)).as_deref(),
+            Some("team-a-box")
+        );
+    }
+
+    #[test]
+    fn falls_back_to_only_ssh_target_when_no_local_is_enabled() {
+        let workspace = UserWorkspace {
+            user_email: "teammate@example.com".into(),
+            enabled_execution_targets: vec!["ssh:team-b-box".into()],
+            ..Default::default()
+        };
+
+        assert_eq!(preferred_terminal_transport(Some(&workspace)), "ssh");
+        assert_eq!(
+            preferred_ssh_host_id(Some(&workspace)).as_deref(),
+            Some("team-b-box")
+        );
+    }
+
+    #[test]
+    fn keeps_local_as_default_when_local_is_available_and_no_default_ssh() {
+        let workspace = UserWorkspace {
+            user_email: "owner@example.com".into(),
+            enabled_execution_targets: vec!["local".into(), "ssh:team-b-box".into()],
+            ..Default::default()
+        };
+
+        assert_eq!(preferred_terminal_transport(Some(&workspace)), "local");
+        assert_eq!(preferred_ssh_host_id(Some(&workspace)), None);
     }
 }

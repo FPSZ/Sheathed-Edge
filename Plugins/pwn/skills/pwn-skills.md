@@ -1,14 +1,19 @@
-# Pwn Family Skills
+﻿# Pwn Family Skills
 
 This document is the family skill reference for `task_family=pwn`.
 
-Use it after the shared router has classified the task as `pwn`. Do not use it as the first step before routing.
+Use it after the shared router has classified the task as `pwn` and the `binary-core` layer has established the initial binary evidence. Do not use it as the first step before routing.
+
+If `competition_mode=awdp`, keep the pwn route focused on exploitability or binary patch boundaries, and let `awdp-core` plus `awdp-red` / `awdp-blue` control the match workflow.
 
 ## Stable Fields
 
 When possible, keep these concepts visible in your reasoning:
 
 - `task_family: pwn`
+- `shared_domain: binary`
+- `competition_mode`
+- `awdp_role`
 - `phase`
 - `primary_skill`
 - `secondary_skills`
@@ -17,38 +22,34 @@ When possible, keep these concepts visible in your reasoning:
 
 ## binary-intake-and-triage
 
-Use this when the task has just entered `pwn` or the binary target is still not understood.
+Use this right after shared binary intake when the pwn-specific question is whether the target really contains an exploit-relevant boundary.
 
 Goals:
 
-- identify artifact type, architecture, runtime, and local or remote interaction model
-- determine whether the task is exploit, patch, regression, or mixed
-- collect only the first layer of evidence needed to choose the next route
+- connect the binary surface to an exploit-relevant interaction point
+- identify whether the next move is exploit judgement, debugger validation, or patch boundary review
+- avoid jumping into exploit scripting from vague binary evidence
 
 Checklist:
 
-- confirm file type and target shape
-- identify obvious runtime dependencies and protections
-- note whether the challenge is local, remote, or hybrid
-- record crash, prompt, usage, or handshake behavior if present
-- decide the next `primary_skill`
+- identify the input boundary, protocol edge, or crash surface that actually matters
+- distinguish validation logic from memory-corruption logic
+- name the narrow next evidence target before selecting an exploit chain
 
 Expected evidence:
 
-- binary type
-- arch
-- protections
-- interaction model
-- first high-signal findings
+- exploit-relevant boundary summary
+- current uncertainty list
+- narrow next target
 
 Fallback if fail:
 
-- if execution is blocked, shift to static triage
-- if static tooling is blocked, collect metadata and strings first
+- if the boundary is unclear, go back to one narrower binary-core step
+- if the service shape is unclear, collect one live interaction or protocol clue first
 
 ## mitigation-and-primitive-judgement
 
-Use this after intake when the next question is exploitability, patchability, or bug-shape judgement.
+Use this after shared binary intake when the next question is exploitability, patchability, or bug-shape judgement.
 
 Goals:
 

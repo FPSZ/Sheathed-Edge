@@ -44,6 +44,8 @@ pub struct McpConfig {
     #[serde(default)]
     pub tool_cache_path: String,
     #[serde(default)]
+    pub bridge_command: Vec<String>,
+    #[serde(default)]
     pub bridge_host: String,
     #[serde(default)]
     pub bridge_port_start: u16,
@@ -209,6 +211,10 @@ pub struct UserWorkspace {
     pub default_ssh_host_id: String,
     #[serde(default)]
     pub enabled_execution_targets: Vec<String>,
+    #[serde(default)]
+    pub enabled_mcp_server_ids: Vec<String>,
+    #[serde(default)]
+    pub disabled_mcp_tools_by_server: HashMap<String, Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

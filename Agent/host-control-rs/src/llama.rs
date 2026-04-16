@@ -55,6 +55,31 @@ fn health_check_host(listen_host: &str) -> &str {
     }
 }
 
+async fn wait_until_reachable(state: &SharedState) -> Result<()> {
+    let endpoint = format!(
+        "http://{}:{}/health",
+        health_check_host(&state.llama.listen_host),
+        state.llama.listen_port
+    );
+    let timeout = std::time::Duration::from_millis(state.config.timeout_ms.max(1_000));
+    let deadline = tokio::time::Instant::now() + timeout;
+
+    loop {
+        if let Ok(resp) = state.http_client.get(&endpoint).send().await {
+            if resp.status().is_success() {
+                return Ok(());
+            }
+        }
+        if tokio::time::Instant::now() >= deadline {
+            return Err(anyhow!(
+                "llama-server did not become reachable within {} ms",
+                state.config.timeout_ms
+            ));
+        }
+        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+    }
+}
+
 pub async fn start(state: &SharedState) -> Result<StatusResponse> {
     let current = status(state).await;
     if current.running {
@@ -108,6 +133,11 @@ pub async fn start(state: &SharedState) -> Result<StatusResponse> {
 
     let pid = child.id();
     *state.process.lock().await = Some(ManagedProcess { child });
+
+    if let Err(err) = wait_until_reachable(state).await {
+        let _ = stop(state).await;
+        return Err(err);
+    }
 
     Ok(StatusResponse {
         running: true,
@@ -242,8 +272,10 @@ fn build_args(config: &crate::models::LlamaServerConfig, profile: &ModelProfile)
         args.push("--flash-attn".into());
         args.push("on".into());
     }
-    args.push("--reasoning-format".into());
-    args.push("deepseek".into());
+    if !profile.reasoning_format.trim().is_empty() {
+        args.push("--reasoning-format".into());
+        args.push(profile.reasoning_format.trim().to_string());
+    }
     if config.cont_batching {
         args.push("--cont-batching".into());
     }

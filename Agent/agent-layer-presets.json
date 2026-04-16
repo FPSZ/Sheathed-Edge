@@ -1,33 +1,115 @@
 {
-  "default_preset_id": "router-only",
-  "presets": [
-    {
-      "id": "router-only",
-      "label": "Router Only",
-      "enable_agent_router": true,
-      "enable_pwn_skills": false,
-      "enable_web_skills": false
-    },
-    {
-      "id": "router-pwn",
-      "label": "Router + Pwn",
-      "enable_agent_router": true,
-      "enable_pwn_skills": true,
-      "enable_web_skills": false
-    },
-    {
-      "id": "router-web",
-      "label": "Router + Web",
-      "enable_agent_router": true,
-      "enable_pwn_skills": false,
-      "enable_web_skills": true
-    },
-    {
-      "id": "router-pwn-web",
-      "label": "Router + Pwn + Web",
-      "enable_agent_router": true,
-      "enable_pwn_skills": true,
-      "enable_web_skills": true
-    }
-  ]
+    "default_preset_id": "router-reverse",
+    "presets": [
+        {
+            "id": "router-only",
+            "label": "Router Only",
+            "enable_agent_router": true,
+            "enable_reverse_skills": false,
+            "enable_pwn_skills": false,
+            "enable_web_skills": false,
+            "enable_awdp_red": false,
+            "enable_awdp_blue": false
+        },
+        {
+            "id": "router-reverse",
+            "label": "Router + Reverse",
+            "enable_agent_router": true,
+            "enable_reverse_skills": true,
+            "enable_pwn_skills": false,
+            "enable_web_skills": false,
+            "enable_awdp_red": false,
+            "enable_awdp_blue": false
+        },
+        {
+            "id": "router-pwn",
+            "label": "Router + Pwn",
+            "enable_agent_router": true,
+            "enable_reverse_skills": false,
+            "enable_pwn_skills": true,
+            "enable_web_skills": false,
+            "enable_awdp_red": false,
+            "enable_awdp_blue": false
+        },
+        {
+            "id": "router-web",
+            "label": "Router + Web",
+            "enable_agent_router": true,
+            "enable_reverse_skills": false,
+            "enable_pwn_skills": false,
+            "enable_web_skills": true,
+            "enable_awdp_red": false,
+            "enable_awdp_blue": false
+        },
+        {
+            "id": "router-awdp-red",
+            "label": "Router + AWDP Red",
+            "enable_agent_router": true,
+            "enable_reverse_skills": false,
+            "enable_pwn_skills": false,
+            "enable_web_skills": false,
+            "enable_awdp_red": true,
+            "enable_awdp_blue": false
+        },
+        {
+            "id": "router-awdp-blue",
+            "label": "Router + AWDP Blue",
+            "enable_agent_router": true,
+            "enable_reverse_skills": false,
+            "enable_pwn_skills": false,
+            "enable_web_skills": false,
+            "enable_awdp_red": false,
+            "enable_awdp_blue": true
+        },
+        {
+            "id": "router-web-awdp-red",
+            "label": "Router + Web + AWDP Red",
+            "enable_agent_router": true,
+            "enable_reverse_skills": false,
+            "enable_pwn_skills": false,
+            "enable_web_skills": true,
+            "enable_awdp_red": true,
+            "enable_awdp_blue": false
+        },
+        {
+            "id": "router-web-awdp-blue",
+            "label": "Router + Web + AWDP Blue",
+            "enable_agent_router": true,
+            "enable_reverse_skills": false,
+            "enable_pwn_skills": false,
+            "enable_web_skills": true,
+            "enable_awdp_red": false,
+            "enable_awdp_blue": true
+        },
+        {
+            "id": "router-pwn-awdp-red",
+            "label": "Router + Pwn + AWDP Red",
+            "enable_agent_router": true,
+            "enable_reverse_skills": false,
+            "enable_pwn_skills": true,
+            "enable_web_skills": false,
+            "enable_awdp_red": true,
+            "enable_awdp_blue": false
+        },
+        {
+            "id": "router-reverse-awdp-blue",
+            "label": "Router + Reverse + AWDP Blue",
+            "enable_agent_router": true,
+            "enable_reverse_skills": true,
+            "enable_pwn_skills": false,
+            "enable_web_skills": false,
+            "enable_awdp_red": false,
+            "enable_awdp_blue": true
+        },
+        {
+            "id": "router-reverse-pwn-web",
+            "label": "Router + Reverse + Pwn + Web",
+            "enable_agent_router": true,
+            "enable_reverse_skills": true,
+            "enable_pwn_skills": true,
+            "enable_web_skills": true,
+            "enable_awdp_red": false,
+            "enable_awdp_blue": false
+        }
+    ]
 }

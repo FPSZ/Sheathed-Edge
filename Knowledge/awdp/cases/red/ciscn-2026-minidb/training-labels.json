@@ -1,0 +1,20 @@
+{
+  "task_family": "pwn",
+  "shared_domain": "binary",
+  "competition_mode": "awdp",
+  "awdp_role": "red",
+  "primary_skill": "binary-intake-and-triage",
+  "secondary_skills": [
+    "mitigation-and-primitive-judgement",
+    "debug-and-failure-recovery"
+  ],
+  "evidence_required": [
+    "SET/GET/CLONE/MULTI/EXEC/ABORT evidence",
+    "TX lifecycle evidence",
+    "transaction-state inconsistency evidence"
+  ],
+  "fallback_if_fail": [
+    "draw transaction state graph",
+    "downgrade to weak supervision until function-level check is done"
+  ]
+}

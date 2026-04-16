@@ -1,0 +1,29 @@
+{
+    "name": "awdp-red",
+    "type": "plugin",
+    "extends_core_mode": "awdp",
+    "prompt_files": [
+        "prompts/fragment.md"
+    ],
+    "skill_files": [
+        "skills/awdp-red-skills.md"
+    ],
+    "tool_scope": [
+        "terminal"
+    ],
+    "retrieval_roots": [
+        "D:\\AI\\Local\\Plugins\\awdp-red\\datasets",
+        "D:\\AI\\Local\\Knowledge\\awdp\\playbooks\\red",
+        "D:\\AI\\Local\\Knowledge\\awdp\\cases\\red",
+        "D:\\AI\\Local\\Knowledge\\awdp\\indexes"
+    ],
+    "eval_tags": [
+        "awdp",
+        "red"
+    ],
+    "plugin_capabilities": [
+        "awdp_attack",
+        "flag_harvest",
+        "batch_exploit"
+    ]
+}

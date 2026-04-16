@@ -1,0 +1,15 @@
+{
+  "id": "awdp-blue-case-template-service",
+  "role": "blue",
+  "task_family": "web",
+  "competition_mode": "awdp",
+  "title": "AWDP Blue Case Template / Service Defense",
+  "summary": "Template for blue-team service patch cases with vuln repro, patch notes, and checker-safe regression.",
+  "tags": [
+    "awdp",
+    "blue",
+    "template",
+    "service"
+  ],
+  "status": "template"
+}

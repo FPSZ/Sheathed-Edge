@@ -1,0 +1,15 @@
+{
+  "id": "awdp-red-case-template-web",
+  "role": "red",
+  "task_family": "web",
+  "competition_mode": "awdp",
+  "title": "AWDP Red Case Template / Web",
+  "summary": "Template for red-team web attack cases with teacher-reviewed exploit and harvest notes.",
+  "tags": [
+    "awdp",
+    "red",
+    "template",
+    "web"
+  ],
+  "status": "template"
+}

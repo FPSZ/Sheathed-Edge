@@ -1,0 +1,43 @@
+{
+  "case_id": "nssctf-attachment15-upx",
+  "task_meta": {
+    "category": "reverse",
+    "source": "NSSCTF",
+    "difficulty": "easy",
+    "visibility": "train-dev-only",
+    "notes": "Auto-bootstrapped from ctf_training_loop_v1.py; requires human review before train/eval use."
+  },
+  "input_files": [
+    {
+      "path": "D:/CTF/题目/逆向/NSSCTF/已解决/attachment-15",
+      "sha256": "",
+      "role": "challenge-binary"
+    }
+  ],
+  "student_trace": {
+    "source": "D:/AI/Local/Logs/tests/ctf-training-loop/20260416_090209/nssctf-attachment15-upx.json",
+    "summary": "- **task_family**: reverse\n- **shared_domain**: binary\n- **phase**: triage\n- **primary_skill**: key-function-recovery\n- **key tool evidence**:\n  - File opened successfully, analysis completed with 4463 functions found\n  - Strings output shows mostly library/error strings, no obvious flag pattern\n  - Functions list shows VC runtime imports (VCRUNTIME140D.dll, ucrtbased.dll) and KERNEL32.dll\n  - Many unnamed functions (fcn.*) suggesting obfuscation/packing\n- **current finding**:\n  - Windows PE binary with VC runtime dependencies\n  - No visible flag strings in initial string dump\n  - Entry point at 0x0001110e (entry0)\n  - Contains IsDebuggerPresent import (anti-debug check likely)\n- **next evidence target**:\n  - Need to examine entry0 function and key validation functions\n  - Look for xrefs to suspicious strings or check routines\n  - May need decompiler output for main logic\n- **final answer or best candidate**: None yet - need deeper analysis\n- **remaining gap**:\n  - Validation/check function not identified\n  - Flag encoding/decoding logic not found\n  - Need to trace entry0 -> main validation path\n  - May need to bypass anti-debug or unpack the binary",
+    "tool_events": []
+  },
+  "teacher_trace": {
+    "source": "D:/AI/Local/Writeups/ctf-ai-baselines/nssctf-attachment15-ai-wp.md",
+    "summary": "待人工补全 teacher solve / WP 摘要。",
+    "tool_events": []
+  },
+  "error_tags": [],
+  "gold_outcome": {
+    "status": "unknown",
+    "flag": "wctf2020{Just_upx_-d}",
+    "evidence": [
+      "D:/AI/Local/Writeups/ctf-ai-baselines/nssctf-attachment15-ai-wp.md"
+    ]
+  },
+  "skill_delta": [],
+  "sft_ready": false,
+  "audit": {
+    "reviewed_by": "",
+    "reviewed_at": "",
+    "can_use_for_train": false,
+    "can_use_for_eval": false
+  }
+}

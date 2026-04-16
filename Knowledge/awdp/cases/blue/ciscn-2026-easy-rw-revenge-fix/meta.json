@@ -1,0 +1,24 @@
+{
+  "id": "awdp-blue-ciscn-2026-easy-rw-revenge-fix",
+  "role": "blue",
+  "task_family": "pwn",
+  "competition_mode": "awdp",
+  "awdp_role": "blue",
+  "title": "CISCN 半决赛 2026 / easy_rw_revenge Fix",
+  "summary": "blue 侧公开线索较明确，重点是把危险 UAF 分支中的 `call free` 替换成已有 delete 流程，保持 checker-safe。",
+  "tags": [
+    "awdp",
+    "blue",
+    "ciscn",
+    "pwn",
+    "uaf-fix",
+    "checker-safe"
+  ],
+  "status": "candidate",
+  "confidence": "high",
+  "verified_local_match": true,
+  "source_urls": [
+    "https://www.cnblogs.com/seyedog/p/19814241"
+  ],
+  "local_root": "D:\\AWDP\\CISCN半决赛\\攻防\\PWN\\easy_rw_revenge\\easy_rw_revenge"
+}

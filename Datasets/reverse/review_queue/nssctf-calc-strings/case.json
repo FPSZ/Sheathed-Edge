@@ -1,0 +1,43 @@
+{
+  "case_id": "nssctf-calc-strings",
+  "task_meta": {
+    "category": "reverse",
+    "source": "NSSCTF",
+    "difficulty": "easy",
+    "visibility": "train-dev-only",
+    "notes": "Auto-bootstrapped from ctf_training_loop_v1.py; requires human review before train/eval use."
+  },
+  "input_files": [
+    {
+      "path": "D:/CTF/题目/逆向/NSSCTF/已解决/calc",
+      "sha256": "",
+      "role": "challenge-binary"
+    }
+  ],
+  "student_trace": {
+    "source": "D:/AI/Local/Logs/tests/ctf-training-loop/20260416_090209/nssctf-calc-strings.json",
+    "summary": "- **task_family**: reverse\n- **shared_domain**: binary\n- **phase**: triage → finalization\n- **primary_skill**: flag-and-key-extraction\n- **key tool evidence**: `tool_list_strings_post` 返回了完整字符串列表，其中包含 `utflag{str1ngs_1s_y0ur_fr13nd}`\n- **current finding**: 这是一个非常简单的 calc 程序，flag 直接以明文形式硬编码在二进制文件中\n- **next evidence target**: 无，证据已足够\n- **final answer**: `utflag{str1ngs_1s_y0ur_fr13nd}`\n- **remaining gap**: 无\n\n**分析总结**：\n1. 文件是一个 Windows PE 程序（从函数名中的 `KERNEL32.dll`、`VCRUNTIME140D.dll` 等可以看出）\n2. 程序功能是一个简单的计算器（从字符串 `Enter an operator (+, -, *,):` 和 `Enter two operands:` 可以看出）\n3. **flag 直接明文出现在 strings 中**：`utflag{str1ngs_1s_y0ur_fr13nd}`\n4. 这是一个典型的入门级 reverse 题目，flag 不需要任何解密或逆向逻辑分析\n\n**答案**：`utflag{str1ngs_1s_y0ur_fr13nd}`",
+    "tool_events": []
+  },
+  "teacher_trace": {
+    "source": "D:/AI/Local/Writeups/ctf-ai-baselines/nssctf-calc-ai-wp.md",
+    "summary": "待人工补全 teacher solve / WP 摘要。",
+    "tool_events": []
+  },
+  "error_tags": [],
+  "gold_outcome": {
+    "status": "unknown",
+    "flag": "utflag{str1ngs_1s_y0ur_fr13nd}",
+    "evidence": [
+      "D:/AI/Local/Writeups/ctf-ai-baselines/nssctf-calc-ai-wp.md"
+    ]
+  },
+  "skill_delta": [],
+  "sft_ready": false,
+  "audit": {
+    "reviewed_by": "",
+    "reviewed_at": "",
+    "can_use_for_train": false,
+    "can_use_for_eval": false
+  }
+}

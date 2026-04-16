@@ -1,0 +1,18 @@
+{
+  "id": "awdp-red-flag-harvest-submit",
+  "kind": "playbook",
+  "competition_mode": "awdp",
+  "role": "red",
+  "slug": "flag-harvest-submit",
+  "title": "AWDP Red / Flag Harvest and Submit",
+  "summary": "AWDP Red / Flag Harvest and Submit",
+  "tags": [
+    "awdp",
+    "red",
+    "flag",
+    "submit"
+  ],
+  "source": "internal",
+  "version": "v1",
+  "status": "active"
+}

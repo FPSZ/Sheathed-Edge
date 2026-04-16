@@ -1,0 +1,30 @@
+{
+  "task_family": "web",
+  "shared_domain": "binary",
+  "competition_mode": "awdp",
+  "awdp_role": "red",
+  "phase_sequence": [
+    {
+      "phase": "intake",
+      "good": "Compare ELF wrapper and external app.js ownership of logic",
+      "bad": "Assume runtime binary is the challenge core"
+    },
+    {
+      "phase": "triage",
+      "good": "Enumerate web routes and file-write sinks",
+      "bad": "Stay inside runtime internals only"
+    },
+    {
+      "phase": "hypothesis",
+      "good": "Infer arbitrary path write / entry overwrite impact",
+      "bad": "Stop at generic path traversal label"
+    },
+    {
+      "phase": "verification",
+      "good": "Reason about index.html/app.js overwrite behaviors separately",
+      "bad": "Claim RCE without target-file reasoning"
+    }
+  ],
+  "route_correction_target": "business-entry ownership over wrapper binary appearance",
+  "teaching_value": "high"
+}

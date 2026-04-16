@@ -1,0 +1,26 @@
+{
+  "id": "awdp-red-ciscn-2026-upnodetrap",
+  "role": "red",
+  "task_family": "web",
+  "competition_mode": "awdp",
+  "awdp_role": "red",
+  "title": "CISCN 半决赛 2026 / UpNodeTrap",
+  "summary": "表面是大 ELF，实则关键逻辑在外部 `app.js`；主链是 `/upload` 任意路径写导致入口脚本覆盖。",
+  "tags": [
+    "awdp",
+    "red",
+    "ciscn",
+    "web",
+    "nodejs",
+    "path-traversal",
+    "entrypoint-overwrite"
+  ],
+  "status": "candidate",
+  "confidence": "medium",
+  "verified_local_match": true,
+  "source_urls": [
+    "https://www.cnblogs.com/alexander17/p/19761028",
+    "https://www.cnblogs.com/seyedog/p/19814241"
+  ],
+  "local_root": "D:\\AWDP\\CISCN半决赛\\攻防\\PWN\\UpNodeTrap"
+}

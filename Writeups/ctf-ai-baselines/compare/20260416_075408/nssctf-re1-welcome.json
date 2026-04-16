@@ -1,0 +1,21 @@
+{
+  "case_id": "nssctf-re1-welcome",
+  "verdict": "pass",
+  "solved_exact": true,
+  "expected_answer": "afctf{w41c0me a1l y0u 9uys}",
+  "candidate_flags": [
+    "afctf{w41c0me a1l y0u 9uys}"
+  ],
+  "tool_count": 4,
+  "tool_stage_counter": {
+    "tool_execute_tool_open_file_post": 1,
+    "tool_execute_tool_analyze_post": 1,
+    "tool_execute_tool_list_strings_post": 1,
+    "tool_execute_tool_list_functions_post": 1
+  },
+  "error_tags": [
+    "solved_with_expected_answer"
+  ],
+  "request_id": "req-1776297465028377600",
+  "reference_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/nssctf-re1-ai-wp.md"
+}

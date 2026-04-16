@@ -1,0 +1,15 @@
+{
+  "package_type": "teacher_case",
+  "priority": "P0",
+  "quality": "high",
+  "recommended_for": [
+    "retrieval",
+    "review",
+    "trajectory_conversion"
+  ],
+  "core_lessons": [
+    "security check must apply to final normalized value",
+    "user-controlled serialization state is a first-class attack surface",
+    "compare preview chain and download chain instead of assuming same semantics"
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "awdp-red-binary-service-fast-triage",
+  "kind": "playbook",
+  "competition_mode": "awdp",
+  "role": "red",
+  "slug": "binary-service-fast-triage",
+  "title": "AWDP Red / Binary Service Fast Triage",
+  "summary": "AWDP Red / Binary Service Fast Triage",
+  "tags": [
+    "awdp",
+    "red",
+    "binary",
+    "triage",
+    "pwn"
+  ],
+  "source": "internal",
+  "version": "v1",
+  "status": "active"
+}

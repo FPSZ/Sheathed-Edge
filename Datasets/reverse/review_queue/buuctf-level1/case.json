@@ -1,0 +1,43 @@
+{
+  "case_id": "buuctf-level1",
+  "task_meta": {
+    "category": "reverse",
+    "source": "BUUCTF",
+    "difficulty": "easy",
+    "visibility": "train-dev-only",
+    "notes": "Auto-bootstrapped from ctf_training_loop_v1.py; requires human review before train/eval use."
+  },
+  "input_files": [
+    {
+      "path": "D:/CTF/题目/逆向/BUUCTF/level1/level1",
+      "sha256": "",
+      "role": "challenge-binary"
+    }
+  ],
+  "student_trace": {
+    "source": "D:/AI/Local/Logs/tests/ctf-training-loop/20260416_090209/buuctf-level1.json",
+    "summary": "- **task_family**: reverse\n- **shared_domain**: binary\n- **phase**: triage\n- **primary_skill**: key-function-recovery\n- **key tool evidence**: \n  - File opened successfully, 4449 functions found\n  - Strings: \"flag\", \"%ld\\n\" (no direct flag string)\n  - Imports: IsDebuggerPresent (anti-debug), stdio functions\n  - Entry point: 0x0001110e entry0\n- **current finding**: Windows PE binary with VC++ runtime, anti-debug protection present, no obvious flag string in static strings\n- **next evidence target**: entry0 function decompilation to find validation logic\n\n**关键发现**：\n1. 这是一个 Windows PE 可执行文件，使用 VC++ 运行时库\n2. 有反调试保护（IsDebuggerPresent）\n3. 字符串中没有直接暴露 flag，需要分析验证逻辑\n4. 程序使用 `%ld` 格式，说明是数字输入验证\n\n**下一步**：需要反编译 entry0 函数来找到验证逻辑和 flag 生成/验证算法。\n\n<tool_call>\n<function=tool_show_function_details_post>\n<parameter=address>\n0x0001110e\n</parameter>\n</function>\n</tool_call>",
+    "tool_events": []
+  },
+  "teacher_trace": {
+    "source": "D:/AI/Local/Writeups/ctf-ai-baselines/buuctf-level1-ai-wp.md",
+    "summary": "待人工补全 teacher solve / WP 摘要。",
+    "tool_events": []
+  },
+  "error_tags": [],
+  "gold_outcome": {
+    "status": "unknown",
+    "flag": "ctf2020{d9-dE6-20c}",
+    "evidence": [
+      "D:/AI/Local/Writeups/ctf-ai-baselines/buuctf-level1-ai-wp.md"
+    ]
+  },
+  "skill_delta": [],
+  "sft_ready": false,
+  "audit": {
+    "reviewed_by": "",
+    "reviewed_at": "",
+    "can_use_for_train": false,
+    "can_use_for_eval": false
+  }
+}

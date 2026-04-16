@@ -172,6 +172,7 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		r.Header.Get("X-AWDP-User-Email"),
 		r.Header.Get("X-User-Email"),
 	)
+	s.applyDefaultAgentPreset(&req)
 	trace.Begin("request_received").End(true, summarizeChatRequest(req))
 
 	selectedModel, err := s.admin.EnsureModelReady(r.Context(), req.Model)
@@ -268,6 +269,74 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 	finalSpan.End(true, "")
 	writeJSON(w, http.StatusOK, resp)
+}
+
+func (s *Server) applyDefaultAgentPreset(req *types.ChatCompletionRequest) {
+	if req == nil {
+		return
+	}
+	if hasExplicitAgentPreset(*req) {
+		return
+	}
+	if s.admin == nil {
+		return
+	}
+	preset, err := s.admin.DefaultAgentLayerPreset()
+	if err != nil || preset == nil {
+		return
+	}
+
+	if req.Metadata == nil {
+		req.Metadata = map[string]any{}
+	}
+	req.Metadata["agent_layers"] = map[string]any{
+		"enable_agent_router":   preset.EnableAgentRouter,
+		"enable_reverse_skills": preset.EnableReverseSkills,
+		"enable_pwn_skills":     preset.EnablePwnSkills,
+		"enable_web_skills":     preset.EnableWebSkills,
+		"enable_awdp_red":       preset.EnableAWDPRed,
+		"enable_awdp_blue":      preset.EnableAWDPBlue,
+	}
+
+	if len(req.XPlugins) == 0 {
+		var plugins []string
+		if preset.EnableReverseSkills {
+			plugins = append(plugins, "reverse")
+		}
+		if preset.EnablePwnSkills {
+			plugins = append(plugins, "pwn")
+		}
+		if preset.EnableWebSkills {
+			plugins = append(plugins, "web")
+		}
+		if preset.EnableAWDPRed {
+			plugins = append(plugins, "awdp-red")
+		}
+		if preset.EnableAWDPBlue {
+			plugins = append(plugins, "awdp-blue")
+		}
+		req.XPlugins = plugins
+	}
+}
+
+func hasExplicitAgentPreset(req types.ChatCompletionRequest) bool {
+	if len(req.XPlugins) > 0 {
+		return true
+	}
+	if req.Metadata == nil {
+		return false
+	}
+	for _, key := range []string{"agent_layers", "preset_id"} {
+		if value, ok := req.Metadata[key]; ok && value != nil {
+			return true
+		}
+	}
+	if value, ok := req.Metadata["plugins"]; ok && value != nil {
+		if items, ok := value.([]any); ok && len(items) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {

@@ -1,0 +1,25 @@
+{
+  "id": "awdp-blue-ciscn-2026-mediadrive-fix",
+  "role": "blue",
+  "task_family": "web",
+  "competition_mode": "awdp",
+  "awdp_role": "blue",
+  "title": "CISCN 半决赛 2026 / MediaDrive Fix",
+  "summary": "MediaDrive 的补丁重点是把安全判断落到最终转换、规范化后的路径上，并去掉用户可控反序列化。",
+  "tags": [
+    "awdp",
+    "blue",
+    "ciscn",
+    "web",
+    "php",
+    "lfi-fix",
+    "serialization-fix"
+  ],
+  "status": "candidate",
+  "confidence": "high",
+  "verified_local_match": true,
+  "source_urls": [
+    "https://www.cnblogs.com/Linyuuy/p/19771049"
+  ],
+  "local_root": "D:\\AWDP\\CISCN半决赛\\攻防\\WEB\\MediaDrive"
+}

@@ -1,0 +1,35 @@
+{
+  "version": "2026-04-16-round5",
+  "red_p0_teacher_packages": [
+    "awdp-red-ciscn-2026-mediadrive",
+    "awdp-red-ciscn-2026-easy-rw-revenge",
+    "awdp-red-ciscn-2026-minidb"
+  ],
+  "blue_p0_patch_packages": [
+    "awdp-blue-ciscn-2026-mediadrive-fix",
+    "awdp-blue-ciscn-2026-easy-rw-revenge-fix"
+  ],
+  "next_candidates": [
+    "awdp-red-ciscn-2026-watchagent",
+    "awdp-red-ciscn-2026-broken-manager"
+  ],
+  "policy": {
+    "do_not_dump_full_writeups_into_prompt": true,
+    "prefer_case_retrieval_over_prompt_growth": true,
+    "require_local_match_before_teacher_upgrade": true,
+    "prefer_checker_safe_patch_training_for_awdp_blue": true
+  },
+  "extended_route_correction_cases": [
+    "awdp-red-ciscn-2026-mediadrive",
+    "awdp-red-ciscn-2026-easy-rw-revenge",
+    "awdp-red-ciscn-2026-catchme",
+    "awdp-red-ciscn-2026-upnodetrap",
+    "awdp-red-ciscn-2026-easy-time"
+  ],
+  "extended_patch_review_cases": [
+    "awdp-blue-ciscn-2026-mediadrive-fix",
+    "awdp-blue-ciscn-2026-easy-rw-revenge-fix",
+    "awdp-blue-ciscn-2026-catchme-fix",
+    "awdp-blue-ciscn-2026-minidb-fix"
+  ]
+}

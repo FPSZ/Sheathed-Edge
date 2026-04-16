@@ -1,0 +1,30 @@
+{
+  "task_family": "pwn",
+  "shared_domain": "binary",
+  "competition_mode": "awdp",
+  "awdp_role": "red",
+  "phase_sequence": [
+    {
+      "phase": "intake",
+      "good": "Recognize service + menu + seccomp traits from strings",
+      "bad": "Treat as local menu heap challenge only"
+    },
+    {
+      "phase": "triage",
+      "good": "Separate auth issue, UAF trigger, and later heap stages",
+      "bad": "Collapse everything into one exploit slogan"
+    },
+    {
+      "phase": "hypothesis",
+      "good": "Select exploit path after primitive confirmation",
+      "bad": "Pick gadgets before proving constraints"
+    },
+    {
+      "phase": "verification",
+      "good": "Re-check primitive stability under service interaction",
+      "bad": "Assume public chain transfers 1:1"
+    }
+  ],
+  "route_correction_target": "primitive-first over gadget-first",
+  "teaching_value": "high"
+}

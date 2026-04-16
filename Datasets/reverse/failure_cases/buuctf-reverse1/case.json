@@ -1,0 +1,44 @@
+{
+  "case_id": "buuctf-reverse1",
+  "task_meta": {
+    "category": "reverse",
+    "source": "BUUCTF",
+    "difficulty": "easy",
+    "notes": "Must-pass10 failure case promoted for remediation and future fine-tune conversion."
+  },
+  "input_files": [
+    {
+      "path": "D:/CTF/题目/逆向/BUUCTF/reverse_1.exe",
+      "sha256": "",
+      "role": "challenge-binary"
+    }
+  ],
+  "student_trace": {
+    "source": "D:/AI/Local/Logs/tests/reverse-mustpass10/20260416_140643/buuctf-reverse1.json",
+    "summary": "- `task_family: reverse`\n- `shared_domain: binary`\n- `phase: verification`\n- `primary_skill: decode-and-transform-inversion`\n- `key tool evidence`: \n  - strings 发现 \"this is the right flag!\" 和 \"wrong flag\\n\"\n  - strings 发现 \"{hello_world}\" 候选\n  - entry0 函数存在，大小 4912 字节\n- `current finding`: 程序有 flag 验证逻辑，成功提示 \"this is the right flag!\"，失败提示 \"wrong flag\"。候选 flag 为 `{hello_world}`\n- `next evidence target`: 验证逻辑的 decompiler 输出，确认是否有变换\n\n<tool_call>\n<function=tool_use_decompiler_post>\n<parameter=address>\n0x140001110e\n</parameter>\n</function>\n</tool_call>",
+    "tool_events": []
+  },
+  "teacher_trace": {
+    "source": "D:/AI/Local/Writeups/ctf-ai-baselines/buuctf-reverse1-ai-wp.md",
+    "summary": "# BUUCTF reverse_1 AI WP\n\n题目路径：\n- `D:\\CTF\\题目\\逆向\\BUUCTF\\reverse_1.exe`\n\n题型判断：\n- `task_family: pwn/reverse-static`\n- 超轻量字符串修改题\n\n关键证据：\n- 核心函数里直接引用字符串 `{hello_world}`\n- 程序在比较前会遍历字符串，把字符 `o` 改成 `0`\n- 之后将用户输入与修改后的目标串直接比较\n\n正确思路：\n1. 先找成功/失败字符串交叉引用。\n2. 定位比较逻辑。\n3. 识别目标字符串被运行时改写。\n4. 还原最终用于比较的字符串。\n\n易错点：\n- 容易只看到 `{hello_world}`，没看到它在比较前被改写\n- 容易把题做复杂\n\n人工结论：\n- `{hell0_w0rld}`\n",
+    "tool_events": []
+  },
+  "gold_outcome": {
+    "status": "known",
+    "flag": "{hell0_w0rld}",
+    "evidence": [
+      "D:/AI/Local/Writeups/ctf-ai-baselines/buuctf-reverse1-ai-wp.md"
+    ]
+  },
+  "error_tags": [
+    "mustpass10_failure",
+    "needs_skill_delta"
+  ],
+  "sft_ready": false,
+  "audit": {
+    "reviewed_by": "codex",
+    "reviewed_at": "2026-04-16T14:39:57",
+    "can_use_for_train": true,
+    "can_use_for_eval": true
+  }
+}

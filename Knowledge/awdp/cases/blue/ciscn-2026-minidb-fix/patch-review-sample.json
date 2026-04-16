@@ -1,0 +1,17 @@
+{
+  "task_family": "pwn",
+  "shared_domain": "binary",
+  "competition_mode": "awdp",
+  "awdp_role": "blue",
+  "review_dimensions": [
+    "transaction-aware patch scope",
+    "preserves command semantics",
+    "fixes stale pointer / lifecycle root cause",
+    "validated against transaction flows"
+  ],
+  "reject_if": [
+    "generic nop-free patching",
+    "state-machine semantics ignored",
+    "patch borrowed without local verification"
+  ]
+}

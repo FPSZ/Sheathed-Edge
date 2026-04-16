@@ -1,0 +1,12 @@
+{
+  "generated_at": "2026-04-16T09:36:31",
+  "compare_dir": "D:/AI/Local/Writeups/ctf-ai-baselines/compare/20260416_090209",
+  "run_dir": "D:/AI/Local/Logs/tests/ctf-training-loop/20260416_090209",
+  "cases": [
+    {
+      "case_id": "nssctf-re1-welcome",
+      "verdict": "pass",
+      "wp_path": "D:/AI/Local/Writeups/generated-noai/20260416_090209/nssctf-re1-welcome-noai-wp.md"
+    }
+  ]
+}

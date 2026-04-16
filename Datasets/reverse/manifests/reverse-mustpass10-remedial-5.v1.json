@@ -1,0 +1,73 @@
+{
+  "manifest_id": "reverse-mustpass10-remedial-5-v1",
+  "version": 3,
+  "target_family": "reverse",
+  "notes": "Five-case remedial pass for current misses in must-pass10 loop.",
+  "recommended_use": {
+    "development_set": true,
+    "training_bootstrap": true,
+    "heldout_eval": false
+  },
+  "cases": [
+    {
+      "case_id": "nssctf-simplebase",
+      "source": "NSSCTF",
+      "challenge_path": "D:/CTF/题目/逆向/NSSCTF/未解决/06base64-/simplebase",
+      "reference_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/simplebase-ai-wp.md",
+      "expected_answer": "NSSCTF{siMp13_Base64_5TXRMZHU6V9S}",
+      "difficulty": "easy",
+      "writeup_backed": true
+    },
+    {
+      "case_id": "buuctf-level1",
+      "source": "BUUCTF",
+      "challenge_path": "D:/CTF/题目/逆向/BUUCTF/level1/level1",
+      "reference_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/buuctf-level1-ai-wp.md",
+      "expected_answer": "ctf2020{d9-dE6-20c}",
+      "difficulty": "easy",
+      "writeup_backed": true
+    },
+    {
+      "case_id": "buuctf-reverse1",
+      "source": "BUUCTF",
+      "challenge_path": "D:/CTF/题目/逆向/BUUCTF/reverse_1.exe",
+      "reference_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/buuctf-reverse1-ai-wp.md",
+      "expected_answer": "{hell0_w0rld}",
+      "difficulty": "easy",
+      "writeup_backed": true
+    },
+    {
+      "case_id": "buuctf-transform",
+      "source": "BUUCTF",
+      "challenge_path": "D:/CTF/题目/逆向/BUUCTF/Transform.exe",
+      "reference_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/buuctf-transform-ai-wp.md",
+      "expected_answer": "MRCTF{Tr4nsp0sltiON_Clph3r_1s_3z}",
+      "difficulty": "easy-medium",
+      "writeup_backed": true
+    },
+    {
+      "case_id": "nssctf-attachment15-upx",
+      "source": "NSSCTF",
+      "challenge_path": "D:/CTF/题目/逆向/NSSCTF/已解决/attachment-15",
+      "reference_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/nssctf-attachment15-ai-wp.md",
+      "expected_answer": "wctf2020{Just_upx_-d}",
+      "difficulty": "easy",
+      "writeup_backed": true
+    }
+  ],
+  "training_focus": {
+    "must_pass": true,
+    "common_failure_modes": [
+      "stopped_at_evidence_summary",
+      "candidate_extracted_but_not_exact",
+      "no_deeper_binary_step",
+      "unfinished_tool_call_in_final_answer"
+    ],
+    "skill_targets": [
+      "exact-answer closure",
+      "candidate normalization",
+      "custom transform inversion",
+      "packed-binary early stop when strings already reveal flag"
+    ]
+  }
+}

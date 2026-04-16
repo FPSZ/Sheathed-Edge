@@ -73,16 +73,19 @@ type ModesResponse struct {
 }
 
 type AgentLayerPreset struct {
-	ID                    string   `json:"id"`
-	Label                 string   `json:"label"`
-	EnableAgentRouter     bool     `json:"enable_agent_router"`
-	EnablePwnSkills       bool     `json:"enable_pwn_skills"`
-	EnableWebSkills       bool     `json:"enable_web_skills"`
-	EffectivePlugins      []string `json:"effective_plugins,omitempty"`
-	EffectivePromptFiles  []string `json:"effective_prompt_files,omitempty"`
-	EffectiveSkillFiles   []string `json:"effective_skill_files,omitempty"`
-	EffectiveToolScope    []string `json:"effective_tool_scope,omitempty"`
-	EffectiveRetrieval    []string `json:"effective_retrieval_roots,omitempty"`
+	ID                   string   `json:"id"`
+	Label                string   `json:"label"`
+	EnableAgentRouter    bool     `json:"enable_agent_router"`
+	EnableReverseSkills  bool     `json:"enable_reverse_skills"`
+	EnablePwnSkills      bool     `json:"enable_pwn_skills"`
+	EnableWebSkills      bool     `json:"enable_web_skills"`
+	EnableAWDPRed        bool     `json:"enable_awdp_red"`
+	EnableAWDPBlue       bool     `json:"enable_awdp_blue"`
+	EffectivePlugins     []string `json:"effective_plugins,omitempty"`
+	EffectivePromptFiles []string `json:"effective_prompt_files,omitempty"`
+	EffectiveSkillFiles  []string `json:"effective_skill_files,omitempty"`
+	EffectiveToolScope   []string `json:"effective_tool_scope,omitempty"`
+	EffectiveRetrieval   []string `json:"effective_retrieval_roots,omitempty"`
 }
 
 type AgentLayersResponse struct {

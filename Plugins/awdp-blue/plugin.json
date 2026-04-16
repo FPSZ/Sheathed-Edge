@@ -1,0 +1,29 @@
+{
+    "name": "awdp-blue",
+    "type": "plugin",
+    "extends_core_mode": "awdp",
+    "prompt_files": [
+        "prompts/fragment.md"
+    ],
+    "skill_files": [
+        "skills/awdp-blue-skills.md"
+    ],
+    "tool_scope": [
+        "terminal"
+    ],
+    "retrieval_roots": [
+        "D:\\AI\\Local\\Plugins\\awdp-blue\\datasets",
+        "D:\\AI\\Local\\Knowledge\\awdp\\playbooks\\blue",
+        "D:\\AI\\Local\\Knowledge\\awdp\\cases\\blue",
+        "D:\\AI\\Local\\Knowledge\\awdp\\indexes"
+    ],
+    "eval_tags": [
+        "awdp",
+        "blue"
+    ],
+    "plugin_capabilities": [
+        "awdp_defense",
+        "hotfix_planning",
+        "checker_safe_fix"
+    ]
+}

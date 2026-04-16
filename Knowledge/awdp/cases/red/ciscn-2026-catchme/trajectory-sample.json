@@ -1,0 +1,30 @@
+{
+  "task_family": "pwn",
+  "shared_domain": "binary",
+  "competition_mode": "awdp",
+  "awdp_role": "red",
+  "phase_sequence": [
+    {
+      "phase": "intake",
+      "good": "Recover menu and type names first",
+      "bad": "Jump to named heap technique immediately"
+    },
+    {
+      "phase": "triage",
+      "good": "Separate leak path from final exploit path",
+      "bad": "Treat all operations as one undifferentiated chain"
+    },
+    {
+      "phase": "hypothesis",
+      "good": "Infer size/layout role of fox/hawk/otter",
+      "bad": "Memorize command order only"
+    },
+    {
+      "phase": "verification",
+      "good": "Check that leak stage and overwrite stage are independently justified",
+      "bad": "Assume public writeup sequence is enough evidence"
+    }
+  ],
+  "route_correction_target": "object-size reasoning before named heap-technique reasoning",
+  "teaching_value": "medium-high"
+}

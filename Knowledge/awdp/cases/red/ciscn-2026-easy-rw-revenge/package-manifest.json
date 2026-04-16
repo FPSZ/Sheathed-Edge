@@ -1,0 +1,15 @@
+{
+  "package_type": "teacher_case",
+  "priority": "P0",
+  "quality": "high",
+  "recommended_for": [
+    "retrieval",
+    "review",
+    "red-blue-contrast"
+  ],
+  "core_lessons": [
+    "service constraints change exploit goals",
+    "primitive-first analysis beats gadget-first analysis",
+    "minimal patching should preserve protocol and checker behavior"
+  ]
+}

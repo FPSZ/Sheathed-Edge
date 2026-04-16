@@ -1,0 +1,17 @@
+{
+  "id": "awdp-blue-checker-safe-fix",
+  "kind": "playbook",
+  "competition_mode": "awdp",
+  "role": "blue",
+  "slug": "checker-safe-fix",
+  "title": "AWDP Blue / Checker-safe Fix",
+  "summary": "AWDP Blue / Checker-safe Fix",
+  "tags": [
+    "awdp",
+    "blue",
+    "checker-safe"
+  ],
+  "source": "internal",
+  "version": "v1",
+  "status": "active"
+}

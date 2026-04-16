@@ -1,0 +1,16 @@
+{
+  "task_family": "web",
+  "competition_mode": "awdp",
+  "awdp_role": "blue",
+  "review_dimensions": [
+    "fixes semantic boundary",
+    "preserves checker path",
+    "removes user-controlled object source",
+    "keeps preview/download policy consistent"
+  ],
+  "reject_if": [
+    "blacklist-only patch",
+    "feature disable as main fix",
+    "still trusts unserialized cookie state"
+  ]
+}

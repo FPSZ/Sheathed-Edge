@@ -1,0 +1,13 @@
+{
+  "skill_id": "rev-mustpass10-file-read-arithmetic",
+  "trigger_case_id": "buuctf-level1",
+  "problem": "The student found almost no strings and then stalled at entry analysis, leaving raw tool-call markup instead of pushing into the arithmetic recovery path. It missed the pattern of file-read plus per-index arithmetic reconstruction from output data.",
+  "rule_update": "For simple static reverse tasks where strings are thin but output formatting and file names are visible, inspect main/entry with one narrow command and reconstruct the per-index arithmetic transform from the emitted output instead of stopping at evidence summary.",
+  "checklist_update": [
+    "When only `flag` and numeric output strings exist, suspect file-read plus arithmetic transform.",
+    "Use one narrow command like `s main; pdf` or `s entry0; pdf` instead of emitting literal tool-call markup.",
+    "Recover index origin carefully; do not assume loops start from zero.",
+    "Separate odd/even or branch-specific arithmetic before inverting."
+  ],
+  "requires_eval_refresh": true
+}

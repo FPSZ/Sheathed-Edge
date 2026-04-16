@@ -1,0 +1,25 @@
+{
+  "id": "awdp-red-ciscn-2026-watchagent",
+  "role": "red",
+  "task_family": "uncertain",
+  "competition_mode": "awdp",
+  "awdp_role": "red",
+  "title": "CISCN 半决赛 2026 / WatchAgent",
+  "summary": "WatchAgent 更像渗透/横向移动样本，公开线索指向自定义 agent 服务、命令执行和认证 token。",
+  "tags": [
+    "awdp",
+    "red",
+    "ciscn",
+    "isw",
+    "agent-service",
+    "rpc",
+    "rce"
+  ],
+  "status": "candidate",
+  "confidence": "medium",
+  "verified_local_match": false,
+  "source_urls": [
+    "https://www.cnblogs.com/seyedog/p/19814241"
+  ],
+  "local_root": "D:\\AWDP\\CISCN半决赛\\渗透\\WatchAgent"
+}

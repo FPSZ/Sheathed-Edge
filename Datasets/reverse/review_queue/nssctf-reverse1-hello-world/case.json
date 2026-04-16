@@ -1,0 +1,43 @@
+{
+  "case_id": "nssctf-reverse1-hello-world",
+  "task_meta": {
+    "category": "reverse",
+    "source": "NSSCTF",
+    "difficulty": "easy",
+    "visibility": "train-dev-only",
+    "notes": "Auto-bootstrapped from ctf_training_loop_v1.py; requires human review before train/eval use."
+  },
+  "input_files": [
+    {
+      "path": "D:/CTF/题目/逆向/NSSCTF/已解决/reverse_1.exe",
+      "sha256": "",
+      "role": "challenge-binary"
+    }
+  ],
+  "student_trace": {
+    "source": "D:/AI/Local/Logs/tests/ctf-training-loop/20260416_090209/nssctf-reverse1-hello-world.json",
+    "summary": "- **task_family**: reverse\n- **shared_domain**: binary\n- **phase**: triage\n- **primary_skill**: key-function-recovery\n- **secondary_skills**: validation-and-check-tracing\n- **evidence_required**: main function logic, validation algorithm, flag extraction\n\n## Key Tool Evidence\n\n1. **File opened**: `reverse_1.exe` successfully loaded\n2. **Analysis completed**: 4468 functions found, full binary analysis done\n3. **Strings extracted**:\n   - `\"this is the right flag!\"` - success message\n   - `\"wrong flag\\n\"` - failure message\n   - `\"input the flag:\\n\"` - prompt\n   - `\"{hello_world}\"` - likely flag format hint\n4. **Functions**: `sym.main` at `0x00400666` identified\n\n## Current Finding\n\n从 strings 可以看出这是一个 flag 验证程序：\n- 程序会提示输入 flag\n- 验证正确显示 \"this is the right flag!\"\n- 验证错误显示 \"wrong flag\"\n- 存在 `{hello_world}` 格式的提示，暗示 flag 可能包含 `NSSCTF{...}` 格式\n\n## Next Evidence Target\n\n需要查看 `sym.main` 函数的具体验证逻辑，找到 flag 的校验算法或硬编码的 flag。\n\n## Remaining Gap\n\n**关键证据缺口**：\n1. `sym.main` 函数的具体验证逻辑（伪代码/汇编）\n2. flag 的校验算法或硬编码值\n3. 是否有加密/编码的 flag 需要解密\n\n需要进一步查看 main 函数的反汇编或伪代码来找到 flag 验证的具体实现。",
+    "tool_events": []
+  },
+  "teacher_trace": {
+    "source": "D:/AI/Local/Writeups/ctf-ai-baselines/nssctf-reverse1-ai-wp.md",
+    "summary": "待人工补全 teacher solve / WP 摘要。",
+    "tool_events": []
+  },
+  "error_tags": [],
+  "gold_outcome": {
+    "status": "unknown",
+    "flag": "{hello_world}",
+    "evidence": [
+      "D:/AI/Local/Writeups/ctf-ai-baselines/nssctf-reverse1-ai-wp.md"
+    ]
+  },
+  "skill_delta": [],
+  "sft_ready": false,
+  "audit": {
+    "reviewed_by": "",
+    "reviewed_at": "",
+    "can_use_for_train": false,
+    "can_use_for_eval": false
+  }
+}

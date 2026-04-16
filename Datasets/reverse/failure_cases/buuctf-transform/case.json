@@ -1,0 +1,44 @@
+{
+  "case_id": "buuctf-transform",
+  "task_meta": {
+    "category": "reverse",
+    "source": "BUUCTF",
+    "difficulty": "easy-medium",
+    "notes": "Must-pass10 failure case promoted for remediation and future fine-tune conversion."
+  },
+  "input_files": [
+    {
+      "path": "D:/CTF/题目/逆向/BUUCTF/Transform.exe",
+      "sha256": "",
+      "role": "challenge-binary"
+    }
+  ],
+  "student_trace": {
+    "source": "D:/AI/Local/Logs/tests/reverse-mustpass10/20260416_140643/buuctf-transform.json",
+    "summary": "- `task_family: reverse`\n- `shared_domain: binary`\n- `phase: triage`\n- `primary_skill: key-function-recovery`\n- `next evidence target: decompile entry function, broader string search`\n\n**Key tool evidence:**\n- File opened: `Transform.exe` (64-bit PE)\n- Analysis completed: 4468 functions found\n- Strings (ascii/unicode): empty results\n- Functions: mostly CRT/VC runtime imports, `entry0` at 0x00002430\n- `entry2` function: 64-bit, 47 bytes, 2 args, 5 basic blocks\n\n**Current finding:**\nStrings are not visible in standard ascii/unicode search. This suggests either:\n1. Strings are encoded/encrypted at runtime\n2. Binary is packed (UPX or similar)\n3. Strings stored in data section with custom encoding\n\nThe empty strings result is a high-signal clue that this is likely a transformation/encoding challenge where the flag is computed at runtime rather than stored statically.\n\n**Next evidence target:**\nDecompile the entry function to understand the transformation logic, and search for any data section strings or encoded flag patterns.\n\n<tool_call>\n<function=tool_list_strings_post>\n<parameter=filter>\nall\n</parameter>\n<parameter=page_size>\n200\n</parameter>\n</function>\n</tool_call>",
+    "tool_events": []
+  },
+  "teacher_trace": {
+    "source": "D:/AI/Local/Writeups/ctf-ai-baselines/buuctf-transform-ai-wp.md",
+    "summary": "# BUUCTF Transform AI WP\n\n题目路径：\n- `D:\\CTF\\题目\\逆向\\BUUCTF\\Transform.exe`\n\n题型判断：\n- `task_family: pwn/reverse-static`\n- 置换 + 按索引异或逆推题\n\n关键证据：\n- 程序要求输入长度为 33\n- 有一张长度 33 的置换表\n- 程序先按置换表重排输入字节\n- 再把重排后的每一字节与当前索引异或\n- 最终结果和目标字节串比较\n\n正确思路：\n1. 先提取置换表。\n2. 再提取目标字节串。\n3. 逆运算顺序应为：\n   - 先对目标串按索引异或还原\n   - 再按置换表逆置换回输入位置\n4. 得到原始输入即 flag。\n\n易错点：\n- 容易把“置换”和“异或”的顺序弄反\n- 容易漏掉最后两项索引，导致长度不对\n\n人工结论：\n- `MRCTF{Tr4nsp0sltiON_Clph3r_1s_3z}`\n",
+    "tool_events": []
+  },
+  "gold_outcome": {
+    "status": "known",
+    "flag": "MRCTF{Tr4nsp0sltiON_Clph3r_1s_3z}",
+    "evidence": [
+      "D:/AI/Local/Writeups/ctf-ai-baselines/buuctf-transform-ai-wp.md"
+    ]
+  },
+  "error_tags": [
+    "mustpass10_failure",
+    "needs_skill_delta"
+  ],
+  "sft_ready": false,
+  "audit": {
+    "reviewed_by": "codex",
+    "reviewed_at": "2026-04-16T14:39:57",
+    "can_use_for_train": true,
+    "can_use_for_eval": true
+  }
+}

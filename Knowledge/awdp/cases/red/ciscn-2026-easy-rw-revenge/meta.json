@@ -1,0 +1,27 @@
+{
+  "id": "awdp-red-ciscn-2026-easy-rw-revenge",
+  "role": "red",
+  "task_family": "pwn",
+  "competition_mode": "awdp",
+  "awdp_role": "red",
+  "title": "CISCN 半决赛 2026 / easy_rw_revenge",
+  "summary": "公开攻防线索都比较明确：MD5 鉴权绕过 + UAF + largebin/tcache 利用；蓝队还有把危险 `call free` 改为更安全逻辑的补丁思路。",
+  "tags": [
+    "awdp",
+    "red",
+    "ciscn",
+    "pwn",
+    "uaf",
+    "largebin",
+    "tcache",
+    "rtsp"
+  ],
+  "status": "candidate",
+  "confidence": "high",
+  "verified_local_match": true,
+  "source_urls": [
+    "https://www.cnblogs.com/alexander17/p/19761028",
+    "https://www.cnblogs.com/seyedog/p/19814241"
+  ],
+  "local_root": "D:\\AWDP\\CISCN半决赛\\攻防\\PWN\\easy_rw_revenge\\easy_rw_revenge"
+}

@@ -1,0 +1,43 @@
+{
+  "case_id": "buuctf-reverse1",
+  "task_meta": {
+    "category": "reverse",
+    "source": "BUUCTF",
+    "difficulty": "easy",
+    "visibility": "train-dev-only",
+    "notes": "Auto-bootstrapped from ctf_training_loop_v1.py; requires human review before train/eval use."
+  },
+  "input_files": [
+    {
+      "path": "D:/CTF/题目/逆向/BUUCTF/reverse_1.exe",
+      "sha256": "",
+      "role": "challenge-binary"
+    }
+  ],
+  "student_trace": {
+    "source": "D:/AI/Local/Logs/tests/ctf-training-loop/20260416_090209/buuctf-reverse1.json",
+    "summary": "- **task_family**: reverse\n- **shared_domain**: binary\n- **phase**: verification\n- **primary_skill**: validation-and-check-tracing\n- **secondary_skills**: flag-and-key-extraction\n- **key tool evidence**: \n  - Strings found: \"wrong flag\\n\", \"this is the right flag!\\n\", \"input the flag:\\n\", \"{hello_world}\"\n  - Functions: entry0, strlen, strncmp, IsDebuggerPresent\n  - Program uses standard C runtime with debug build (ucrtbased.dll, VCRUNTIME140D.dll)\n- **current finding**: \n  - 程序是一个简单的 flag 验证程序\n  - 字符串 \"{hello_world}\" 高度疑似 flag\n  - 使用了 IsDebuggerPresent 做反调试检查\n  - 使用 strncmp 进行字符串比较验证\n- **next evidence target**: entry0 伪代码以确认验证逻辑和 flag 位置\n- **final answer or best candidate**: `flag{hello_world}`\n- **remaining gap**: 需要查看 entry0 伪代码确认验证逻辑，但字符串证据已足够可信\n\n---\n\n## 分析总结\n\n从字符串分析中发现了关键证据：\n\n1. **flag 候选**: `{hello_world}` - 这是最明显的 flag 格式\n2. **验证逻辑**: 程序使用 `strncmp` 比较用户输入与某个字符串\n3. **提示信息**: \"input the flag:\" 和 \"this is the right flag!\" 表明这是一个 flag 验证程序\n4. **反调试**: 使用 `IsDebuggerPresent` 检测调试器\n\n基于字符串证据，flag 极大概率是：\n\n```\nflag{hello_world}\n```\n\n如需进一步验证，可以查看 entry0 的伪代码确认具体的比较逻辑和 flag 存储位置。",
+    "tool_events": []
+  },
+  "teacher_trace": {
+    "source": "D:/AI/Local/Writeups/ctf-ai-baselines/buuctf-reverse1-ai-wp.md",
+    "summary": "待人工补全 teacher solve / WP 摘要。",
+    "tool_events": []
+  },
+  "error_tags": [],
+  "gold_outcome": {
+    "status": "unknown",
+    "flag": "{hell0_w0rld}",
+    "evidence": [
+      "D:/AI/Local/Writeups/ctf-ai-baselines/buuctf-reverse1-ai-wp.md"
+    ]
+  },
+  "skill_delta": [],
+  "sft_ready": false,
+  "audit": {
+    "reviewed_by": "",
+    "reviewed_at": "",
+    "can_use_for_train": false,
+    "can_use_for_eval": false
+  }
+}

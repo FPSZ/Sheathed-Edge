@@ -24,9 +24,145 @@ use crate::{
     models::{
         AppState, McpBridgeProcess, McpDiscoverRequest, McpDiscoverResponse, McpDiscoveredTool,
         McpRuntimeEntry, McpRuntimeState, McpRuntimeStatusResponse, McpServerProfile,
-        McpToolCacheEntry, McpToolCacheFile, McpValidateRequest, McpValidateResponse,
+        McpToolCacheEntry, McpToolCacheFile, McpValidateRequest, McpValidateResponse, ToolDef,
+        ToolEntry,
     },
+    policy,
 };
+
+pub fn resolve_dynamic_tool(
+    state: &AppState,
+    tool_name: &str,
+    mode: &str,
+    user_email: &str,
+) -> std::result::Result<Option<ToolDef>, (String, String)> {
+    let workspace = match policy::load_user_workspace(state, user_email) {
+        Some(workspace) => workspace,
+        None => return Ok(None),
+    };
+
+    let enabled_servers = unique_trimmed(workspace.enabled_mcp_server_ids.clone());
+    if enabled_servers.is_empty() {
+        return Ok(None);
+    }
+
+    let servers =
+        load_servers(state).map_err(|err| ("mcp_config_error".into(), err.to_string()))?;
+    let cache =
+        read_tool_cache(state).map_err(|err| ("mcp_cache_error".into(), err.to_string()))?;
+    let normalized_tool_name = tool_name.trim();
+    if normalized_tool_name.is_empty() {
+        return Ok(None);
+    }
+
+    for server_id in enabled_servers {
+        let Some(server) = servers
+            .iter()
+            .find(|item| item.enabled && item.id.eq_ignore_ascii_case(&server_id))
+        else {
+            continue;
+        };
+
+        let Some(cache_entry) = cache
+            .servers
+            .iter()
+            .find(|item| item.server_id.eq_ignore_ascii_case(&server.id))
+        else {
+            continue;
+        };
+
+        let disabled_for_user = workspace
+            .disabled_mcp_tools_by_server
+            .get(&server.id)
+            .cloned()
+            .unwrap_or_default();
+
+        let Some(tool) = cache_entry.tools.iter().find(|item| {
+            item.name.eq_ignore_ascii_case(normalized_tool_name)
+                && !item.disabled
+                && !server
+                    .disabled_tools
+                    .iter()
+                    .any(|disabled| disabled.eq_ignore_ascii_case(&item.name))
+                && !disabled_for_user
+                    .iter()
+                    .any(|disabled| disabled.eq_ignore_ascii_case(&item.name))
+        }) else {
+            continue;
+        };
+
+        let plugin_scope = if server.plugin_scope.is_empty() {
+            vec![mode.to_string()]
+        } else {
+            server.plugin_scope.clone()
+        };
+
+        let entry = ToolEntry {
+            name: tool.name.clone(),
+            description: tool.description.clone(),
+            tool_type: "function".into(),
+            transport: "mcp".into(),
+            command: vec![],
+            env: HashMap::from([("mcp_server_id".into(), server.id.clone())]),
+            workdir: String::new(),
+            timeout_ms: server.timeout_ms.max(1_000),
+            retry: crate::models::RetryConfig {
+                max_attempts: 1,
+                backoff_ms: 0,
+            },
+            allowed_paths: vec![],
+            allowed_hosts: vec![],
+            allowed_cidrs: vec![],
+            allowed_schemes: vec!["http".into(), "https".into()],
+            allowed_ports: vec![],
+            plugin_scope,
+            parameter_schema: json!({
+                "type": "object",
+                "additionalProperties": true
+            }),
+            capabilities: vec!["mcp".into()],
+            enabled: true,
+        };
+        let validator = jsonschema::validator_for(&entry.parameter_schema)
+            .map_err(|err| ("mcp_schema_invalid".into(), err.to_string()))?;
+        return Ok(Some(ToolDef {
+            entry,
+            validator: std::sync::Arc::new(validator),
+        }));
+    }
+
+    Ok(None)
+}
+
+pub async fn invoke_tool(
+    state: &AppState,
+    server_id: &str,
+    tool_name: &str,
+    arguments: &Value,
+) -> std::result::Result<Value, (String, String)> {
+    let servers =
+        load_servers(state).map_err(|err| ("mcp_config_error".into(), err.to_string()))?;
+    let server = servers
+        .into_iter()
+        .find(|item| item.enabled && item.id.eq_ignore_ascii_case(server_id))
+        .ok_or_else(|| {
+            (
+                "mcp_server_not_found".into(),
+                format!("unknown MCP server: {server_id}"),
+            )
+        })?;
+
+    match server.kind.as_str() {
+        "native_streamable_http" => invoke_native_tool(&server, tool_name, arguments).await,
+        "mcpo_stdio" | "mcpo_sse" => {
+            invoke_openapi_tool(state, &server, tool_name, arguments).await
+        }
+        other => Err((
+            "mcp_unsupported".into(),
+            format!("unsupported MCP kind for execution: {other}"),
+        )),
+    }
+}
 
 pub async fn validate_server(
     state: &AppState,
@@ -362,7 +498,7 @@ async fn start_enabled_bridges(
         }
         let config_path = write_mcpo_server_config(state, server)?;
         let log_path = mcpo_log_path(state, server);
-        let mut command = Command::new("mcpo");
+        let mut command = mcpo_command(state);
         command
             .arg("--config")
             .arg(&config_path)
@@ -393,6 +529,16 @@ async fn start_enabled_bridges(
         runtime.bridges.push(process);
     }
     Ok(())
+}
+
+fn mcpo_command(state: &AppState) -> Command {
+    let configured = state.config.mcp.bridge_command.clone();
+    if let Some((program, args)) = configured.split_first() {
+        let mut command = Command::new(program);
+        command.args(args);
+        return command;
+    }
+    Command::new("mcpo")
 }
 
 async fn pipe_child_logs(child: &mut tokio::process::Child, log_path: &str) {
@@ -541,33 +687,175 @@ async fn discover_native_tools(server: &McpServerProfile) -> Result<Vec<McpDisco
         .collect())
 }
 
+async fn invoke_native_tool(
+    server: &McpServerProfile,
+    tool_name: &str,
+    arguments: &Value,
+) -> std::result::Result<Value, (String, String)> {
+    let client = http_client_for_server(server)
+        .map_err(|err| ("mcp_client_error".into(), err.to_string()))?;
+    let mut headers =
+        auth_headers(server).map_err(|err| ("mcp_auth_error".into(), err.to_string()))?;
+    headers.insert(
+        reqwest::header::CONTENT_TYPE,
+        HeaderValue::from_static("application/json"),
+    );
+
+    let initialize = json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2025-03-26",
+            "capabilities": {},
+            "clientInfo": { "name": "awdp-tool-router", "version": "1.0.0" }
+        }
+    });
+    client
+        .post(&server.url)
+        .headers(headers.clone())
+        .json(&initialize)
+        .send()
+        .await
+        .map_err(|err| ("mcp_initialize_failed".into(), err.to_string()))?;
+
+    let call_tool = json!({
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "tools/call",
+        "params": {
+            "name": tool_name,
+            "arguments": arguments.clone()
+        }
+    });
+    let value: Value = client
+        .post(&server.url)
+        .headers(headers)
+        .json(&call_tool)
+        .send()
+        .await
+        .map_err(|err| ("mcp_call_failed".into(), err.to_string()))?
+        .json()
+        .await
+        .map_err(|err| ("mcp_parse_failed".into(), err.to_string()))?;
+
+    if let Some(error) = value.get("error") {
+        let message = error
+            .get("message")
+            .and_then(Value::as_str)
+            .unwrap_or("MCP tool call failed")
+            .to_string();
+        return Err(("mcp_tool_failed".into(), message));
+    }
+
+    if let Some(structured) = value.pointer("/result/structuredContent") {
+        return Ok(structured.clone());
+    }
+
+    if let Some(text) = value
+        .pointer("/result/content/0/text")
+        .and_then(Value::as_str)
+    {
+        if let Ok(parsed) = serde_json::from_str::<Value>(text) {
+            return Ok(parsed);
+        }
+        return Ok(json!({ "content": text }));
+    }
+
+    Ok(value)
+}
+
+async fn invoke_openapi_tool(
+    state: &AppState,
+    server: &McpServerProfile,
+    tool_name: &str,
+    arguments: &Value,
+) -> std::result::Result<Value, (String, String)> {
+    let runtime = sync_runtime_with_config(state)
+        .await
+        .map_err(|err| ("mcp_runtime_error".into(), err.to_string()))?;
+    let entry = runtime
+        .servers
+        .into_iter()
+        .find(|item| item.server_id.eq_ignore_ascii_case(&server.id))
+        .ok_or_else(|| {
+            (
+                "mcp_runtime_missing".into(),
+                format!("missing runtime entry for {}", server.id),
+            )
+        })?;
+    if entry.status != "running" {
+        return Err((
+            "mcp_runtime_not_ready".into(),
+            format!(
+                "mcpo bridge for {} is not running: {}",
+                server.id, entry.last_error
+            ),
+        ));
+    }
+
+    let client = Client::builder()
+        .danger_accept_invalid_certs(true)
+        .timeout(Duration::from_millis(server.timeout_ms.max(1_000)))
+        .build()
+        .map_err(|err| ("mcp_client_error".into(), err.to_string()))?;
+    let (method, path) = resolve_openapi_operation(
+        &client,
+        &entry.effective_connection_url,
+        &server.id,
+        tool_name,
+    )
+    .await
+    .map_err(|err| ("mcp_openapi_resolve_failed".into(), err.to_string()))?;
+
+    let url = format!(
+        "{}{}",
+        prefixed_openapi_base(&entry.effective_connection_url, &server.id),
+        path
+    );
+    let request = match method.as_str() {
+        "get" => client.get(&url).query(arguments),
+        _ => client.post(&url).json(arguments),
+    };
+    let response = request
+        .send()
+        .await
+        .map_err(|err| ("mcp_call_failed".into(), err.to_string()))?;
+    let status = response.status();
+    let text = response
+        .text()
+        .await
+        .map_err(|err| ("mcp_parse_failed".into(), err.to_string()))?;
+    if !status.is_success() {
+        return Err((
+            "mcp_tool_failed".into(),
+            format!(
+                "{} {} returned {}: {}",
+                method.to_uppercase(),
+                path,
+                status,
+                text
+            ),
+        ));
+    }
+
+    if text.trim().is_empty() {
+        return Ok(json!({}));
+    }
+
+    match serde_json::from_str::<Value>(&text) {
+        Ok(value) => Ok(value),
+        Err(_) => Ok(json!({ "content": text })),
+    }
+}
+
 async fn discover_openapi_tools(base_url: &str, server_id: &str) -> Result<Vec<McpDiscoveredTool>> {
     let client = Client::builder()
         .danger_accept_invalid_certs(true)
         .timeout(Duration::from_secs(10))
         .build()
         .context("build openapi discovery client")?;
-
-    let urls = [
-        format!("{}/openapi.json", base_url.trim_end_matches('/')),
-        format!(
-            "{}/{}/openapi.json",
-            base_url.trim_end_matches('/'),
-            server_id
-        ),
-    ];
-    let mut spec: Option<Value> = None;
-    for url in urls {
-        if let Ok(resp) = client.get(&url).send().await {
-            if resp.status().is_success() {
-                if let Ok(value) = resp.json::<Value>().await {
-                    spec = Some(value);
-                    break;
-                }
-            }
-        }
-    }
-    let spec = spec.ok_or_else(|| anyhow!("unable to fetch mcpo openapi spec"))?;
+    let spec = fetch_openapi_spec(&client, base_url, server_id).await?;
     let mut tools = Vec::new();
     if let Some(paths) = spec.get("paths").and_then(Value::as_object) {
         for (path, item) in paths {
@@ -609,6 +897,86 @@ async fn discover_openapi_tools(base_url: &str, server_id: &str) -> Result<Vec<M
     tools.sort_by(|a, b| a.name.cmp(&b.name));
     tools.dedup_by(|a, b| a.name.eq_ignore_ascii_case(&b.name));
     Ok(tools)
+}
+
+async fn resolve_openapi_operation(
+    client: &Client,
+    base_url: &str,
+    server_id: &str,
+    tool_name: &str,
+) -> Result<(String, String)> {
+    let spec = fetch_openapi_spec(client, base_url, server_id).await?;
+    let paths = spec
+        .get("paths")
+        .and_then(Value::as_object)
+        .ok_or_else(|| anyhow!("openapi spec has no paths"))?;
+
+    for (path, item) in paths {
+        for method in ["post", "get"] {
+            let Some(operation) = item.get(method) else {
+                continue;
+            };
+            let operation_id = operation
+                .get("operationId")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .trim();
+            if operation_id.eq_ignore_ascii_case(tool_name) {
+                return Ok((method.to_string(), path.to_string()));
+            }
+        }
+    }
+
+    Err(anyhow!(
+        "operationId not found in openapi spec: {}",
+        tool_name
+    ))
+}
+
+async fn fetch_openapi_spec(client: &Client, base_url: &str, server_id: &str) -> Result<Value> {
+    let urls = [
+        format!("{}/openapi.json", base_url.trim_end_matches('/')),
+        format!(
+            "{}/{}/openapi.json",
+            base_url.trim_end_matches('/'),
+            server_id
+        ),
+    ];
+
+    let mut fallback: Option<Value> = None;
+    for url in urls {
+        let resp = match client.get(&url).send().await {
+            Ok(resp) => resp,
+            Err(_) => continue,
+        };
+        if !resp.status().is_success() {
+            continue;
+        }
+        let value = match resp.json::<Value>().await {
+            Ok(value) => value,
+            Err(_) => continue,
+        };
+        let has_paths = value
+            .get("paths")
+            .and_then(Value::as_object)
+            .map(|paths| !paths.is_empty())
+            .unwrap_or(false);
+        if has_paths {
+            return Ok(value);
+        }
+        if fallback.is_none() {
+            fallback = Some(value);
+        }
+    }
+    fallback.ok_or_else(|| anyhow!("unable to fetch mcpo openapi spec"))
+}
+
+fn prefixed_openapi_base(base_url: &str, server_id: &str) -> String {
+    format!(
+        "{}/{}",
+        base_url.trim_end_matches('/'),
+        server_id.trim_matches('/')
+    )
 }
 
 async fn probe_native_streamable_http(client: &Client, server: &McpServerProfile) -> Result<()> {

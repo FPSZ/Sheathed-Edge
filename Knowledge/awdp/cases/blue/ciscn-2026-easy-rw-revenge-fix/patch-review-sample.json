@@ -1,0 +1,17 @@
+{
+  "task_family": "pwn",
+  "shared_domain": "binary",
+  "competition_mode": "awdp",
+  "awdp_role": "blue",
+  "review_dimensions": [
+    "minimal branch-local fix",
+    "preserves protocol semantics",
+    "checker-safe behavior retention",
+    "blocks dangling-reference path"
+  ],
+  "reject_if": [
+    "broad NOP-free strategy",
+    "unverified lifecycle rewrite",
+    "service no longer behaves as expected"
+  ]
+}

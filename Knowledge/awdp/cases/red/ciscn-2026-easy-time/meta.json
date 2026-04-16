@@ -1,0 +1,25 @@
+{
+  "id": "awdp-red-ciscn-2026-easy-time",
+  "role": "red",
+  "task_family": "web",
+  "competition_mode": "awdp",
+  "awdp_role": "red",
+  "title": "CISCN 半决赛 2026 / easy_time",
+  "summary": "公开资料主要覆盖非预期攻击链：弱登录态判定 + zip 解压穿越写 WebShell + avatar SSRF 触发 shell。",
+  "tags": [
+    "awdp",
+    "red",
+    "ciscn",
+    "web",
+    "zip-slip",
+    "ssrf",
+    "cookie-bypass"
+  ],
+  "status": "candidate",
+  "confidence": "medium",
+  "verified_local_match": true,
+  "source_urls": [
+    "https://www.cnblogs.com/Linyuuy/p/19771049"
+  ],
+  "local_root": "D:\\AWDP\\CISCN半决赛\\攻防\\WEB\\easy_time\\easy_time"
+}

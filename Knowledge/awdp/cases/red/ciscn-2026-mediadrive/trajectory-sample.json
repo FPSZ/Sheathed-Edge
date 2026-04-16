@@ -1,0 +1,29 @@
+{
+  "task_family": "web",
+  "competition_mode": "awdp",
+  "awdp_role": "red",
+  "phase_sequence": [
+    {
+      "phase": "intake",
+      "good": "Read preview.php/profile.php/User.php before payloading",
+      "bad": "Assume normal LFI from query parameter only"
+    },
+    {
+      "phase": "triage",
+      "good": "Locate rawPath -> blacklist -> iconv -> file_get_contents chain",
+      "bad": "Stop at blacklist regex"
+    },
+    {
+      "phase": "hypothesis",
+      "good": "Suspect mismatch between checked and consumed path",
+      "bad": "Assume blacklist is complete"
+    },
+    {
+      "phase": "verification",
+      "good": "Use low-risk path read and raw/converted diff observation",
+      "bad": "Jump to final flag claim without sink evidence"
+    }
+  ],
+  "route_correction_target": "checked-value vs consumed-value mismatch",
+  "teaching_value": "high"
+}

@@ -1,3 +1,4 @@
+pub mod mcp;
 pub mod reserved;
 pub mod search;
 pub mod terminal;
@@ -10,10 +11,13 @@ pub async fn dispatch_tool(
     def: &ToolDef,
     arguments: &Value,
 ) -> std::result::Result<ExecuteResponse, (String, String)> {
-    match def.entry.name.as_str() {
-        "filesystem/search" => search::run_rg_search(&def.entry, arguments, false).await,
-        "retrieval" => search::run_rg_search(&def.entry, arguments, true).await,
-        "terminal" => terminal::run_terminal(state, &def.entry, arguments).await,
-        _ => reserved::not_implemented(state, def, arguments).await,
+    match def.entry.transport.as_str() {
+        "mcp" => mcp::run_mcp_tool(state, def, arguments).await,
+        _ => match def.entry.name.as_str() {
+            "filesystem/search" => search::run_rg_search(&def.entry, arguments, false).await,
+            "retrieval" => search::run_rg_search(&def.entry, arguments, true).await,
+            "terminal" => terminal::run_terminal(state, &def.entry, arguments).await,
+            _ => reserved::not_implemented(state, def, arguments).await,
+        },
     }
 }

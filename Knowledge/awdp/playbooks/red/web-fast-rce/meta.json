@@ -1,0 +1,18 @@
+{
+  "id": "awdp-red-web-fast-rce",
+  "kind": "playbook",
+  "competition_mode": "awdp",
+  "role": "red",
+  "slug": "web-fast-rce",
+  "title": "AWDP Red / Web Fast RCE",
+  "summary": "AWDP Red / Web Fast RCE",
+  "tags": [
+    "awdp",
+    "red",
+    "web",
+    "fast-rce"
+  ],
+  "source": "internal",
+  "version": "v1",
+  "status": "active"
+}

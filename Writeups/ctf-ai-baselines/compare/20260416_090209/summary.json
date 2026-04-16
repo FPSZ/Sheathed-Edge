@@ -1,0 +1,236 @@
+{
+  "manifest_id": "reverse-writeup-backed-devset-v2",
+  "run_dir": "D:/AI/Local/Logs/tests/ctf-training-loop/20260416_090209",
+  "generated_at": "2026-04-16T09:13:38",
+  "cases": [
+    {
+      "case_id": "nssctf-simplebase",
+      "verdict": "partial",
+      "solved_exact": false,
+      "expected_answer": "NSSCTF{siMp13_Base64_5TXRMZHU6V9S}",
+      "candidate_flags": [
+        "NSSCTF{b4s364_1s_s0_34sy!}",
+        "{b4s364_1s_s0_34sy!}"
+      ],
+      "tool_count": 6,
+      "tool_stage_counter": {
+        "tool_execute_tool_open_file_post": 1,
+        "tool_execute_tool_analyze_post": 1,
+        "tool_execute_tool_list_strings_post": 2,
+        "tool_execute_tool_list_functions_post": 1,
+        "tool_execute_tool_show_function_details_post": 1
+      },
+      "error_tags": [
+        "candidate_extracted_but_not_exact",
+        "stopped_at_evidence_summary"
+      ],
+      "request_id": "req-1776301329348814000",
+      "reference_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/simplebase-ai-wp.md"
+    },
+    {
+      "case_id": "buuctf-level1",
+      "verdict": "partial",
+      "solved_exact": false,
+      "expected_answer": "ctf2020{d9-dE6-20c}",
+      "candidate_flags": [],
+      "tool_count": 6,
+      "tool_stage_counter": {
+        "tool_execute_tool_open_file_post": 1,
+        "tool_execute_tool_analyze_post": 1,
+        "tool_execute_tool_list_strings_post": 2,
+        "tool_execute_tool_list_functions_post": 1,
+        "tool_execute_tool_show_function_details_post": 1
+      },
+      "error_tags": [
+        "unfinished_tool_call_in_final_answer",
+        "no_final_candidate",
+        "stopped_at_evidence_summary"
+      ],
+      "request_id": "req-1776301418958639500",
+      "reference_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/buuctf-level1-ai-wp.md"
+    },
+    {
+      "case_id": "buuctf-reverse1",
+      "verdict": "partial",
+      "solved_exact": false,
+      "expected_answer": "{hell0_w0rld}",
+      "candidate_flags": [
+        "flag{hello_world}",
+        "{hello_world}"
+      ],
+      "tool_count": 6,
+      "tool_stage_counter": {
+        "tool_execute_tool_open_file_post": 1,
+        "tool_execute_tool_analyze_post": 1,
+        "tool_execute_tool_list_strings_post": 2,
+        "tool_execute_tool_list_functions_post": 1,
+        "tool_execute_tool_run_command_post": 1
+      },
+      "error_tags": [
+        "candidate_extracted_but_not_exact",
+        "stopped_at_evidence_summary"
+      ],
+      "request_id": "req-1776301477294951900",
+      "reference_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/buuctf-reverse1-ai-wp.md"
+    },
+    {
+      "case_id": "buuctf-transform",
+      "verdict": "partial",
+      "solved_exact": false,
+      "expected_answer": "MRCTF{Tr4nsp0sltiON_Clph3r_1s_3z}",
+      "candidate_flags": [],
+      "tool_count": 6,
+      "tool_stage_counter": {
+        "tool_execute_tool_open_file_post": 1,
+        "tool_execute_tool_analyze_post": 1,
+        "tool_execute_tool_list_strings_post": 1,
+        "tool_execute_tool_list_functions_post": 2,
+        "tool_execute_tool_show_function_details_post": 1
+      },
+      "error_tags": [
+        "no_final_candidate",
+        "stopped_at_evidence_summary"
+      ],
+      "request_id": "req-1776301628155790100",
+      "reference_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/buuctf-transform-ai-wp.md"
+    },
+    {
+      "case_id": "nssctf-checkin",
+      "verdict": "pass",
+      "solved_exact": true,
+      "expected_answer": "moectf{Enjoy_yourself_in_Reverse_Engineering!!!}",
+      "candidate_flags": [
+        "moectf{Enjoy_yourself_in_Reverse_Engineering!!!}",
+        "{Enjoy_yourself_in_Reverse_Engineering!!!}"
+      ],
+      "tool_count": 6,
+      "tool_stage_counter": {
+        "tool_execute_tool_open_file_post": 1,
+        "tool_execute_tool_analyze_post": 1,
+        "tool_execute_tool_list_strings_post": 1,
+        "tool_execute_tool_list_functions_post": 2,
+        "tool_execute_tool_show_function_details_post": 1
+      },
+      "error_tags": [
+        "solved_with_expected_answer"
+      ],
+      "request_id": "req-1776301628155790100",
+      "reference_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/nssctf-checkin-ai-wp.md"
+    },
+    {
+      "case_id": "nssctf-re1-welcome",
+      "verdict": "pass",
+      "solved_exact": true,
+      "expected_answer": "afctf{w41c0me a1l y0u 9uys}",
+      "candidate_flags": [
+        "afctf{w41c0me a1l y0u 9uys}",
+        "afctf{...}"
+      ],
+      "tool_count": 6,
+      "tool_stage_counter": {
+        "tool_execute_tool_open_file_post": 1,
+        "tool_execute_tool_analyze_post": 1,
+        "tool_execute_tool_list_strings_post": 1,
+        "tool_execute_tool_list_functions_post": 1,
+        "tool_execute_tool_list_imports_post": 1,
+        "tool_execute_tool_run_command_post": 1
+      },
+      "error_tags": [
+        "solved_with_expected_answer"
+      ],
+      "request_id": "req-1776301744440104500",
+      "reference_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/nssctf-re1-ai-wp.md"
+    },
+    {
+      "case_id": "nssctf-calc-strings",
+      "verdict": "pass",
+      "solved_exact": true,
+      "expected_answer": "utflag{str1ngs_1s_y0ur_fr13nd}",
+      "candidate_flags": [
+        "utflag{str1ngs_1s_y0ur_fr13nd}",
+        "{str1ngs_1s_y0ur_fr13nd}"
+      ],
+      "tool_count": 6,
+      "tool_stage_counter": {
+        "tool_execute_tool_open_file_post": 1,
+        "tool_execute_tool_analyze_post": 1,
+        "tool_execute_tool_list_strings_post": 1,
+        "tool_execute_tool_list_functions_post": 1,
+        "tool_execute_tool_list_imports_post": 1,
+        "tool_execute_tool_run_command_post": 1
+      },
+      "error_tags": [
+        "solved_with_expected_answer"
+      ],
+      "request_id": "req-1776301744440104500",
+      "reference_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/nssctf-calc-ai-wp.md"
+    },
+    {
+      "case_id": "nssctf-attachment15-upx",
+      "verdict": "partial",
+      "solved_exact": false,
+      "expected_answer": "wctf2020{Just_upx_-d}",
+      "candidate_flags": [],
+      "tool_count": 6,
+      "tool_stage_counter": {
+        "tool_execute_tool_open_file_post": 1,
+        "tool_execute_tool_analyze_post": 1,
+        "tool_execute_tool_list_strings_post": 2,
+        "tool_execute_tool_list_functions_post": 2
+      },
+      "error_tags": [
+        "no_deeper_binary_step",
+        "no_final_candidate",
+        "stopped_at_evidence_summary"
+      ],
+      "request_id": "req-1776301801971206100",
+      "reference_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/nssctf-attachment15-ai-wp.md"
+    },
+    {
+      "case_id": "nssctf-best-programmer",
+      "verdict": "pass",
+      "solved_exact": true,
+      "expected_answer": "LitCTF{I_am_the_best_programmer_ever}",
+      "candidate_flags": [
+        "LitCTF{I_am_the_best_programmer_ever}",
+        "{I_am_the_best_programmer_ever}"
+      ],
+      "tool_count": 6,
+      "tool_stage_counter": {
+        "tool_execute_tool_open_file_post": 1,
+        "tool_execute_tool_analyze_post": 1,
+        "tool_execute_tool_list_strings_post": 2,
+        "tool_execute_tool_list_functions_post": 1,
+        "tool_execute_tool_show_function_details_post": 1
+      },
+      "error_tags": [
+        "solved_with_expected_answer"
+      ],
+      "request_id": "req-1776301882930609000",
+      "reference_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/nssctf-best-programmer-ai-wp.md"
+    },
+    {
+      "case_id": "nssctf-reverse1-hello-world",
+      "verdict": "pass",
+      "solved_exact": true,
+      "expected_answer": "{hello_world}",
+      "candidate_flags": [
+        "NSSCTF{...}",
+        "{hello_world}"
+      ],
+      "tool_count": 6,
+      "tool_stage_counter": {
+        "tool_execute_tool_open_file_post": 1,
+        "tool_execute_tool_analyze_post": 1,
+        "tool_execute_tool_list_strings_post": 2,
+        "tool_execute_tool_list_functions_post": 1,
+        "tool_execute_tool_show_function_details_post": 1
+      },
+      "error_tags": [
+        "solved_with_expected_answer"
+      ],
+      "request_id": "req-1776301882930609000",
+      "reference_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/nssctf-reverse1-ai-wp.md"
+    }
+  ]
+}

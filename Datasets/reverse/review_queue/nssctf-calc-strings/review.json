@@ -1,0 +1,25 @@
+{
+  "case_id": "nssctf-calc-strings",
+  "request_id": "req-1776301744440104500",
+  "verdict": "pass",
+  "solved_exact": true,
+  "expected_answer": "utflag{str1ngs_1s_y0ur_fr13nd}",
+  "candidate_flags": [
+    "utflag{str1ngs_1s_y0ur_fr13nd}",
+    "{str1ngs_1s_y0ur_fr13nd}"
+  ],
+  "tool_stages": [
+    "tool_execute_tool_open_file_post",
+    "tool_execute_tool_analyze_post",
+    "tool_execute_tool_list_strings_post",
+    "tool_execute_tool_list_functions_post",
+    "tool_execute_tool_list_imports_post",
+    "tool_execute_tool_run_command_post"
+  ],
+  "error_tags": [
+    "solved_with_expected_answer"
+  ],
+  "baseline_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/nssctf-calc-ai-wp.md",
+  "result_json": "D:/AI/Local/Logs/tests/ctf-training-loop/20260416_090209/nssctf-calc-strings.json",
+  "reviewed_at": "2026-04-16T09:13:38"
+}

@@ -1,0 +1,13 @@
+{
+  "skill_id": "rev-mustpass10-permutation-xor",
+  "trigger_case_id": "buuctf-transform",
+  "problem": "The student identified validation messaging but stalled before reconstructing the actual transform. It did not advance from function triage into the permutation-plus-index-transform inversion that the teacher answer requires.",
+  "rule_update": "For fixed-length transform challenges, recover the forward order first, then invert in exact reverse order. When both permutation and byte-wise operations exist, never collapse them into one vague “math transform” summary.",
+  "checklist_update": [
+    "Extract or identify the permutation table explicitly.",
+    "Determine whether the program permutes first and then xors/adds, or the reverse.",
+    "Invert in reverse order, not in guessed order.",
+    "Check dropped tail indices before concluding the reconstruction failed."
+  ],
+  "requires_eval_refresh": true
+}

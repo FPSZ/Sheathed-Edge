@@ -3,6 +3,7 @@ package envelope
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -19,6 +20,10 @@ type Action struct {
 
 func Parse(content string) (Action, bool) {
 	original := content
+	content = strings.TrimSpace(stripThinkingBlocks(content))
+	if env, ok := parseXMLLikeToolCall(content); ok {
+		return env, true
+	}
 	content = normalizePayload(content)
 	if !LooksLikeJSONObject(content) {
 		return Action{}, false
@@ -32,6 +37,83 @@ func Parse(content string) (Action, bool) {
 		return Action{}, false
 	}
 	return env, true
+}
+
+func parseXMLLikeToolCall(content string) (Action, bool) {
+	lowered := strings.ToLower(content)
+	if !strings.Contains(lowered, "<tool_call>") {
+		return Action{}, false
+	}
+
+	nameStart := strings.Index(lowered, "<function=")
+	if nameStart == -1 {
+		return Action{}, false
+	}
+	nameStart += len("<function=")
+	nameEnd := strings.Index(content[nameStart:], ">")
+	if nameEnd == -1 {
+		return Action{}, false
+	}
+	name := strings.TrimSpace(content[nameStart : nameStart+nameEnd])
+	if name == "" {
+		return Action{}, false
+	}
+
+	arguments := map[string]any{}
+	search := content
+	searchLower := lowered
+	for {
+		paramStart := strings.Index(searchLower, "<parameter=")
+		if paramStart == -1 {
+			break
+		}
+		paramNameStart := paramStart + len("<parameter=")
+		paramNameEnd := strings.Index(search[paramNameStart:], ">")
+		if paramNameEnd == -1 {
+			break
+		}
+		paramName := strings.TrimSpace(search[paramNameStart : paramNameStart+paramNameEnd])
+		valueStart := paramNameStart + paramNameEnd + 1
+		closeRel := strings.Index(strings.ToLower(search[valueStart:]), "</parameter>")
+		if closeRel == -1 {
+			break
+		}
+		value := strings.TrimSpace(search[valueStart : valueStart+closeRel])
+		if paramName != "" {
+			arguments[paramName] = coerceEnvelopeScalar(value)
+		}
+		nextIndex := valueStart + closeRel + len("</parameter>")
+		if nextIndex >= len(search) {
+			break
+		}
+		search = search[nextIndex:]
+		searchLower = strings.ToLower(search)
+	}
+
+	return Action{
+		Type:      "tool_call",
+		Tool:      name,
+		Arguments: arguments,
+	}, true
+}
+
+func coerceEnvelopeScalar(value string) any {
+	if value == "" {
+		return ""
+	}
+	if i, err := strconv.Atoi(value); err == nil {
+		return i
+	}
+	if f, err := strconv.ParseFloat(value, 64); err == nil {
+		return f
+	}
+	switch strings.ToLower(value) {
+	case "true":
+		return true
+	case "false":
+		return false
+	}
+	return value
 }
 
 func LooksLikeJSONObject(content string) bool {

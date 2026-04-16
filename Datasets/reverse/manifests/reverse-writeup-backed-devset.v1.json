@@ -1,0 +1,58 @@
+﻿{
+  "manifest_id": "reverse-writeup-backed-devset-v1",
+  "version": 1,
+  "target_family": "reverse",
+  "notes": "当前先使用有本地WP可核对的公开题做开发/训练闭环。先跑通5题，再扩到10题。",
+  "recommended_use": {
+    "development_set": true,
+    "training_bootstrap": true,
+    "heldout_eval": false
+  },
+  "cases": [
+    {
+      "case_id": "nssctf-simplebase",
+      "source": "NSSCTF",
+      "challenge_path": "D:/CTF/题目/逆向/NSSCTF/未解决/06base64-/simplebase",
+      "reference_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/simplebase-ai-wp.md",
+      "expected_answer": "NSSCTF{siMp13_Base64_5TXRMZHU6V9S}",
+      "difficulty": "easy",
+      "writeup_backed": true
+    },
+    {
+      "case_id": "buuctf-level1",
+      "source": "BUUCTF",
+      "challenge_path": "D:/CTF/题目/逆向/BUUCTF/level1/level1",
+      "reference_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/buuctf-level1-ai-wp.md",
+      "expected_answer": "ctf2020{d9-dE6-20c}",
+      "difficulty": "easy",
+      "writeup_backed": true
+    },
+    {
+      "case_id": "buuctf-reverse1",
+      "source": "BUUCTF",
+      "challenge_path": "D:/CTF/题目/逆向/BUUCTF/reverse_1.exe",
+      "reference_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/buuctf-reverse1-ai-wp.md",
+      "expected_answer": "{hell0_w0rld}",
+      "difficulty": "easy",
+      "writeup_backed": true
+    },
+    {
+      "case_id": "buuctf-transform",
+      "source": "BUUCTF",
+      "challenge_path": "D:/CTF/题目/逆向/BUUCTF/Transform.exe",
+      "reference_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/buuctf-transform-ai-wp.md",
+      "expected_answer": "MRCTF{Tr4nsp0sltiON_Clph3r_1s_3z}",
+      "difficulty": "easy-medium",
+      "writeup_backed": true
+    },
+    {
+      "case_id": "nssctf-checkin",
+      "source": "NSSCTF",
+      "challenge_path": "D:/CTF/题目/逆向/NSSCTF/已解决/checkin/checkin",
+      "reference_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/nssctf-checkin-ai-wp.md",
+      "expected_answer": "moectf{Enjoy_yourself_in_Reverse_Engineering!!!}",
+      "difficulty": "easy",
+      "writeup_backed": true
+    }
+  ]
+}

@@ -33,7 +33,7 @@ pub async fn openapi_spec(State(state): State<AppState>) -> impl IntoResponse {
         "info": {
             "title": "AWDP Terminal Tool Server",
             "version": "1.0.0",
-            "description": "Controlled local and SSH terminal execution for Open WebUI via OpenAPI. The model may switch targets per call: use local for scripts and file transfer orchestration, use ssh for remote execution."
+            "description": "Controlled local and SSH terminal execution for Open WebUI via OpenAPI. When transport is omitted, the server automatically picks the current user's preferred execution target, usually that user's bound SSH host if one is configured."
         },
         "servers": [
             {
@@ -45,7 +45,7 @@ pub async fn openapi_spec(State(state): State<AppState>) -> impl IntoResponse {
                 "post": {
                     "operationId": "runTerminal",
                     "summary": "Run a controlled local or SSH shell command",
-                    "description": "Choose transport per call. Use local for host scripts, packaging, git, scp or rsync orchestration. Use ssh with host_id for remote directories, logs, processes, and running tasks on that host. A single conversation may mix local and ssh calls.",
+                    "description": "Choose transport per call. If transport is omitted, the server resolves the current user's default execution target automatically. Use local for host scripts, packaging, git, scp or rsync orchestration. Use ssh with host_id for remote directories, logs, processes, and running tasks on that host. A single conversation may mix local and ssh calls.",
                     "requestBody": {
                         "required": true,
                         "content": {
@@ -70,8 +70,7 @@ pub async fn openapi_spec(State(state): State<AppState>) -> impl IntoResponse {
                                                     "type": "null"
                                                 }
                                             ],
-                                            "default": "local",
-                                            "description": "Execution target kind. Use local for host commands and ssh for remote commands."
+                                            "description": "Execution target kind. If omitted, the server selects the current user's preferred target automatically."
                                         },
                                         "shell": {
                                             "anyOf": [
@@ -83,15 +82,14 @@ pub async fn openapi_spec(State(state): State<AppState>) -> impl IntoResponse {
                                                     "type": "null"
                                                 }
                                             ],
-                                            "default": "powershell",
-                                            "description": "Local shell. Only used when transport=local."
+                                            "description": "Local shell. Only used when transport resolves to local."
                                         },
                                         "host_id": {
                                             "anyOf": [
                                                 { "type": "string", "minLength": 1 },
                                                 { "type": "null" }
                                             ],
-                                            "description": "Required when transport=ssh. Select one authorized SSH target."
+                                            "description": "Required when transport=ssh unless the current user has a default SSH host binding."
                                         },
                                         "remote_shell": {
                                             "anyOf": [
@@ -151,7 +149,7 @@ pub async fn openapi_spec(State(state): State<AppState>) -> impl IntoResponse {
                                                 },
                                                 { "type": "null" }
                                             ],
-                                            "description": "Dynamic per-user execution targets. When present, choose one of these targets for this call."
+                                            "description": "Dynamic per-user execution targets. When present, prefer the current user's bound SSH host for remote execution and only use local when explicitly needed."
                                         }
                                     }
                                 }
@@ -371,7 +369,7 @@ pub async fn execute_tool(
     let normalized_arguments = normalize_tool_arguments(&state, &req.tool, &request_arguments);
     let (status, response) =
         match check_tool_access(&state, &req.tool, &req.mode, &normalized_arguments) {
-            Ok(def) => match executor::dispatch_tool(&state, def, &normalized_arguments).await {
+            Ok(def) => match executor::dispatch_tool(&state, &def, &normalized_arguments).await {
                 Ok(resp) => (StatusCode::OK, resp),
                 Err((code, message)) => (
                     StatusCode::OK,
@@ -414,14 +412,12 @@ pub async fn openapi_terminal(
 ) -> impl IntoResponse {
     let mut arguments = serde_json::Map::new();
     arguments.insert("command".into(), json!(req.command));
-    arguments.insert(
-        "transport".into(),
-        json!(req.transport.unwrap_or_else(|| "local".into())),
-    );
-    arguments.insert(
-        "shell".into(),
-        json!(req.shell.unwrap_or_else(|| "powershell".into())),
-    );
+    if let Some(transport) = req.transport {
+        arguments.insert("transport".into(), json!(transport));
+    }
+    if let Some(shell) = req.shell {
+        arguments.insert("shell".into(), json!(shell));
+    }
     if let Some(host_id) = req.host_id {
         arguments.insert("host_id".into(), json!(host_id));
     }
@@ -460,7 +456,7 @@ pub async fn openapi_terminal(
         &execute_req.mode,
         &normalized_arguments,
     ) {
-        Ok(def) => match executor::dispatch_tool(&state, def, &normalized_arguments).await {
+        Ok(def) => match executor::dispatch_tool(&state, &def, &normalized_arguments).await {
             Ok(resp) => resp,
             Err((code, message)) => ExecuteResponse {
                 ok: false,

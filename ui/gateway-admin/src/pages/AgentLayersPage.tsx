@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+﻿import { type ReactNode, useEffect, useMemo, useState } from "react";
 
 import { PageHeader } from "../components/PageHeader";
 import { apiGet, apiPost } from "../lib/api";
@@ -12,8 +12,11 @@ function newPresetDraft(): AgentLayerPreset {
     id: `preset-${suffix}`,
     label: `New Preset ${suffix}`,
     enable_agent_router: true,
+    enable_reverse_skills: false,
     enable_pwn_skills: false,
     enable_web_skills: false,
+    enable_awdp_red: false,
+    enable_awdp_blue: false,
   };
 }
 
@@ -45,7 +48,7 @@ export function AgentLayersPage() {
   }
 
   useEffect(() => {
-    load();
+    void load();
   }, []);
 
   const editingPreset = useMemo(
@@ -93,7 +96,7 @@ export function AgentLayersPage() {
       setData(response);
       setPresets(response.presets);
       setDefaultPresetID(response.default_preset_id ?? "");
-      setNotice("Agent/Skills 预设已保存，后续会话可以复用这些组合。");
+      setNotice("Agent / Skills 预设已保存，后续会话可以复用这些组合。");
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -105,7 +108,7 @@ export function AgentLayersPage() {
     <div className="space-y-6">
       <PageHeader
         title="Agent Layers"
-        description="管理 agent router、pwn skills、web skills 的受控组合，并预览每个预设最终会挂载哪些提示与能力。"
+        description="管理 Router、Reverse、Pwn、Web、AWDP Red、AWDP Blue 六层组合，并预览最终会挂载的 prompt、skills、tool scope 与 retrieval roots。Binary Core 会在 Reverse/Pwn 启用时自动注入，AWDP Core 会在 Red/Blue 启用时自动注入。"
         action={
           <div className="flex shrink-0 flex-nowrap items-center gap-2">
             <button className="admin-button" type="button" onClick={addPreset}>
@@ -173,16 +176,22 @@ export function AgentLayersPage() {
                 </Field>
               </div>
 
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
                 <ToggleCard
                   checked={editingPreset.enable_agent_router}
-                  description="共享路由入口，负责 task_family、phase、primary_skill 等统一约束。"
+                  description="共享路由入口，负责 task_family、competition_mode、phase 与 primary_skill 的统一约束。"
                   label="Agent Router"
                   onChange={(checked) => updatePreset(editingPreset.id, { enable_agent_router: checked })}
                 />
                 <ToggleCard
+                  checked={editingPreset.enable_reverse_skills}
+                  description="启用 reverse 家族的关键函数恢复、校验追踪、算法恢复与 flag 提取路线。"
+                  label="Reverse Skills"
+                  onChange={(checked) => updatePreset(editingPreset.id, { enable_reverse_skills: checked })}
+                />
+                <ToggleCard
                   checked={editingPreset.enable_pwn_skills}
-                  description="启用 pwn 家族的阶段化技能、证据要求与失败回退。"
+                  description="启用 pwn 家族的保护判断、原语判断、利用路径与 patch / regression 约束。"
                   label="Pwn Skills"
                   onChange={(checked) => updatePreset(editingPreset.id, { enable_pwn_skills: checked })}
                 />
@@ -193,8 +202,20 @@ export function AgentLayersPage() {
                   onChange={(checked) => updatePreset(editingPreset.id, { enable_web_skills: checked })}
                 />
                 <ToggleCard
+                  checked={editingPreset.enable_awdp_red}
+                  description="启用 AWDP 红队工作流：快攻、复用、收 flag 与提交前后检查。"
+                  label="AWDP Red"
+                  onChange={(checked) => updatePreset(editingPreset.id, { enable_awdp_red: checked })}
+                />
+                <ToggleCard
+                  checked={editingPreset.enable_awdp_blue}
+                  description="启用 AWDP 蓝队工作流：风险分诊、最小修补、checker-safe 与回归。"
+                  label="AWDP Blue"
+                  onChange={(checked) => updatePreset(editingPreset.id, { enable_awdp_blue: checked })}
+                />
+                <ToggleCard
                   checked={defaultPresetID === editingPreset.id}
-                  description="作为下一阶段会话级接入时的默认模板。"
+                  description="作为默认预设。Binary Core 与 AWDP Core 不单独暴露，会在相关层启用时自动挂载。"
                   label="Default Preset"
                   onChange={(checked) => setDefaultPresetID(checked ? editingPreset.id : "")}
                 />

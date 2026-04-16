@@ -1,0 +1,13 @@
+{
+  "skill_id": "rev-mustpass10-runtime-mutation",
+  "trigger_case_id": "buuctf-reverse1",
+  "problem": "The student treated a static candidate string as the likely final answer and stopped before validating the compare-time mutation. It missed the classic near-candidate pattern where one or more characters are rewritten just before comparison.",
+  "rule_update": "If strings expose a near-flag candidate but the success path still requires verification, inspect the compare routine for runtime mutations such as o->0, case rewrite, or per-index edits before finalizing the flag.",
+  "checklist_update": [
+    "Treat candidate strings as pre-mutation hints, not automatic final answers.",
+    "Take one narrow compare-path inspection step when the candidate seems too obvious.",
+    "Check common runtime edits like o/0, l/1, case normalization, and index-based byte mutation.",
+    "Do not end at evidence summary when the remaining gap is one small character rewrite."
+  ],
+  "requires_eval_refresh": true
+}

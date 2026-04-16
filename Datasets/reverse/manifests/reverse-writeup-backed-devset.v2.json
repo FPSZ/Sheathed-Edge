@@ -1,0 +1,103 @@
+{
+  "manifest_id": "reverse-writeup-backed-devset-v2",
+  "version": 2,
+  "target_family": "reverse",
+  "notes": "在 v1 的 5 题基础上扩到 10 题，仍然只纳入有本地 baseline WP 可核对的公开题。优先用于训练闭环、技能修订和 stopping rule 调整。",
+  "recommended_use": {
+    "development_set": true,
+    "training_bootstrap": true,
+    "heldout_eval": false
+  },
+  "cases": [
+    {
+      "case_id": "nssctf-simplebase",
+      "source": "NSSCTF",
+      "challenge_path": "D:/CTF/题目/逆向/NSSCTF/未解决/06base64-/simplebase",
+      "reference_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/simplebase-ai-wp.md",
+      "expected_answer": "NSSCTF{siMp13_Base64_5TXRMZHU6V9S}",
+      "difficulty": "easy",
+      "writeup_backed": true
+    },
+    {
+      "case_id": "buuctf-level1",
+      "source": "BUUCTF",
+      "challenge_path": "D:/CTF/题目/逆向/BUUCTF/level1/level1",
+      "reference_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/buuctf-level1-ai-wp.md",
+      "expected_answer": "ctf2020{d9-dE6-20c}",
+      "difficulty": "easy",
+      "writeup_backed": true
+    },
+    {
+      "case_id": "buuctf-reverse1",
+      "source": "BUUCTF",
+      "challenge_path": "D:/CTF/题目/逆向/BUUCTF/reverse_1.exe",
+      "reference_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/buuctf-reverse1-ai-wp.md",
+      "expected_answer": "{hell0_w0rld}",
+      "difficulty": "easy",
+      "writeup_backed": true
+    },
+    {
+      "case_id": "buuctf-transform",
+      "source": "BUUCTF",
+      "challenge_path": "D:/CTF/题目/逆向/BUUCTF/Transform.exe",
+      "reference_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/buuctf-transform-ai-wp.md",
+      "expected_answer": "MRCTF{Tr4nsp0sltiON_Clph3r_1s_3z}",
+      "difficulty": "easy-medium",
+      "writeup_backed": true
+    },
+    {
+      "case_id": "nssctf-checkin",
+      "source": "NSSCTF",
+      "challenge_path": "D:/CTF/题目/逆向/NSSCTF/已解决/checkin/checkin",
+      "reference_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/nssctf-checkin-ai-wp.md",
+      "expected_answer": "moectf{Enjoy_yourself_in_Reverse_Engineering!!!}",
+      "difficulty": "easy",
+      "writeup_backed": true
+    },
+    {
+      "case_id": "nssctf-re1-welcome",
+      "source": "NSSCTF",
+      "challenge_path": "D:/CTF/题目/逆向/NSSCTF/已解决/re1.exe",
+      "reference_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/nssctf-re1-ai-wp.md",
+      "expected_answer": "afctf{w41c0me a1l y0u 9uys}",
+      "difficulty": "easy",
+      "writeup_backed": true
+    },
+    {
+      "case_id": "nssctf-calc-strings",
+      "source": "NSSCTF",
+      "challenge_path": "D:/CTF/题目/逆向/NSSCTF/已解决/calc",
+      "reference_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/nssctf-calc-ai-wp.md",
+      "expected_answer": "utflag{str1ngs_1s_y0ur_fr13nd}",
+      "difficulty": "easy",
+      "writeup_backed": true
+    },
+    {
+      "case_id": "nssctf-attachment15-upx",
+      "source": "NSSCTF",
+      "challenge_path": "D:/CTF/题目/逆向/NSSCTF/已解决/attachment-15",
+      "reference_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/nssctf-attachment15-ai-wp.md",
+      "expected_answer": "wctf2020{Just_upx_-d}",
+      "difficulty": "easy",
+      "writeup_backed": true
+    },
+    {
+      "case_id": "nssctf-best-programmer",
+      "source": "NSSCTF",
+      "challenge_path": "D:/CTF/题目/逆向/NSSCTF/已解决/世界最高のプログラマーです.exe",
+      "reference_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/nssctf-best-programmer-ai-wp.md",
+      "expected_answer": "LitCTF{I_am_the_best_programmer_ever}",
+      "difficulty": "easy",
+      "writeup_backed": true
+    },
+    {
+      "case_id": "nssctf-reverse1-hello-world",
+      "source": "NSSCTF",
+      "challenge_path": "D:/CTF/题目/逆向/NSSCTF/已解决/reverse_1.exe",
+      "reference_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/nssctf-reverse1-ai-wp.md",
+      "expected_answer": "{hello_world}",
+      "difficulty": "easy",
+      "writeup_backed": true
+    }
+  ]
+}

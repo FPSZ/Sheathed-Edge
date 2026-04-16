@@ -1,0 +1,15 @@
+{
+  "package_type": "teacher_candidate",
+  "priority": "P0",
+  "quality": "high_but_needs_function_check",
+  "recommended_for": [
+    "retrieval",
+    "review",
+    "state-machine-training"
+  ],
+  "core_lessons": [
+    "state transition understanding precedes exploitation",
+    "transaction bugs often hide behind valid command sequences",
+    "historical same-name writeups must not override local verification"
+  ]
+}

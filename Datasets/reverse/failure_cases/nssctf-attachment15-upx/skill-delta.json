@@ -1,0 +1,13 @@
+{
+  "skill_id": "rev-mustpass10-packed-early-stop",
+  "trigger_case_id": "nssctf-attachment15-upx",
+  "problem": "The student over-invested in generic entry-point analysis and anti-debug framing instead of recognizing a likely UPX/packed beginner task. It failed to pivot quickly to the packer hypothesis and early-stop extraction logic.",
+  "rule_update": "When filename, challenge naming, or strings suggest UPX/simple packing, first decide whether strings already expose the flag. If not, make unpacking or packer confirmation the next narrow step instead of broad function walkthroughs.",
+  "checklist_update": [
+    "Use challenge naming and high-level strings as packer hints, not just imports.",
+    "If strings already reveal the flag, stop immediately.",
+    "If strings do not reveal it, treat packer confirmation/unpack as the next bounded action.",
+    "Do not let anti-debug imports alone drag the solve into deep runtime analysis."
+  ],
+  "requires_eval_refresh": true
+}

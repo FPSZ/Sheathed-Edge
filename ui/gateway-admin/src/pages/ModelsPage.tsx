@@ -238,6 +238,13 @@ function ModelCard({
 
       <dl className="mt-4 space-y-2 text-sm text-slate-600">
         <EditableMetric
+          label="Reasoning Format"
+          value={draft.reasoning_format ?? ""}
+          kind="text"
+          disabled={disabled}
+          onChange={(value) => onChange({ reasoning_format: value })}
+        />
+        <EditableMetric
           label="上下文/人"
           value={Math.round(draft.ctx_size / Math.max(1, draft.parallel))}
           disabled={disabled}

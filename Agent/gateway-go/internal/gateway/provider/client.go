@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os/exec"
@@ -259,8 +260,12 @@ func detectWSLHostIP(parent context.Context) string {
 	ctx, cancel := context.WithTimeout(parent, 500*time.Millisecond)
 	defer cancel()
 
-	if out, err := exec.CommandContext(ctx, "bash", "-lc", "ip route show default 2>/dev/null | awk '/default/ {print $3; exit}'").Output(); err == nil {
-		return strings.TrimSpace(string(out))
+	cmd := `ip route show default 2>/dev/null | awk '{for (i = 1; i <= NF; i++) if ($i == "via") { print $(i+1); exit }}'`
+	if out, err := exec.CommandContext(ctx, "bash", "-lc", cmd).Output(); err == nil {
+		candidate := strings.TrimSpace(string(out))
+		if ip := net.ParseIP(candidate); ip != nil {
+			return ip.String()
+		}
 	}
 	return ""
 }

@@ -14,5 +14,85 @@
     "verify_tls": true,
     "notes": "Offline native MCP managed by the Windows startup script",
     "url": "http://127.0.0.1:8765"
+  },
+  {
+    "id": "radare2-local",
+    "label": "radare2 MCP",
+    "enabled": true,
+    "kind": "mcpo_stdio",
+    "description": "Local radare2 MCP server for reverse and pwn binary analysis",
+    "plugin_scope": [
+      "pwn",
+      "reverse"
+    ],
+    "auth_type": "none",
+    "disabled_tools": [],
+    "timeout_ms": 90000,
+    "verify_tls": true,
+    "notes": "Uses launcher script to inject radare2 DLL search path before starting r2mcp.exe.",
+    "command": [
+      "D:\\CTF\\tool\\mcp\\launchers\\start-radare2-mcp.cmd"
+    ],
+    "workdir": "D:\\CTF\\tool\\mcp\\launchers"
+  },
+  {
+    "id": "ghidra-local",
+    "label": "Ghidra MCP",
+    "enabled": true,
+    "kind": "mcpo_stdio",
+    "description": "Local Ghidra MCP bridge for reverse and pwn static analysis",
+    "plugin_scope": [
+      "reverse",
+      "pwn"
+    ],
+    "auth_type": "none",
+    "disabled_tools": [],
+    "timeout_ms": 90000,
+    "verify_tls": true,
+    "notes": "Uses the local GhidraMCP bridge against the running Ghidra plugin on http://127.0.0.1:8080/.",
+    "command": [
+      "D:\\Environment2\\Create\\Python314\\python.exe",
+      "D:\\CTF\\tool\\mcp\\GhidraMCP\\bridge_mcp_ghidra.py"
+    ],
+    "workdir": "D:\\CTF\\tool\\mcp\\GhidraMCP"
+  },
+  {
+    "id": "ida-9-1-bridge",
+    "label": "IDA 9.1 MCP Bridge",
+    "enabled": false,
+    "kind": "native_streamable_http",
+    "description": "IDA 9.1 MCP plugin bridge exposed from the local IDA process",
+    "plugin_scope": [
+      "pwn",
+      "reverse"
+    ],
+    "auth_type": "none",
+    "disabled_tools": [],
+    "timeout_ms": 15000,
+    "verify_tls": true,
+    "notes": "Backed by IDA 9.1 plugin mcp-plugin.py. Scope is prewired for reverse/pwn; enable only after IDA starts the bridge on port 13337.",
+    "url": "http://127.0.0.1:13337/mcp"
+  },
+  {
+    "id": "x64dbg-local",
+    "label": "x64dbg MCP",
+    "enabled": false,
+    "kind": "mcpo_stdio",
+    "description": "Local x64dbg MCP bridge for live Windows debugging",
+    "plugin_scope": [
+      "reverse",
+      "pwn"
+    ],
+    "auth_type": "none",
+    "disabled_tools": [],
+    "timeout_ms": 90000,
+    "verify_tls": true,
+    "notes": "Prewired for reverse/pwn. Enable after x64dbg + HTTP plugin are up on http://127.0.0.1:8888/.",
+    "command": [
+      "D:\\Environment2\\Create\\Python314\\python.exe",
+      "D:\\CTF\\tool\\mcp\\x64dbgMCP\\src\\x64dbg.py",
+      "http://127.0.0.1:8888/"
+    ],
+    "workdir": "D:\\CTF\\tool\\mcp\\x64dbgMCP"
   }
 ]

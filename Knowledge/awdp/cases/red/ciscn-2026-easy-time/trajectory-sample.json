@@ -1,0 +1,29 @@
+{
+  "task_family": "web",
+  "competition_mode": "awdp",
+  "awdp_role": "red",
+  "phase_sequence": [
+    {
+      "phase": "intake",
+      "good": "Check auth, upload, outbound fetch surfaces together",
+      "bad": "Treat features independently"
+    },
+    {
+      "phase": "triage",
+      "good": "Confirm cookie auth weakness, unsafe unzip, and avatar fetch coexist",
+      "bad": "Stop after first sink"
+    },
+    {
+      "phase": "hypothesis",
+      "good": "Compose multi-step exploit chain",
+      "bad": "Overfit to one request or one payload"
+    },
+    {
+      "phase": "verification",
+      "good": "Validate each hop in the chain separately",
+      "bad": "Jump from one primitive to final claim"
+    }
+  ],
+  "route_correction_target": "chain composition over single-sink fixation",
+  "teaching_value": "high"
+}

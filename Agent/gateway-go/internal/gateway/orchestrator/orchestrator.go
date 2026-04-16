@@ -127,7 +127,7 @@ func (o *Orchestrator) executeTurnLogic(ctx context.Context, requestID string, r
 	req := originalReq
 	req.Model = responseModel
 	req.Stream = false
-	
+
 	if isNativeTools {
 		req.Messages = prependSystemContext(originalReq.Messages, buildNativeToolPrompt(turnPrompt), fragments)
 	} else {
@@ -152,8 +152,80 @@ func (o *Orchestrator) executeTurnLogic(ctx context.Context, requestID string, r
 				return finalResp, active, fragments, nil
 			}
 			msg := resp.Choices[0].Message
-			
+
 			if len(msg.ToolCalls) == 0 {
+				compatContent := strings.TrimSpace(msg.Content)
+				if compatContent == "" {
+					compatContent = strings.TrimSpace(msg.ReasoningContent)
+				}
+				if env, ok := envelope.Parse(compatContent); ok && env.Type == "tool_call" {
+					if env.Tool == "terminal" {
+						req.Messages = append(req.Messages,
+							types.ChatMessage{Role: "assistant", Content: compatContent},
+							types.ChatMessage{Role: "user", Content: buildFailClosedBlock(env.Tool, "terminal is handled by the Open WebUI external OpenAPI tool path, not the Gateway legacy tool path")},
+							types.ChatMessage{Role: "user", Content: "Do not print literal <tool_call> markup. If you need more evidence, use native tool calls directly. Otherwise answer now."},
+						)
+						continue
+					}
+
+					resolveSpan := trace.Begin("tool_resolve_compat")
+					resolveResp, err := o.toolClient.Resolve(ctx, toolclient.ResolveRequest{
+						SessionID: resp.ID,
+						Mode:      mode.BuildLabel(active),
+						Tool:      env.Tool,
+						UserEmail: originalReq.UserEmail,
+						Arguments: env.Arguments,
+					})
+					if err != nil || !resolveResp.Allowed {
+						reason := "tool resolve denied"
+						if err != nil {
+							reason = fmt.Sprintf("tool resolve failed: %v", err)
+						} else if resolveResp != nil && resolveResp.Reason != "" {
+							reason = resolveResp.Reason
+						}
+						resolveSpan.End(false, reason)
+						req.Messages = append(req.Messages,
+							types.ChatMessage{Role: "assistant", Content: compatContent},
+							types.ChatMessage{Role: "user", Content: buildFailClosedBlock(env.Tool, reason)},
+							types.ChatMessage{Role: "user", Content: "Do not print literal <tool_call> markup. If you cannot use a tool successfully, answer directly from the current evidence and name the exact remaining gap."},
+						)
+						continue
+					}
+					resolveSpan.End(true, "")
+
+					execSpan := trace.Begin(fmt.Sprintf("tool_execute_%s_compat", env.Tool))
+					execResp, err := o.toolClient.Execute(ctx, toolclient.ExecuteRequest{
+						SessionID: resp.ID,
+						Mode:      mode.BuildLabel(active),
+						Tool:      env.Tool,
+						UserEmail: originalReq.UserEmail,
+						Arguments: resolveResp.NormalizedArguments,
+					})
+					if err != nil || !execResp.OK {
+						reason := "tool execute failed"
+						if err != nil {
+							reason = err.Error()
+						} else if execResp != nil && execResp.Error != nil && execResp.Error.Message != "" {
+							reason = execResp.Error.Message
+						}
+						execSpan.End(false, reason)
+						req.Messages = append(req.Messages,
+							types.ChatMessage{Role: "assistant", Content: compatContent},
+							types.ChatMessage{Role: "user", Content: buildFailClosedBlock(env.Tool, reason)},
+							types.ChatMessage{Role: "user", Content: "Do not print literal <tool_call> markup. Fix the arguments with a real native tool call, or answer directly without more tools."},
+						)
+						continue
+					}
+					execSpan.End(true, "")
+
+					req.Messages = append(req.Messages,
+						types.ChatMessage{Role: "assistant", Content: compatContent},
+						types.ChatMessage{Role: "user", Content: buildToolResultBlock(execResp)},
+						types.ChatMessage{Role: "user", Content: "Use the tool result to continue the latest request. If you still need another tool, use the native tool interface directly instead of printing literal <tool_call> markup. If the answer is ready, answer now."},
+					)
+					continue
+				}
+
 				finalResp = resp
 				return finalResp, active, fragments, nil
 			}
@@ -241,11 +313,19 @@ func (o *Orchestrator) executeTurnLogic(ctx context.Context, requestID string, r
 					Content:    buildToolResultBlock(execResp),
 				})
 			}
-			
+
 			if hasToolError {
 				req.Messages = append(req.Messages, types.ChatMessage{
 					Role:    "user",
 					Content: "Some tools failed. Please analyze the errors and either fix your arguments or answer directly without using tools.",
+				})
+			} else if shouldStopNativeToolLoop(req.Messages, turn) {
+				req.Tools = nil
+				req.ToolChoice = nil
+				req.ParallelToolCalls = nil
+				req.Messages = append(req.Messages, types.ChatMessage{
+					Role:    "user",
+					Content: "You already have enough tool evidence for this turn. Do not call more tools. Answer now with a concise evidence-based summary. If the answer is ready, give it directly. If it is still partial, name the exact remaining evidence gap. Do not leave literal <tool_call> text in the answer.",
 				})
 			}
 			continue
@@ -258,7 +338,7 @@ func (o *Orchestrator) executeTurnLogic(ctx context.Context, requestID string, r
 				}
 				if env.Type == "tool_call" {
 					if env.Tool == "terminal" {
-						req.Messages = append(req.Messages, 
+						req.Messages = append(req.Messages,
 							types.ChatMessage{Role: "assistant", Content: content},
 							types.ChatMessage{Role: "user", Content: buildFailClosedBlock(env.Tool, "terminal is handled by the Open WebUI external OpenAPI tool path, not the Gateway legacy tool path")},
 							types.ChatMessage{Role: "user", Content: "Do not call any more tools. Return only a final answer envelope JSON with type=answer."},
@@ -422,10 +502,14 @@ func extractAgentLayers(req types.ChatCompletionRequest) *mode.SessionAgentLayer
 }
 
 func applyLayerPluginFilter(plugins []string, layers mode.SessionAgentLayers) []string {
-	out := make([]string, 0, len(plugins)+2)
+	out := make([]string, 0, len(plugins)+4)
 	seen := make(map[string]struct{}, len(plugins))
 	for _, plugin := range plugins {
 		switch plugin {
+		case "reverse":
+			if !layers.EnableReverseSkills {
+				continue
+			}
 		case "pwn":
 			if !layers.EnablePwnSkills {
 				continue
@@ -434,12 +518,26 @@ func applyLayerPluginFilter(plugins []string, layers mode.SessionAgentLayers) []
 			if !layers.EnableWebSkills {
 				continue
 			}
+		case "awdp-red":
+			if !layers.EnableAWDPRed {
+				continue
+			}
+		case "awdp-blue":
+			if !layers.EnableAWDPBlue {
+				continue
+			}
 		}
 		if _, exists := seen[plugin]; exists {
 			continue
 		}
 		seen[plugin] = struct{}{}
 		out = append(out, plugin)
+	}
+	if layers.EnableReverseSkills {
+		if _, exists := seen["reverse"]; !exists {
+			out = append(out, "reverse")
+			seen["reverse"] = struct{}{}
+		}
 	}
 	if layers.EnablePwnSkills {
 		if _, exists := seen["pwn"]; !exists {
@@ -450,6 +548,19 @@ func applyLayerPluginFilter(plugins []string, layers mode.SessionAgentLayers) []
 	if layers.EnableWebSkills {
 		if _, exists := seen["web"]; !exists {
 			out = append(out, "web")
+			seen["web"] = struct{}{}
+		}
+	}
+	if layers.EnableAWDPRed {
+		if _, exists := seen["awdp-red"]; !exists {
+			out = append(out, "awdp-red")
+			seen["awdp-red"] = struct{}{}
+		}
+	}
+	if layers.EnableAWDPBlue {
+		if _, exists := seen["awdp-blue"]; !exists {
+			out = append(out, "awdp-blue")
+			seen["awdp-blue"] = struct{}{}
 		}
 	}
 	return out
@@ -599,13 +710,54 @@ func buildConversationPrompt(base string) string {
 }
 
 func buildNativeToolPrompt(base string) string {
-	const nativeToolDirective = "Native OpenAI tools are available in this request. Do not emit the legacy action-envelope JSON. When a tool is needed, use the native tool calling interface provided by the client. Do not wrap tool calls in markdown or code fences. After receiving tool result messages, answer normally in natural language."
+	const nativeToolDirective = `
+Native OpenAI tools are available in this request. Do not emit the legacy action-envelope JSON.
+
+When a tool is needed, use the native tool calling interface provided by the client.
+Do not wrap tool calls in markdown or code fences.
+Do not merely suggest shell commands when an equivalent native tool is available.
+After receiving tool result messages, answer normally in natural language.
+When calling a native tool, use only the parameters that are actually visible in that tool schema. Do not invent extra arguments.
+
+For binary and reverse tasks:
+- prefer a real native tool call within the first meaningful solve steps
+- do not stay in planning-only mode
+- do not give a final flag or exploit conclusion before citing tool-derived evidence
+- do not loop on the same enumeration tool with nearly identical arguments
+- after you have enough evidence for the current request, stop calling tools and answer normally
+- for an initial reverse triage request, 3-5 tool calls is usually enough to establish the first evidence set
+- if the user asked you to "start analysis", an evidence summary is a valid completion; you do not need the final flag yet
+- after tool_open_file_post, usually call tool_analyze_post, then tool_list_strings_post and/or tool_list_functions_post
+- if strings/functions are not enough, take one deeper binary step before stopping: one xref, one function-detail view, one pseudocode/decompiler step, or one tiny validation script
+- if strings already expose a full flag or a decisive candidate, stop and answer instead of forcing deeper analysis
+- only repeat a tool if the earlier result was insufficient and your new arguments are materially different
+- if the tool list includes binary helpers, prefer calls such as:
+  - tool_open_file_post
+  - tool_analyze_post
+  - tool_list_strings_post
+  - tool_list_functions_post
+  - tool_xrefs_to_post or tool_get_xrefs_to_post
+  - tool_show_function_details_post
+  - tool_list_decompilers_post / tool_use_decompiler_post
+  - tool_run_command_post for one narrow binary-inspection command when no simpler helper can produce the needed function detail
+
+If one tool name is unavailable, choose the closest visible native tool instead of falling back to plain command suggestions.
+Do not leave raw tool-call markup such as <tool_call> in the final natural-language answer.
+
+When you decide to stop tool use, answer in concise natural language with:
+- task_family
+- shared_domain
+- current phase
+- key tool evidence
+- current finding
+- next evidence target
+  `
 
 	base = strings.TrimSpace(base)
 	if base == "" {
-		return nativeToolDirective
+		return strings.TrimSpace(nativeToolDirective)
 	}
-	return base + "\n\n" + nativeToolDirective
+	return base + "\n\n" + strings.TrimSpace(nativeToolDirective)
 }
 
 func buildToolResultBlock(resp *toolclient.ExecuteResponse) string {
@@ -633,6 +785,53 @@ func buildFailClosedBlock(toolName, cause string) string {
 		return "Tool execution is unavailable. Answer conservatively without tools."
 	}
 	return "Tool execution failure block:\n" + string(data)
+}
+
+func countToolResultMessages(messages []types.ChatMessage) int {
+	count := 0
+	for _, msg := range messages {
+		if msg.Role == "tool" {
+			count++
+		}
+	}
+	return count
+}
+
+func hasDeepBinaryToolEvidence(messages []types.ChatMessage) bool {
+	deepMarkers := []string{
+		"tool_xrefs_to_post",
+		"tool_get_xrefs_to_post",
+		"tool_show_function_details_post",
+		"tool_decompile_function_post",
+		"tool_decompile_function_by_address_post",
+		"tool_run_command_post",
+	}
+	for _, msg := range messages {
+		if msg.Role != "tool" {
+			continue
+		}
+		lowered := strings.ToLower(msg.Content)
+		for _, marker := range deepMarkers {
+			if strings.Contains(lowered, marker) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func shouldStopNativeToolLoop(messages []types.ChatMessage, turn int) bool {
+	toolCount := countToolResultMessages(messages)
+	if toolCount < 4 {
+		return false
+	}
+	if toolCount >= 6 {
+		return true
+	}
+	if turn < 3 {
+		return false
+	}
+	return hasDeepBinaryToolEvidence(messages)
 }
 
 func failClosedToolResponse(modelAlias, toolName, summary string) *types.ChatCompletionResponse {

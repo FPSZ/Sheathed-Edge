@@ -1,0 +1,184 @@
+任务：修复 Open WebUI 普通会话里未携带 `terminal/reverse` 能力，导致模型只会乱调 `calculate_timestamp`、连最基本目录查看都不会的问题。
+
+结果：已完成两层兜底修复。
+
+- `Gateway` 侧新增默认 `agent layer preset` 注入：当请求未显式携带 `metadata.agent_layers / metadata.preset_id / x_plugins` 时，自动读取 `Agent/agent-layer-presets.json` 的 `default_preset_id`，并回填到请求中。当前默认预设仍为 `router-reverse`，因此普通会话至少会带上 `reverse` 家族路由，不再退化成“只有 awdp core、没有 family plugins”的空层状态。
+- `Open WebUI` 补丁升级：修复新版 Open WebUI 在请求体已经含有 builtin `tools` 数组时，会直接跳过 server-side `terminal / tool_ids / MCP` 解析的问题。现在改成“保留 payload builtin tools，同时继续合并 terminal 与 server-side tool resolution”，避免 `terminal` 因 payload tools 存在而被静默吃掉。
+
+修改：
+- `D:\\AI\\Local\\Agent\\gateway-go\\internal\\gateway\\admin\\agent_layers.go`
+  - 新增 `DefaultAgentLayerPreset()`，用于读取默认预设。
+- `D:\\AI\\Local\\Agent\\gateway-go\\internal\\gateway\\transport\\openai\\server.go`
+  - 新增 `applyDefaultAgentPreset()` / `hasExplicitAgentPreset()`。
+  - 在 `/v1/chat/completions` 请求入口对缺省会话自动注入默认 preset。
+- `D:\\AI\\Local\\Workflows\\wsl\\patch-open-webui-default-terminal.py`
+  - 升级补丁逻辑，新增 `MERGE_MARKER`。
+  - 现在即使 Open WebUI 自带 builtin tools，也会继续合并 `terminal` 与其他 server-side tools。
+
+已执行：
+- `gofmt -w ...`
+- `go build -o D:\\AI\\Local\\Agent\\gateway-go\\gateway.exe .\\cmd\\gateway`
+- `python -m py_compile D:\\AI\\Local\\Workflows\\wsl\\patch-open-webui-default-terminal.py`
+- `wsl python3 /mnt/d/AI/Local/Workflows/wsl/patch-open-webui-default-terminal.py /home/awdp/.venvs/open-webui`
+- 重启 `gateway`
+- 重启 `open-webui`
+
+验证：
+- 直接向 `Gateway /v1/chat/completions` 发送一个**没有** `metadata.agent_layers`、**没有** `x_plugins` 的最小请求后，审计日志显示：
+  - `plugins=reverse`
+  - `mode=awdp+reverse`
+  - `agent_layers.enable_reverse_skills=true`
+- 相关证据：`D:\\AI\\Local\\Logs\\audit\\2026-04-16.jsonl`
+  - `request_id=req-1776337762247540400`
+
+说明：
+- 这次问题的根因不是“训练把模型训坏了”，而是普通 WebUI 会话请求没有把正确的 family/plugin 层与 terminal server-side tool resolution 带下来。
+- 后续若还要调默认路由层，请优先看：
+  - `Agent/agent-layer-presets.json`
+  - `gateway-go/internal/gateway/transport/openai/server.go`
+- 后续若还要调 Open WebUI 终端工具自动暴露，请优先看：
+  - `Workflows/wsl/patch-open-webui-default-terminal.py`
+  - WSL venv 中对应的 `open_webui/utils/middleware.py`
+
+补充修复（同日继续）：
+- 继续排查用户反馈“仍然只会调 `calculate_timestamp`”时，发现 `Open WebUI` 里 `TERMINAL_SERVER_CONNECTIONS` 指向的是旧地址 `http://127.0.0.1:8094`，但当前 `tool-router-rs` 实际监听端口已经变为 `8095`。
+- 这会导致 Open WebUI 在解析 terminal tool server 时直接连错端口，最终请求里只剩 builtin tools（时间/知识库/chat），所以模型继续不会 `ls`。
+
+新增修改：
+- `D:\\AI\\Local\\Workflows\\wsl\\start-open-webui.sh`
+  - 将 terminal server 地址改为可配置变量 `OPEN_WEBUI_TERMINAL_SERVER_BASE_URL`
+  - 默认值更新为 `http://127.0.0.1:8095`
+  - 不再写死旧的 `8094`
+
+补充验证：
+- 当前 Open WebUI 进程环境中已确认：
+  - `TERMINAL_SERVER_CONNECTIONS=[...\"url\":\"http://127.0.0.1:8095\"...]`
+- WSL 内已确认可访问：
+  - `http://127.0.0.1:8095/openapi.json` → `200`
+  - `http://127.0.0.1:8095/healthz` → `200`
+  - `http://127.0.0.1:3000/health` → `200`
+
+继续修复（终端中文乱码 + Python 不可用）：
+- 用户反馈小模型在 `runTerminal` 里读取中文输出会出现乱码，且会误判 `python` 不可用。经排查，问题在于：
+  - `tool-router-rs` 本地 PowerShell 执行链没有强制切 UTF-8 输出；
+  - Rust 侧对 stdout/stderr 只做了 `String::from_utf8_lossy`，未对中文常见编码做兜底；
+  - 本地 terminal 进程未显式补齐 Python 运行环境变量，小模型一旦碰到 PATH 差异就会误判“没有 py / python”。
+
+本轮修改：
+- `D:\\AI\\Local\\Agent\\tool-router-rs\\src\\executor\\terminal.rs`
+  - local PowerShell 命令执行前自动注入：
+    - `[Console]::InputEncoding = UTF8`
+    - `[Console]::OutputEncoding = UTF8`
+    - `$OutputEncoding = [Console]::OutputEncoding`
+    - `chcp 65001 > $null`
+  - stdout/stderr 解码改为：
+    - 先尝试 UTF-8
+    - 再尝试 GBK
+    - 最后才 `from_utf8_lossy`
+  - local terminal 默认补齐：
+    - `PATH += D:\\Environment2\\Create\\Python314`
+    - `PYTHONUTF8=1`
+    - `PYTHONIOENCODING=utf-8`
+- `D:\\AI\\Local\\Agent\\tool-router-rs\\src\\ssh.rs`
+  - 远程 PowerShell probe 与执行脚本同样补上 UTF-8 输出初始化
+- `D:\\AI\\Local\\Agent\\tool-router-rs\\Cargo.toml`
+  - 新增 `encoding_rs`
+
+单测：
+- `cargo test executor::terminal -- --nocapture`
+  - 通过，覆盖：
+    - PowerShell UTF-8 wrapper
+    - GBK 中文解码
+    - Python 默认环境注入
+
+运行态处理：
+- 旧 `tool-router` 在 `8095` 存在异常残留监听，正常替换失败；
+- 为避免被脏端口卡死，已切换到新端口：
+  - `tool-router.config.json` → `8096`
+  - `gateway.config.json` → `http://127.0.0.1:8096`
+  - `start-open-webui.sh` 的 terminal server 默认地址 → `http://127.0.0.1:8096`
+
+实测：
+- `http://127.0.0.1:8096/openapi.json` → `200`
+- `http://127.0.0.1:8096/healthz` → `200`
+- Open WebUI 当前新进程环境中已确认：
+  - `TERMINAL_SERVER_CONNECTIONS=[...\"url\":\"http://127.0.0.1:8096\"...]`
+- 直接调用 terminal OpenAPI 验证：
+  - `python -c "print(123)"` → 成功
+  - `py -3 -c "print(456)"` → 成功
+  - `python -c "print('中文测试')"` → 返回 `中文测试`，无乱码
+
+继续修复（队友访问端口）：
+- 用户说明 `3001` 已被自己的中转站占用，不适合作为队友访问端口。
+- 已将 `Gateway Admin` 队友访问地址端口改为更偏的 `33101`：
+  - `D:\\AI\\Local\\Agent\\gateway.config.json`
+    - `admin.webui_share_port = 33101`
+- 同时考虑到 Windows `netsh interface portproxy` 需要管理员权限，而当前会话无法提权，改为新增一个**用户态 TCP 中转**：
+  - `D:\\AI\\Local\\Workflows\\windows\\open_webui_share_proxy.py`
+  - 监听 `0.0.0.0:33101`
+  - 转发到 `127.0.0.1:3000`
+  - 这样 HTTP / WebSocket 都能透明穿透给队友访问 Open WebUI
+
+已执行：
+- 启动 `open_webui_share_proxy.py`
+- 重启 `gateway`
+
+验证：
+- `http://127.0.0.1:33101/health` → `{\"status\":true}`
+- `GET /internal/admin/host-ips` 已返回新端口：
+  - `share_port = 33101`
+  - 例：`http://192.168.1.103:33101`
+
+备注：
+- 给队友时应优先发可达的真实网段地址，例如：
+  - 局域网优先：`192.168.1.103:33101`
+  - 若队友走 Tailscale / 其他虚拟网络，再视情况使用对应地址
+- `169.254.*` 这种链路本地地址通常不适合直接发给队友。
+
+[2026-04-16] WebUI 用户默认 SSH terminal 路由修复
+- 目标：让 AI 在队友账号下默认走该账号绑定的 SSH terminal，而不是默认落到宿主机 local terminal；同时保留本机 MCP 工具库可单独授权给该用户。
+- 代码修改：
+  - Agent/tool-router-rs/src/policy.rs
+    - terminal 参数归一化新增“按用户工作区自动选默认执行目标”逻辑：
+      - 若用户配置了 default_ssh_host_id，则 transport 缺省时自动选 ssh，并自动补 host_id。
+      - 若用户没有 local，仅存在单一 ssh target，也会自动选 ssh。
+      - 若用户同时有 local+ssh 且未声明 default_ssh_host_id，则仍保留 local 为默认，避免影响 owner 账号。
+    - 新增对应单测，覆盖 default ssh / only ssh / local fallback 三种情况。
+  - Agent/tool-router-rs/src/api.rs
+    - OpenAPI 描述改为“transport 可省略，服务端按当前用户默认执行目标自动选择”。
+    - openapi terminal handler 不再硬编码 transport=local / shell=powershell，避免把 server-side 默认 SSH 逻辑短路掉。
+- 配置修改：
+  - Agent/user-settings.json
+    - 用户 2286923612@qq.com (Huang) 绑定 default_ssh_host_id = huang-local-win
+    - enabled_execution_targets = [ssh:huang-local-win]
+    - enabled_mcp_server_ids = [radare2-local, ghidra-local, ida-9-1-bridge, x64dbg-local]
+- 验证：
+  - cargo fmt --manifest-path Agent/tool-router-rs/Cargo.toml
+  - cargo test --manifest-path Agent/tool-router-rs/Cargo.toml
+  - 结果：15 tests passed
+- 结论：
+  - 现在 terminal 缺省会按当前 WebUI 用户绑定的 SSH 主机执行。
+  - 本机 MCP 工具库仍可按用户白名单独立开放，不受 terminal 默认 target 切换影响。
+  - 后续若要给更多队友开通，只需在 Agent/user-settings.json 或 Admin 用户工作区里设置：
+    - default_ssh_host_id
+    - enabled_execution_targets
+    - enabled_mcp_server_ids
+
+[2026-04-16] Windows teammate SSH bootstrap script
+- 新增脚本：D:\AI\Local\Workflows\windows\setup-teammate-ssh.ps1
+- 目标：在队友 Windows 机器上一键安装/配置 OpenSSH Server，写入控制端公钥，放行防火墙，设为开机自启，并输出 JSON 报告，方便回传后判断是否可连。
+- 脚本能力：
+  - 检查管理员权限
+  - 安装 OpenSSH.Server capability
+  - 配置 C:\ProgramData\ssh\sshd_config（Port / PubkeyAuthentication / PasswordAuthentication / AllowUsers 等）
+  - 给指定用户写入 authorized_keys，并收紧 ACL
+  - 设置 OpenSSH DefaultShell = PowerShell
+  - 建立入站防火墙规则
+  - 启动 sshd 且设置 Automatic
+  - 收集监听状态、SSH banner、本机 IPv4、host key fingerprint，并写入 report JSON
+- 当前默认控制端公钥已与 huang-local-win 的 private_key 配对，可直接用于现有 SSH 配置链路。
+- 用法示例：
+  - powershell -ExecutionPolicy Bypass -File D:\AI\Local\Workflows\windows\setup-teammate-ssh.ps1 -Username space -WorkspaceRoot 'E:\比赛题目\2026'
+- 输出：
+  - 默认报告路径：C:\Users\Public\Documents\sheathed-edge-ssh-report.json
+  - 让队友把终端输出和该 JSON 文件一起回传，再由控制端继续验证 ssh username@ip -p port

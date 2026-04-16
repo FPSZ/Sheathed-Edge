@@ -1,0 +1,26 @@
+{
+  "id": "awdp-red-ciscn-2026-catchme",
+  "role": "red",
+  "task_family": "pwn",
+  "competition_mode": "awdp",
+  "awdp_role": "red",
+  "title": "CISCN 半决赛 2026 / catchme",
+  "summary": "公开复盘同时给了红队 House of Storm 利用方向和蓝队 free 后清空槽位的修复方向。",
+  "tags": [
+    "awdp",
+    "red",
+    "ciscn",
+    "pwn",
+    "uaf",
+    "house-of-storm",
+    "heap"
+  ],
+  "status": "candidate",
+  "confidence": "medium",
+  "verified_local_match": true,
+  "source_urls": [
+    "https://www.cnblogs.com/seyedog/p/19814241",
+    "https://www.cnblogs.com/S1nyer/p/19788479"
+  ],
+  "local_root": "D:\\AWDP\\CISCN半决赛\\攻防\\PWN\\catchme"
+}

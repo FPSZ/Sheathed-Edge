@@ -1,0 +1,22 @@
+{
+  "task_family": "pwn",
+  "shared_domain": "binary",
+  "competition_mode": "awdp",
+  "awdp_role": "red",
+  "primary_skill": "mitigation-and-primitive-judgement",
+  "secondary_skills": [
+    "binary-intake-and-triage",
+    "exploit-path-selection",
+    "debug-and-failure-recovery"
+  ],
+  "evidence_required": [
+    "MD5/auth evidence",
+    "UAF primitive evidence",
+    "service constraints + seccomp evidence"
+  ],
+  "fallback_if_fail": [
+    "re-verify UAF stability",
+    "prefer shorter leak/write chain",
+    "switch to blue patch if needed"
+  ]
+}

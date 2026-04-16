@@ -1,0 +1,7 @@
+{
+  "case_id": "nssctf-re1-welcome",
+  "source_compare_dir": "D:/AI/Local/Writeups/ctf-ai-baselines/compare/20260416_090209",
+  "source_result_json": "D:/AI/Local/Logs/tests/ctf-training-loop/20260416_090209/nssctf-re1-welcome.json",
+  "baseline_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/nssctf-re1-ai-wp.md",
+  "generated_wp": "D:/AI/Local/Writeups/generated-noai/20260416_090209/nssctf-re1-welcome-noai-wp.md"
+}

@@ -1,0 +1,19 @@
+{
+  "task_family": "web",
+  "competition_mode": "awdp",
+  "awdp_role": "red",
+  "primary_skill": "sink-and-filter-judgement",
+  "secondary_skills": [
+    "route-and-parameter-enumeration",
+    "payload-selection-and-iteration"
+  ],
+  "evidence_required": [
+    "unserialize(user cookie)",
+    "iconv before sink mismatch",
+    "raw-vs-converted path evidence"
+  ],
+  "fallback_if_fail": [
+    "re-check encoding whitelist",
+    "re-check preview/download path differences"
+  ]
+}

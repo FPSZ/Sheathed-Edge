@@ -1,0 +1,44 @@
+{
+  "case_id": "nssctf-attachment15-upx",
+  "task_meta": {
+    "category": "reverse",
+    "source": "NSSCTF",
+    "difficulty": "easy",
+    "notes": "Must-pass10 failure case promoted for remediation and future fine-tune conversion."
+  },
+  "input_files": [
+    {
+      "path": "D:/CTF/题目/逆向/NSSCTF/已解决/attachment-15",
+      "sha256": "",
+      "role": "challenge-binary"
+    }
+  ],
+  "student_trace": {
+    "source": "D:/AI/Local/Logs/tests/reverse-mustpass10/20260416_140643/nssctf-attachment15-upx.json",
+    "summary": "- `task_family: reverse`\n- `shared_domain: binary`\n- `competition_mode: ctf`\n- `phase: triage`\n- `primary_skill: validation-and-check-tracing`\n- `key tool evidence: file opened, 4468 functions found, strings listed, entry0 identified`\n- `current finding: No obvious flag strings found in initial strings pass. Entry point is entry0 (0x0001110e). Contains VC runtime and kernel32 imports. \"where is it?\" string present as potential prompt.`\n- `next evidence target: entry0 function disassembly, custom strings search, any encoded/encrypted flag candidates`\n- `final exact answer: N/A - flag not yet extracted`\n- `remaining gap: Need to examine entry0 function logic and search for encoded flag strings or custom alphabet patterns`\n\n继续深入分析：\n\n<tool_call>\n<function=tool_list_strings_post>\n<parameter=filter>\nflag|ctf|NSSCTF|flag{|\\[|\\]|base64|encode|decode|key|secret\n</parameter>\n<parameter=page_size>\n100\n</parameter>\n</function>\n</tool_call>",
+    "tool_events": []
+  },
+  "teacher_trace": {
+    "source": "D:/AI/Local/Writeups/ctf-ai-baselines/nssctf-attachment15-ai-wp.md",
+    "summary": "# NSSCTF attachment-15 AI WP\n\n题目路径：\n- `D:/CTF/题目/逆向/NSSCTF/已解决/attachment-15`\n\n题型判断：\n- `task_family: reverse`\n- 这是典型的壳/压缩壳入门题，先识别 UPX，再决定是否需要脱壳。\n\n关键证据：\n- strings 中直接出现 `wctf2020{Just_upx_-d}`。\n- 同时还能看到大量 ELF 运行时字符串，说明样本并不需要复杂算法恢复。\n- 从 flag 内容本身也能反推题目核心点是 `upx -d`。\n\n正确思路：\n1. 先做文件 triage，判断是 ELF 可执行文件。\n2. 看 strings / 壳特征，确认题目在考 UPX 脱壳意识。\n3. 如果 strings 已经给出完整 flag，就应当直接收束；如果没有，再进入 unpack 路线。\n\n易错点：\n- 一上来就全量分析函数，忽略壳题先识别壳。\n- 已有完整 flag 还继续深挖无关逻辑。\n\n人工结论：\n- `wctf2020{Just_upx_-d}`\n",
+    "tool_events": []
+  },
+  "gold_outcome": {
+    "status": "known",
+    "flag": "wctf2020{Just_upx_-d}",
+    "evidence": [
+      "D:/AI/Local/Writeups/ctf-ai-baselines/nssctf-attachment15-ai-wp.md"
+    ]
+  },
+  "error_tags": [
+    "mustpass10_failure",
+    "needs_skill_delta"
+  ],
+  "sft_ready": false,
+  "audit": {
+    "reviewed_by": "codex",
+    "reviewed_at": "2026-04-16T14:39:57",
+    "can_use_for_train": true,
+    "can_use_for_eval": true
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "id": "awdp-red-web-upload-to-rce",
+  "kind": "playbook",
+  "competition_mode": "awdp",
+  "role": "red",
+  "slug": "web-upload-to-rce",
+  "title": "AWDP Red / Web Upload to RCE",
+  "summary": "AWDP Red / Web Upload to RCE",
+  "tags": [
+    "awdp",
+    "red",
+    "web",
+    "upload",
+    "rce"
+  ],
+  "source": "internal",
+  "version": "v1",
+  "status": "active"
+}

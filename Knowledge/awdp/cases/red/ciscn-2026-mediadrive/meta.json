@@ -1,0 +1,27 @@
+{
+  "id": "awdp-red-ciscn-2026-mediadrive",
+  "role": "red",
+  "task_family": "web",
+  "competition_mode": "awdp",
+  "awdp_role": "red",
+  "title": "CISCN 半决赛 2026 / MediaDrive",
+  "summary": "MediaDrive 的公开线索较完整，主链为可控 user cookie 反序列化 + preview/download 文件读取 + iconv 编码转换绕过 flag 黑名单。",
+  "tags": [
+    "awdp",
+    "red",
+    "ciscn",
+    "web",
+    "lfi",
+    "php",
+    "iconv-bypass",
+    "deserialization"
+  ],
+  "status": "candidate",
+  "confidence": "high",
+  "verified_local_match": true,
+  "source_urls": [
+    "https://www.cnblogs.com/Linyuuy/p/19771049",
+    "https://idocdown.com/app/articles/blogs/detail/18104"
+  ],
+  "local_root": "D:\\AWDP\\CISCN半决赛\\攻防\\WEB\\MediaDrive"
+}

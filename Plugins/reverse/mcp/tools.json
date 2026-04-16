@@ -1,0 +1,6 @@
+{
+  "tools": [
+    "radare2",
+    "terminal:reverse"
+  ]
+}

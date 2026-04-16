@@ -1,0 +1,18 @@
+{
+  "id": "awdp-blue-web-hotfix-minimal-patch",
+  "kind": "playbook",
+  "competition_mode": "awdp",
+  "role": "blue",
+  "slug": "web-hotfix-minimal-patch",
+  "title": "AWDP Blue / Web Hotfix Minimal Patch",
+  "summary": "AWDP Blue / Web Hotfix Minimal Patch",
+  "tags": [
+    "awdp",
+    "blue",
+    "web",
+    "hotfix"
+  ],
+  "source": "internal",
+  "version": "v1",
+  "status": "active"
+}

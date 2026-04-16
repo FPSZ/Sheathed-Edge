@@ -39,9 +39,12 @@ type Active struct {
 }
 
 type SessionAgentLayers struct {
-	EnableAgentRouter bool `json:"enable_agent_router"`
-	EnablePwnSkills   bool `json:"enable_pwn_skills"`
-	EnableWebSkills   bool `json:"enable_web_skills"`
+	EnableAgentRouter   bool `json:"enable_agent_router"`
+	EnableReverseSkills bool `json:"enable_reverse_skills"`
+	EnablePwnSkills     bool `json:"enable_pwn_skills"`
+	EnableWebSkills     bool `json:"enable_web_skills"`
+	EnableAWDPRed       bool `json:"enable_awdp_red"`
+	EnableAWDPBlue      bool `json:"enable_awdp_blue"`
 }
 
 type Loader struct {
@@ -89,6 +92,24 @@ func (l *Loader) Load(plugins []string, layers *SessionAgentLayers) (*Active, er
 		promptParts = append(promptParts, strings.TrimSpace(string(content)))
 		conversationPromptParts = append(conversationPromptParts, strings.TrimSpace(string(content)))
 	}
+	if usesBinaryCore(effectiveLayers) {
+		binaryCorePath := filepath.Join(coreDir, "prompts", "binary-core.md")
+		content, err := os.ReadFile(binaryCorePath)
+		if err != nil {
+			return nil, fmt.Errorf("read binary core prompt %s: %w", binaryCorePath, err)
+		}
+		promptParts = append(promptParts, strings.TrimSpace(string(content)))
+		conversationPromptParts = append(conversationPromptParts, strings.TrimSpace(string(content)))
+	}
+	if usesAWDPCore(effectiveLayers) {
+		awdpCorePath := filepath.Join(coreDir, "prompts", "awdp-core.md")
+		content, err := os.ReadFile(awdpCorePath)
+		if err != nil {
+			return nil, fmt.Errorf("read awdp core prompt %s: %w", awdpCorePath, err)
+		}
+		promptParts = append(promptParts, strings.TrimSpace(string(content)))
+		conversationPromptParts = append(conversationPromptParts, strings.TrimSpace(string(content)))
+	}
 	conversationFiles := core.ConversationPromptFiles
 	if len(conversationFiles) == 0 {
 		conversationFiles = core.PromptFiles
@@ -118,7 +139,7 @@ func (l *Loader) Load(plugins []string, layers *SessionAgentLayers) (*Active, er
 
 		pluginDir := filepath.Dir(pluginPath)
 		for _, rel := range pcfg.PromptFiles {
-			if isAgentRouterPrompt(rel) {
+			if isAgentRouterPrompt(rel) || isBinaryCorePrompt(rel) || isAWDPCorePrompt(rel) {
 				continue
 			}
 			content, err := os.ReadFile(filepath.Join(pluginDir, rel))
@@ -132,7 +153,7 @@ func (l *Loader) Load(plugins []string, layers *SessionAgentLayers) (*Active, er
 			pluginConversationFiles = pcfg.PromptFiles
 		}
 		for _, rel := range pluginConversationFiles {
-			if isAgentRouterPrompt(rel) {
+			if isAgentRouterPrompt(rel) || isBinaryCorePrompt(rel) || isAWDPCorePrompt(rel) {
 				continue
 			}
 			content, err := os.ReadFile(filepath.Join(pluginDir, rel))
@@ -151,21 +172,45 @@ func (l *Loader) Load(plugins []string, layers *SessionAgentLayers) (*Active, er
 func defaultSessionLayers(layers *SessionAgentLayers) SessionAgentLayers {
 	if layers == nil {
 		return SessionAgentLayers{
-			EnableAgentRouter: true,
-			EnablePwnSkills:   true,
-			EnableWebSkills:   true,
+			EnableAgentRouter:   true,
+			EnableReverseSkills: true,
+			EnablePwnSkills:     true,
+			EnableWebSkills:     true,
+			EnableAWDPRed:       false,
+			EnableAWDPBlue:      false,
 		}
 	}
 	return SessionAgentLayers{
-		EnableAgentRouter: layers.EnableAgentRouter,
-		EnablePwnSkills:   layers.EnablePwnSkills,
-		EnableWebSkills:   layers.EnableWebSkills,
+		EnableAgentRouter:   layers.EnableAgentRouter,
+		EnableReverseSkills: layers.EnableReverseSkills,
+		EnablePwnSkills:     layers.EnablePwnSkills,
+		EnableWebSkills:     layers.EnableWebSkills,
+		EnableAWDPRed:       layers.EnableAWDPRed,
+		EnableAWDPBlue:      layers.EnableAWDPBlue,
 	}
 }
 
 func isAgentRouterPrompt(rel string) bool {
 	normalized := strings.ToLower(strings.ReplaceAll(rel, "/", `\`))
 	return strings.HasSuffix(normalized, `core\awdp\prompts\agent.md`) || strings.HasSuffix(normalized, `prompts\agent.md`)
+}
+
+func isBinaryCorePrompt(rel string) bool {
+	normalized := strings.ToLower(strings.ReplaceAll(rel, "/", `\`))
+	return strings.HasSuffix(normalized, `core\awdp\prompts\binary-core.md`) || strings.HasSuffix(normalized, `prompts\binary-core.md`)
+}
+
+func isAWDPCorePrompt(rel string) bool {
+	normalized := strings.ToLower(strings.ReplaceAll(rel, "/", `\`))
+	return strings.HasSuffix(normalized, `core\awdp\prompts\awdp-core.md`) || strings.HasSuffix(normalized, `prompts\awdp-core.md`)
+}
+
+func usesBinaryCore(layers SessionAgentLayers) bool {
+	return layers.EnableReverseSkills || layers.EnablePwnSkills
+}
+
+func usesAWDPCore(layers SessionAgentLayers) bool {
+	return layers.EnableAWDPRed || layers.EnableAWDPBlue
 }
 
 func BuildLabel(active *Active) string {

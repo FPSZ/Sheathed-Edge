@@ -1,0 +1,26 @@
+{
+  "case_id": "nssctf-simplebase",
+  "request_id": "req-1776301329348814000",
+  "verdict": "partial",
+  "solved_exact": false,
+  "expected_answer": "NSSCTF{siMp13_Base64_5TXRMZHU6V9S}",
+  "candidate_flags": [
+    "NSSCTF{b4s364_1s_s0_34sy!}",
+    "{b4s364_1s_s0_34sy!}"
+  ],
+  "tool_stages": [
+    "tool_execute_tool_open_file_post",
+    "tool_execute_tool_analyze_post",
+    "tool_execute_tool_list_strings_post",
+    "tool_execute_tool_list_strings_post",
+    "tool_execute_tool_list_functions_post",
+    "tool_execute_tool_show_function_details_post"
+  ],
+  "error_tags": [
+    "candidate_extracted_but_not_exact",
+    "stopped_at_evidence_summary"
+  ],
+  "baseline_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/simplebase-ai-wp.md",
+  "result_json": "D:/AI/Local/Logs/tests/ctf-training-loop/20260416_090209/nssctf-simplebase.json",
+  "reviewed_at": "2026-04-16T09:13:38"
+}

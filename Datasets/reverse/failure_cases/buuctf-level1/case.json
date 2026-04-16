@@ -1,0 +1,44 @@
+{
+  "case_id": "buuctf-level1",
+  "task_meta": {
+    "category": "reverse",
+    "source": "BUUCTF",
+    "difficulty": "easy",
+    "notes": "Must-pass10 failure case promoted for remediation and future fine-tune conversion."
+  },
+  "input_files": [
+    {
+      "path": "D:/CTF/题目/逆向/BUUCTF/level1/level1",
+      "sha256": "",
+      "role": "challenge-binary"
+    }
+  ],
+  "student_trace": {
+    "source": "D:/AI/Local/Logs/tests/reverse-mustpass10/20260416_140643/buuctf-level1.json",
+    "summary": "- `task_family: reverse`\n- `shared_domain: binary`\n- `phase: hypothesis`\n- `primary_skill: validation-and-check-tracing`\n- `next evidence target: main function decompile`\n\n**Key tool evidence:**\n- File opened successfully\n- 4468 functions found\n- Strings: only \"flag\" and \"%ld\\n\" (no flag string visible)\n- Entrypoints: `_start` at 0x400570, `main` at 0x400666\n\n**Current finding:**\nStrings 没有直接暴露 flag 或 flag 候选。需要查看 main 函数的验证逻辑来推导 flag。\n\n**Next evidence target:**\n查看 main 函数 (0x400666) 的伪代码/反汇编，找到验证逻辑。\n\n<tool_call>\n<function=tool_show_function_details_post>\n<parameter=address>\n0x400666\n</parameter>\n</function>\n</tool_call>",
+    "tool_events": []
+  },
+  "teacher_trace": {
+    "source": "D:/AI/Local/Writeups/ctf-ai-baselines/buuctf-level1-ai-wp.md",
+    "summary": "# BUUCTF level1 AI WP\n\n题目路径：\n- `D:\\CTF\\题目\\逆向\\BUUCTF\\level1\\level1`\n- `D:\\CTF\\题目\\逆向\\BUUCTF\\level1\\output.txt`\n\n题型判断：\n- `task_family: pwn/reverse-static`\n- 文件读取 + 简单算术变换逆推\n\n关键证据：\n- 主逻辑读取本地 `flag` 文件前 20 字节\n- 从第 1 位到第 19 位循环输出数字\n- 奇数索引：字符左移 `idx`\n- 偶数索引：字符乘 `idx`\n- `output.txt` 中给出了变换后的数字序列\n\n正确思路：\n1. 先识别程序不是直接校验输入，而是把真实 flag 变换后打印。\n2. 从 `main` 反推出每一位的运算规则。\n3. 用输出反推原始字符。\n\n易错点：\n- 容易忽略索引从 1 开始，不是从 0 开始\n- 容易把所有位都按同一规则还原\n\n人工结论：\n- `ctf2020{d9-dE6-20c}`\n",
+    "tool_events": []
+  },
+  "gold_outcome": {
+    "status": "known",
+    "flag": "ctf2020{d9-dE6-20c}",
+    "evidence": [
+      "D:/AI/Local/Writeups/ctf-ai-baselines/buuctf-level1-ai-wp.md"
+    ]
+  },
+  "error_tags": [
+    "mustpass10_failure",
+    "needs_skill_delta"
+  ],
+  "sft_ready": false,
+  "audit": {
+    "reviewed_by": "codex",
+    "reviewed_at": "2026-04-16T14:39:57",
+    "can_use_for_train": true,
+    "can_use_for_eval": true
+  }
+}

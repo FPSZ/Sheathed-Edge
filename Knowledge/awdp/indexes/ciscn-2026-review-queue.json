@@ -1,0 +1,86 @@
+[
+  {
+    "id": "awdp-red-ciscn-2026-mediadrive",
+    "priority": "P0",
+    "confidence": "high",
+    "recommended_use": "teacher_candidate",
+    "notes": "web / iconv blacklist bypass / file read"
+  },
+  {
+    "id": "awdp-red-ciscn-2026-easy-rw-revenge",
+    "priority": "P0",
+    "confidence": "high",
+    "recommended_use": "teacher_candidate",
+    "notes": "pwn service / md5 bypass / uaf / blue patch clue exists"
+  },
+  {
+    "id": "awdp-red-ciscn-2026-minidb",
+    "priority": "P0",
+    "confidence": "high",
+    "recommended_use": "teacher_candidate_after_function_check",
+    "notes": "transaction multi-state UAF"
+  },
+  {
+    "id": "awdp-red-ciscn-2026-broken-manager",
+    "priority": "P1",
+    "confidence": "high",
+    "recommended_use": "teacher_candidate_after_local_function_check",
+    "notes": "custom allocator / sigaltstack"
+  },
+  {
+    "id": "awdp-red-ciscn-2026-easy-time",
+    "priority": "P1",
+    "confidence": "medium",
+    "recommended_use": "weak_supervision",
+    "notes": "cookie bypass + zip slip + ssrf"
+  },
+  {
+    "id": "awdp-red-ciscn-2026-upnodetrap",
+    "priority": "P1",
+    "confidence": "medium",
+    "recommended_use": "weak_supervision",
+    "notes": "upload traversal / entrypoint overwrite"
+  },
+  {
+    "id": "awdp-red-ciscn-2026-catchme",
+    "priority": "P1",
+    "confidence": "medium",
+    "recommended_use": "weak_supervision_then_teacher",
+    "notes": "uaf / house of storm / clear slot fix"
+  },
+  {
+    "id": "awdp-red-ciscn-2026-watchagent",
+    "priority": "P2",
+    "confidence": "medium",
+    "recommended_use": "route_correction_and_isw_candidate",
+    "notes": "agent rpc / command exec"
+  },
+  {
+    "id": "awdp-blue-ciscn-2026-mediadrive-fix",
+    "priority": "P0",
+    "confidence": "high",
+    "recommended_use": "blue_teacher_candidate",
+    "notes": "normalize final path + remove unserialize cookie"
+  },
+  {
+    "id": "awdp-blue-ciscn-2026-easy-rw-revenge-fix",
+    "priority": "P0",
+    "confidence": "high",
+    "recommended_use": "blue_teacher_candidate",
+    "notes": "replace dangerous free path with safe delete logic"
+  },
+  {
+    "id": "awdp-blue-ciscn-2026-catchme-fix",
+    "priority": "P1",
+    "confidence": "high",
+    "recommended_use": "blue_teacher_candidate",
+    "notes": "clear slot after free to break UAF"
+  },
+  {
+    "id": "awdp-blue-ciscn-2026-minidb-fix",
+    "priority": "P1",
+    "confidence": "medium",
+    "recommended_use": "blue_candidate_after_function_check",
+    "notes": "transaction branch fix, avoid broad NOP free"
+  }
+]

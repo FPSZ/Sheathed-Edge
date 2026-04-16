@@ -1,14 +1,18 @@
-# Web Family Skills
+﻿# Web Family Skills
 
 This document is the family skill reference for `task_family=web`.
 
 Use it after the shared router has classified the task as `web`. Do not use it as the first step before routing.
+
+If `competition_mode=awdp`, keep the web route focused on route, sink, state, exploit, or patch evidence, and let `awdp-core` plus `awdp-red` / `awdp-blue` control the match workflow.
 
 ## Stable Fields
 
 When possible, keep these concepts visible in your reasoning:
 
 - `task_family: web`
+- `competition_mode`
+- `awdp_role`
 - `phase`
 - `primary_skill`
 - `secondary_skills`

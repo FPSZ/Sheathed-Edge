@@ -35,6 +35,8 @@ pub struct ModelProfile {
     pub label: String,
     pub model_path: String,
     pub quant: String,
+    #[serde(default)]
+    pub reasoning_format: String,
     pub ctx_size: u32,
     pub parallel: u32,
     pub threads: u32,

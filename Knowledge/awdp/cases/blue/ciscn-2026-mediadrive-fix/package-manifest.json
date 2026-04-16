@@ -1,0 +1,14 @@
+{
+  "package_type": "blue_patch_case",
+  "priority": "P0",
+  "quality": "high",
+  "recommended_for": [
+    "patch-review",
+    "checker-safe-training"
+  ],
+  "core_lessons": [
+    "patch the semantic boundary, not just the payload string",
+    "remove user-controlled serialization before chasing blacklist variants",
+    "preserve business path while sealing final sink path"
+  ]
+}

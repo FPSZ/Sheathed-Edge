@@ -1,0 +1,43 @@
+{
+  "case_id": "buuctf-transform",
+  "task_meta": {
+    "category": "reverse",
+    "source": "BUUCTF",
+    "difficulty": "easy-medium",
+    "visibility": "train-dev-only",
+    "notes": "Auto-bootstrapped from ctf_training_loop_v1.py; requires human review before train/eval use."
+  },
+  "input_files": [
+    {
+      "path": "D:/CTF/题目/逆向/BUUCTF/Transform.exe",
+      "sha256": "",
+      "role": "challenge-binary"
+    }
+  ],
+  "student_trace": {
+    "source": "D:/AI/Local/Logs/tests/ctf-training-loop/20260416_090209/buuctf-transform.json",
+    "summary": "- **task_family**: reverse\n- **shared_domain**: binary\n- **phase**: triage\n- **primary_skill**: key-function-recovery\n- **secondary_skills**: validation-and-check-tracing\n\n## Key Tool Evidence\n\n1. **File opened**: `Transform.exe` successfully loaded\n2. **Analysis completed**: 4449 functions found, 64-bit PE\n3. **Critical strings found**:\n   - `\"Give me your code:\\n\"` - input prompt\n   - `\"Wrong!\\n\"` - validation failure\n   - `\"Right!Good Job!\\n\"` - validation success\n   - `\"Here is your flag: %s\\n\"` - flag output format\n4. **Key function**: `entry2` (0x2430) - 47 bytes, complexity 4, 2 args\n5. **Anti-analysis**: `IsDebuggerPresent` import detected\n\n## Current Finding\n\n这是一个典型的CTF逆向题目，程序流程：\n1. 提示用户输入code\n2. 验证code是否正确\n3. 正确则输出flag，错误则提示Wrong\n\n关键验证逻辑在 `entry2` 函数中（复杂度4，有分支判断）。\n\n## Next Evidence Target\n\n需要进一步分析：\n1. `entry2` 函数的反编译代码，查看验证逻辑\n2. 查找与flag相关的字符串引用（xrefs）\n3. 分析验证算法的具体实现\n\n## Final Answer or Best Candidate\n\n**尚未获得flag**。需要进一步分析 `entry2` 函数的验证逻辑。\n\n## Remaining Gap\n\n- `entry2` 函数的具体验证算法未分析\n- 没有flag字符串的直接引用证据\n- 需要反编译代码或xref分析来找到flag生成/验证逻辑",
+    "tool_events": []
+  },
+  "teacher_trace": {
+    "source": "D:/AI/Local/Writeups/ctf-ai-baselines/buuctf-transform-ai-wp.md",
+    "summary": "待人工补全 teacher solve / WP 摘要。",
+    "tool_events": []
+  },
+  "error_tags": [],
+  "gold_outcome": {
+    "status": "unknown",
+    "flag": "MRCTF{Tr4nsp0sltiON_Clph3r_1s_3z}",
+    "evidence": [
+      "D:/AI/Local/Writeups/ctf-ai-baselines/buuctf-transform-ai-wp.md"
+    ]
+  },
+  "skill_delta": [],
+  "sft_ready": false,
+  "audit": {
+    "reviewed_by": "",
+    "reviewed_at": "",
+    "can_use_for_train": false,
+    "can_use_for_eval": false
+  }
+}

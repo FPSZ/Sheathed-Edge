@@ -1,0 +1,13 @@
+{
+  "skill_id": "rev-mustpass10-custom-alphabet",
+  "trigger_case_id": "nssctf-simplebase",
+  "problem": "The student recognized custom base64 but stopped at a wrong decoded candidate. It did not explicitly verify whether the binary implemented encoding or decoding, and it over-trusted one mapped plaintext without reconciling it against the teacher-backed answer.",
+  "rule_update": "When strings reveal a custom alphabet and ciphertext, first determine whether the binary performs encoding or decoding, then map between custom and standard alphabets explicitly, and validate the final plaintext against the challenge answer shape before stopping.",
+  "checklist_update": [
+    "Identify whether the visible routine is encoding-forward or decoding-inverse.",
+    "Build an explicit alphabet index map instead of ad-hoc character replacement.",
+    "If one decoded candidate appears but does not match the expected challenge shape, perform one more verification step before finalizing.",
+    "Treat custom alphabet tasks as inversion tasks, not as direct string extraction."
+  ],
+  "requires_eval_refresh": true
+}

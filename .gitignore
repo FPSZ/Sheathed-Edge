@@ -100,5 +100,21 @@ tools/
 
 # Local workflow helpers
 Workflows/**
+!Workflows/windows/
+!Workflows/windows/setup-teammate-ssh.ps1
+
+# Local backups / generated binaries / ad-hoc dumps
+Agent/gateway-go/*.exe
+Agent/gateway-go/*.exe~
+Agent/*.bak*
+Agent/*.config.json.bak*
+Agent/host-control.*.config.json
+config_dump.txt
+index_dump.txt
+package_dump.txt
+server_info.txt
+tmp-gateway-chat.json
+tmp-gateway-toolcall.json
+tmp-repro-gateway.sh
 
 # Keep source, plans, configs, and templates versioned by default.

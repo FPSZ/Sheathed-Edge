@@ -1,0 +1,18 @@
+{
+  "id": "awdp-blue-backdoor-hunt-cleanup",
+  "kind": "playbook",
+  "competition_mode": "awdp",
+  "role": "blue",
+  "slug": "backdoor-hunt-cleanup",
+  "title": "AWDP Blue / Backdoor Hunt and Cleanup",
+  "summary": "AWDP Blue / Backdoor Hunt and Cleanup",
+  "tags": [
+    "awdp",
+    "blue",
+    "backdoor",
+    "cleanup"
+  ],
+  "source": "internal",
+  "version": "v1",
+  "status": "active"
+}

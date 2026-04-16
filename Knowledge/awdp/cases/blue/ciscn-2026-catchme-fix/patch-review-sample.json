@@ -1,0 +1,17 @@
+{
+  "task_family": "pwn",
+  "shared_domain": "binary",
+  "competition_mode": "awdp",
+  "awdp_role": "blue",
+  "review_dimensions": [
+    "cuts dangling reference at root",
+    "does not overfit to one exploit path",
+    "preserves menu semantics",
+    "remains checker-safe"
+  ],
+  "reject_if": [
+    "index-specific patch only",
+    "feature disable as main defense",
+    "no fix to root dangling pointer state"
+  ]
+}

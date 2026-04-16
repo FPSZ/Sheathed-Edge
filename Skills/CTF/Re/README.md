@@ -6,3 +6,4 @@
 - `rev-intake`：路径、工作区、入口稳定化
 - `rev-shell`：PowerShell / WSL bash 适配
 - `rev-triage`：解包后高信号初筛
+- `ctf-wp`：题解完成后的低 AI 味 WP 整理

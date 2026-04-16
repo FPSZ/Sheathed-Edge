@@ -1,0 +1,43 @@
+{
+  "case_id": "nssctf-checkin",
+  "task_meta": {
+    "category": "reverse",
+    "source": "NSSCTF",
+    "difficulty": "easy",
+    "visibility": "train-dev-only",
+    "notes": "Auto-bootstrapped from ctf_training_loop_v1.py; requires human review before train/eval use."
+  },
+  "input_files": [
+    {
+      "path": "D:/CTF/题目/逆向/NSSCTF/已解决/checkin/checkin",
+      "sha256": "",
+      "role": "challenge-binary"
+    }
+  ],
+  "student_trace": {
+    "source": "D:/AI/Local/Logs/tests/ctf-training-loop/20260416_090209/nssctf-checkin.json",
+    "summary": "- **task_family**: reverse\n- **shared_domain**: binary\n- **phase**: triage\n- **primary_skill**: key-function-recovery\n- **secondary_skills**: flag-and-key-extraction\n- **evidence_required**: file metadata, strings, functions, imports, xrefs to key strings\n- **fallback_if_fail**: use decompiler to recover validation logic\n\n---\n\n## Key Tool Evidence\n\n从 `tool_list_strings_post` 返回的字符串中直接发现了 flag 候选：\n\n```\nmoectf{Enjoy_yourself_in_Reverse_Engineering!!!}\n```\n\n字符串上下文显示：\n- \"Welcome to moectf2022!\"\n- \"Input your flag, and I will check for you~\"\n- \"Good job!!! tttttqqqqqlllll!!!\"\n- \"QwQ. Something wrong. Please try again. >_<\"\n\n这表明程序是一个 flag 验证器，正确 flag 被硬编码在字符串中。\n\n---\n\n## Current Finding\n\n这是一个简单的逆向题目，flag 直接以明文形式存储在二进制文件的字符串段中。程序逻辑是：\n1. 提示用户输入 flag\n2. 与硬编码的正确 flag 比较\n3. 输出 \"Good job!!!\" 或 \"Something wrong\"\n\n---\n\n## Next Evidence Target\n\n无需进一步分析，flag 已明确。\n\n---\n\n## Final Answer\n\n```\nmoectf{Enjoy_yourself_in_Reverse_Engineering!!!}\n```\n\n---\n\n## Remaining Gap\n\n无。flag 已直接从字符串证据中确认。",
+    "tool_events": []
+  },
+  "teacher_trace": {
+    "source": "D:/AI/Local/Writeups/ctf-ai-baselines/nssctf-checkin-ai-wp.md",
+    "summary": "待人工补全 teacher solve / WP 摘要。",
+    "tool_events": []
+  },
+  "error_tags": [],
+  "gold_outcome": {
+    "status": "unknown",
+    "flag": "moectf{Enjoy_yourself_in_Reverse_Engineering!!!}",
+    "evidence": [
+      "D:/AI/Local/Writeups/ctf-ai-baselines/nssctf-checkin-ai-wp.md"
+    ]
+  },
+  "skill_delta": [],
+  "sft_ready": false,
+  "audit": {
+    "reviewed_by": "",
+    "reviewed_at": "",
+    "can_use_for_train": false,
+    "can_use_for_eval": false
+  }
+}

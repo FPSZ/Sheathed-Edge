@@ -1170,7 +1170,7 @@ fn build_remote_command(remote_shell: &str, workdir: &str, command: &str) -> Str
 fn build_shell_probe_command(remote_shell: &str) -> String {
     match remote_shell {
         "powershell" => {
-            "powershell -NoProfile -NonInteractive -Command \"$PSVersionTable.PSVersion | Out-Null; Write-Output ready\"".into()
+            "powershell -NoProfile -NonInteractive -Command \"[Console]::InputEncoding = [System.Text.UTF8Encoding]::new($false); [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); $OutputEncoding = [Console]::OutputEncoding; chcp 65001 > $null; $PSVersionTable.PSVersion | Out-Null; Write-Output ready\"".into()
         }
         _ => "bash -lc 'printf ready'".into(),
     }
@@ -1178,7 +1178,7 @@ fn build_shell_probe_command(remote_shell: &str) -> String {
 
 fn shell_probe_body(remote_shell: &str) -> String {
     match remote_shell {
-        "powershell" => "Write-Output ready".into(),
+        "powershell" => "[Console]::InputEncoding = [System.Text.UTF8Encoding]::new($false); [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); $OutputEncoding = [Console]::OutputEncoding; chcp 65001 > $null; Write-Output ready".into(),
         _ => "printf ready".into(),
     }
 }
@@ -1189,7 +1189,14 @@ fn build_bash_remote_command(workdir: &str, command: &str) -> String {
 
 fn build_powershell_remote_command(workdir: &str, command: &str) -> String {
     let script = format!(
-        "$ErrorActionPreference = 'Stop'; Set-Location -LiteralPath '{}'; {}",
+        concat!(
+            "$ErrorActionPreference = 'Stop'; ",
+            "[Console]::InputEncoding = [System.Text.UTF8Encoding]::new($false); ",
+            "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); ",
+            "$OutputEncoding = [Console]::OutputEncoding; ",
+            "chcp 65001 > $null; ",
+            "Set-Location -LiteralPath '{}'; {}"
+        ),
         powershell_single_quote(workdir),
         command
     );

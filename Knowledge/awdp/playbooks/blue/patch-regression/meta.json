@@ -1,0 +1,17 @@
+{
+  "id": "awdp-blue-patch-regression",
+  "kind": "playbook",
+  "competition_mode": "awdp",
+  "role": "blue",
+  "slug": "patch-regression",
+  "title": "AWDP Blue / Patch Regression",
+  "summary": "AWDP Blue / Patch Regression",
+  "tags": [
+    "awdp",
+    "blue",
+    "regression"
+  ],
+  "source": "internal",
+  "version": "v1",
+  "status": "active"
+}

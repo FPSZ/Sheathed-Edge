@@ -18,6 +18,12 @@ pub fn load_config(path: &str) -> Result<Config> {
     cfg.mcp.servers_path = normalize_runtime_path(&cfg.mcp.servers_path);
     cfg.mcp.tool_cache_path = normalize_runtime_path(&cfg.mcp.tool_cache_path);
     cfg.mcp.process_log_dir = normalize_runtime_path(&cfg.mcp.process_log_dir);
+    cfg.mcp.bridge_command = cfg
+        .mcp
+        .bridge_command
+        .iter()
+        .map(|p| normalize_runtime_path(p))
+        .collect();
     if cfg.mcp.bridge_host.trim().is_empty() {
         cfg.mcp.bridge_host = "127.0.0.1".into();
     }

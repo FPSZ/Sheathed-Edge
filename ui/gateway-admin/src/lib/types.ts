@@ -16,6 +16,7 @@ export type ModelProfile = {
   label: string;
   model_path: string;
   quant: string;
+  reasoning_format?: string;
   ctx_size: number;
   parallel: number;
   threads: number;
@@ -71,8 +72,11 @@ export type AgentLayerPreset = {
   id: string;
   label: string;
   enable_agent_router: boolean;
+  enable_reverse_skills: boolean;
   enable_pwn_skills: boolean;
   enable_web_skills: boolean;
+  enable_awdp_red: boolean;
+  enable_awdp_blue: boolean;
   effective_plugins?: string[];
   effective_prompt_files?: string[];
   effective_skill_files?: string[];

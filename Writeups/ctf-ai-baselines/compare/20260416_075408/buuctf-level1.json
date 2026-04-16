@@ -1,0 +1,20 @@
+{
+  "case_id": "buuctf-level1",
+  "verdict": "partial",
+  "solved_exact": false,
+  "expected_answer": "ctf2020{d9-dE6-20c}",
+  "candidate_flags": [],
+  "tool_count": 4,
+  "tool_stage_counter": {
+    "tool_execute_tool_open_file_post": 1,
+    "tool_execute_tool_analyze_post": 1,
+    "tool_execute_tool_list_strings_post": 1,
+    "tool_execute_tool_list_functions_post": 1
+  },
+  "error_tags": [
+    "no_final_candidate",
+    "stopped_at_evidence_summary"
+  ],
+  "request_id": "req-1776297293517604000",
+  "reference_wp": "D:/AI/Local/Writeups/ctf-ai-baselines/buuctf-level1-ai-wp.md"
+}

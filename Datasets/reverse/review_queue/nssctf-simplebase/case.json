@@ -1,0 +1,43 @@
+{
+  "case_id": "nssctf-simplebase",
+  "task_meta": {
+    "category": "reverse",
+    "source": "NSSCTF",
+    "difficulty": "easy",
+    "visibility": "train-dev-only",
+    "notes": "Auto-bootstrapped from ctf_training_loop_v1.py; requires human review before train/eval use."
+  },
+  "input_files": [
+    {
+      "path": "D:/CTF/题目/逆向/NSSCTF/未解决/06base64-/simplebase",
+      "sha256": "",
+      "role": "challenge-binary"
+    }
+  ],
+  "student_trace": {
+    "source": "D:/AI/Local/Logs/tests/ctf-training-loop/20260416_090209/nssctf-simplebase.json",
+    "summary": "- **task_family**: reverse\n- **shared_domain**: binary\n- **phase**: verification\n- **primary_skill**: decode-and-transform-inversion\n- **key tool evidence**:\n  - 字符串 \"GyAGD1ETr3AcGKNkZ19PLKAyAwEsAIELHx1nFSH2IwyGsD==\"\n  - 字符串 \"NOPQRSTUVWXYZABCDEFGHIJKLMnopqrstuvwxyzabcdefghijklm0123456789+/\" (base64编码表)\n  - 字符串 \"This is flag!!\" 和 \"This is wrong\" (验证提示)\n- **current finding**: 这是一个base64编码的逆向题，程序内包含一个base64编码的字符串，需要解码获取flag\n- **next evidence target**: 解码base64字符串获取flag\n\n解码base64字符串 \"GyAGD1ETr3AcGKNkZ19PLKAyAwEsAIELHx1nFSH2IwyGsD==\"：\n\n```\nNSSCTF{b4s364_1s_s0_34sy!}\n```\n\n- **final answer or best candidate**: `NSSCTF{b4s364_1s_s0_34sy!}`\n- **remaining gap**: 无，flag已确定\n\n**分析总结**：\n1. 题目名为\"simplebase\"，提示base64编码\n2. 字符串分析发现一个base64编码的密文 \"GyAGD1ETr3AcGKNkZ19PLKAyAwEsAIELHx1nFSH2IwyGsD==\"\n3. 同时发现base64编码表 \"NOPQRSTUVWXYZABCDEFGHIJKLMnopqrstuvwxyzabcdefghijklm0123456789+/\"\n4. 解码后得到flag：`NSSCTF{b4s364_1s_s0_34sy!}`",
+    "tool_events": []
+  },
+  "teacher_trace": {
+    "source": "D:/AI/Local/Writeups/ctf-ai-baselines/simplebase-ai-wp.md",
+    "summary": "待人工补全 teacher solve / WP 摘要。",
+    "tool_events": []
+  },
+  "error_tags": [],
+  "gold_outcome": {
+    "status": "unknown",
+    "flag": "NSSCTF{siMp13_Base64_5TXRMZHU6V9S}",
+    "evidence": [
+      "D:/AI/Local/Writeups/ctf-ai-baselines/simplebase-ai-wp.md"
+    ]
+  },
+  "skill_delta": [],
+  "sft_ready": false,
+  "audit": {
+    "reviewed_by": "",
+    "reviewed_at": "",
+    "can_use_for_train": false,
+    "can_use_for_eval": false
+  }
+}

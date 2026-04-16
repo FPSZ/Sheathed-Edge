@@ -1,0 +1,21 @@
+{
+  "version": "2026-04-16-round5",
+  "route_correction_cases": [
+    "awdp-red-ciscn-2026-mediadrive",
+    "awdp-red-ciscn-2026-easy-rw-revenge",
+    "awdp-red-ciscn-2026-catchme",
+    "awdp-red-ciscn-2026-upnodetrap",
+    "awdp-red-ciscn-2026-easy-time"
+  ],
+  "patch_review_cases": [
+    "awdp-blue-ciscn-2026-mediadrive-fix",
+    "awdp-blue-ciscn-2026-easy-rw-revenge-fix",
+    "awdp-blue-ciscn-2026-catchme-fix",
+    "awdp-blue-ciscn-2026-minidb-fix"
+  ],
+  "purpose": [
+    "teach small models to recover from wrong initial route",
+    "teach blue-side patch review beyond patch existence",
+    "avoid overfitting to single public writeup payloads"
+  ]
+}

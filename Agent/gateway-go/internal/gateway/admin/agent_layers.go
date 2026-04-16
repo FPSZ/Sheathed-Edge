@@ -34,6 +34,27 @@ func (s *Service) AgentLayers() (*AgentLayersResponse, error) {
 	}, nil
 }
 
+func (s *Service) DefaultAgentLayerPreset() (*AgentLayerPreset, error) {
+	payload, err := s.readAgentLayerPresetFile()
+	if err != nil {
+		return nil, err
+	}
+	if len(payload.Presets) == 0 {
+		return nil, nil
+	}
+	defaultID := strings.TrimSpace(payload.DefaultPresetID)
+	if defaultID != "" {
+		for _, item := range payload.Presets {
+			if strings.EqualFold(item.ID, defaultID) {
+				preset := item
+				return &preset, nil
+			}
+		}
+	}
+	preset := payload.Presets[0]
+	return &preset, nil
+}
+
 func (s *Service) UpdateAgentLayers(req UpdateAgentLayersRequest) (*AgentLayersResponse, error) {
 	cleaned, err := sanitizeAgentLayerPresets(req.Presets)
 	if err != nil {
@@ -84,32 +105,19 @@ func (s *Service) readAgentLayerPresetFile() (*agentLayerPresetFile, error) {
 
 func defaultAgentLayerPresetFile() *agentLayerPresetFile {
 	return &agentLayerPresetFile{
-		DefaultPresetID: "router-only",
+		DefaultPresetID: "router-reverse",
 		Presets: []AgentLayerPreset{
-			{
-				ID:                "router-only",
-				Label:             "Router Only",
-				EnableAgentRouter: true,
-			},
-			{
-				ID:                "router-pwn",
-				Label:             "Router + Pwn",
-				EnableAgentRouter: true,
-				EnablePwnSkills:   true,
-			},
-			{
-				ID:                "router-web",
-				Label:             "Router + Web",
-				EnableAgentRouter: true,
-				EnableWebSkills:   true,
-			},
-			{
-				ID:                "router-pwn-web",
-				Label:             "Router + Pwn + Web",
-				EnableAgentRouter: true,
-				EnablePwnSkills:   true,
-				EnableWebSkills:   true,
-			},
+			{ID: "router-only", Label: "Router Only", EnableAgentRouter: true},
+			{ID: "router-reverse", Label: "Router + Reverse", EnableAgentRouter: true, EnableReverseSkills: true},
+			{ID: "router-pwn", Label: "Router + Pwn", EnableAgentRouter: true, EnablePwnSkills: true},
+			{ID: "router-web", Label: "Router + Web", EnableAgentRouter: true, EnableWebSkills: true},
+			{ID: "router-awdp-red", Label: "Router + AWDP Red", EnableAgentRouter: true, EnableAWDPRed: true},
+			{ID: "router-awdp-blue", Label: "Router + AWDP Blue", EnableAgentRouter: true, EnableAWDPBlue: true},
+			{ID: "router-web-awdp-red", Label: "Router + Web + AWDP Red", EnableAgentRouter: true, EnableWebSkills: true, EnableAWDPRed: true},
+			{ID: "router-web-awdp-blue", Label: "Router + Web + AWDP Blue", EnableAgentRouter: true, EnableWebSkills: true, EnableAWDPBlue: true},
+			{ID: "router-pwn-awdp-red", Label: "Router + Pwn + AWDP Red", EnableAgentRouter: true, EnablePwnSkills: true, EnableAWDPRed: true},
+			{ID: "router-reverse-awdp-blue", Label: "Router + Reverse + AWDP Blue", EnableAgentRouter: true, EnableReverseSkills: true, EnableAWDPBlue: true},
+			{ID: "router-reverse-pwn-web", Label: "Router + Reverse + Pwn + Web", EnableAgentRouter: true, EnableReverseSkills: true, EnablePwnSkills: true, EnableWebSkills: true},
 		},
 	}
 }
@@ -122,11 +130,14 @@ func sanitizeAgentLayerPresets(items []AgentLayerPreset) ([]AgentLayerPreset, er
 	cleaned := make([]AgentLayerPreset, 0, len(items))
 	for _, raw := range items {
 		item := AgentLayerPreset{
-			ID:                strings.TrimSpace(raw.ID),
-			Label:             strings.TrimSpace(raw.Label),
-			EnableAgentRouter: raw.EnableAgentRouter,
-			EnablePwnSkills:   raw.EnablePwnSkills,
-			EnableWebSkills:   raw.EnableWebSkills,
+			ID:                  strings.TrimSpace(raw.ID),
+			Label:               strings.TrimSpace(raw.Label),
+			EnableAgentRouter:   raw.EnableAgentRouter,
+			EnableReverseSkills: raw.EnableReverseSkills,
+			EnablePwnSkills:     raw.EnablePwnSkills,
+			EnableWebSkills:     raw.EnableWebSkills,
+			EnableAWDPRed:       raw.EnableAWDPRed,
+			EnableAWDPBlue:      raw.EnableAWDPBlue,
 		}
 		if item.ID == "" {
 			return nil, fmt.Errorf("preset id is required")
@@ -177,11 +188,20 @@ func (s *Service) attachEffectiveAgentLayers(items []AgentLayerPreset) ([]AgentL
 
 func effectivePlugins(preset AgentLayerPreset) []string {
 	var out []string
+	if preset.EnableReverseSkills {
+		out = append(out, "reverse")
+	}
 	if preset.EnablePwnSkills {
 		out = append(out, "pwn")
 	}
 	if preset.EnableWebSkills {
 		out = append(out, "web")
+	}
+	if preset.EnableAWDPRed {
+		out = append(out, "awdp-red")
+	}
+	if preset.EnableAWDPBlue {
+		out = append(out, "awdp-blue")
 	}
 	return out
 }
@@ -191,15 +211,30 @@ func effectivePromptFiles(modes *ModesResponse, preset AgentLayerPreset, cfg *co
 	if preset.EnableAgentRouter {
 		files = append(files, routerPromptPath(cfg))
 	}
+	if preset.EnableReverseSkills || preset.EnablePwnSkills {
+		files = append(files, binaryCorePromptPath(cfg))
+	}
+	if preset.EnableAWDPRed || preset.EnableAWDPBlue {
+		files = append(files, awdpCorePromptPath(cfg))
+	}
 	for _, plugin := range modes.Plugins {
+		if plugin.Name == "reverse" && !preset.EnableReverseSkills {
+			continue
+		}
 		if plugin.Name == "pwn" && !preset.EnablePwnSkills {
 			continue
 		}
 		if plugin.Name == "web" && !preset.EnableWebSkills {
 			continue
 		}
+		if plugin.Name == "awdp-red" && !preset.EnableAWDPRed {
+			continue
+		}
+		if plugin.Name == "awdp-blue" && !preset.EnableAWDPBlue {
+			continue
+		}
 		for _, item := range plugin.PromptFiles {
-			if samePath(item, routerPromptPath(cfg), cfg) {
+			if samePath(item, routerPromptPath(cfg), cfg) || samePath(item, binaryCorePromptPath(cfg), cfg) || samePath(item, awdpCorePromptPath(cfg), cfg) {
 				continue
 			}
 			files = append(files, item)
@@ -211,10 +246,19 @@ func effectivePromptFiles(modes *ModesResponse, preset AgentLayerPreset, cfg *co
 func effectiveSkillFiles(modes *ModesResponse, preset AgentLayerPreset) []string {
 	var files []string
 	for _, plugin := range modes.Plugins {
+		if plugin.Name == "reverse" && preset.EnableReverseSkills {
+			files = append(files, plugin.SkillFiles...)
+		}
 		if plugin.Name == "pwn" && preset.EnablePwnSkills {
 			files = append(files, plugin.SkillFiles...)
 		}
 		if plugin.Name == "web" && preset.EnableWebSkills {
+			files = append(files, plugin.SkillFiles...)
+		}
+		if plugin.Name == "awdp-red" && preset.EnableAWDPRed {
+			files = append(files, plugin.SkillFiles...)
+		}
+		if plugin.Name == "awdp-blue" && preset.EnableAWDPBlue {
 			files = append(files, plugin.SkillFiles...)
 		}
 	}
@@ -224,10 +268,19 @@ func effectiveSkillFiles(modes *ModesResponse, preset AgentLayerPreset) []string
 func effectiveToolScope(modes *ModesResponse, preset AgentLayerPreset) []string {
 	items := append([]string{}, modes.Core.ToolScope...)
 	for _, plugin := range modes.Plugins {
+		if plugin.Name == "reverse" && preset.EnableReverseSkills {
+			items = append(items, plugin.ToolScope...)
+		}
 		if plugin.Name == "pwn" && preset.EnablePwnSkills {
 			items = append(items, plugin.ToolScope...)
 		}
 		if plugin.Name == "web" && preset.EnableWebSkills {
+			items = append(items, plugin.ToolScope...)
+		}
+		if plugin.Name == "awdp-red" && preset.EnableAWDPRed {
+			items = append(items, plugin.ToolScope...)
+		}
+		if plugin.Name == "awdp-blue" && preset.EnableAWDPBlue {
 			items = append(items, plugin.ToolScope...)
 		}
 	}
@@ -237,10 +290,19 @@ func effectiveToolScope(modes *ModesResponse, preset AgentLayerPreset) []string 
 func effectiveRetrievalRoots(modes *ModesResponse, preset AgentLayerPreset) []string {
 	items := append([]string{}, modes.Core.RetrievalRoots...)
 	for _, plugin := range modes.Plugins {
+		if plugin.Name == "reverse" && preset.EnableReverseSkills {
+			items = append(items, plugin.RetrievalRoots...)
+		}
 		if plugin.Name == "pwn" && preset.EnablePwnSkills {
 			items = append(items, plugin.RetrievalRoots...)
 		}
 		if plugin.Name == "web" && preset.EnableWebSkills {
+			items = append(items, plugin.RetrievalRoots...)
+		}
+		if plugin.Name == "awdp-red" && preset.EnableAWDPRed {
+			items = append(items, plugin.RetrievalRoots...)
+		}
+		if plugin.Name == "awdp-blue" && preset.EnableAWDPBlue {
 			items = append(items, plugin.RetrievalRoots...)
 		}
 	}
@@ -251,16 +313,34 @@ func routerPromptPath(cfg *config.Config) string {
 	return filepath.Clean(filepath.Join(cfg.Modes.CoreRoot, cfg.Modes.DefaultMode, "prompts", "agent.md"))
 }
 
+func binaryCorePromptPath(cfg *config.Config) string {
+	return filepath.Clean(filepath.Join(cfg.Modes.CoreRoot, cfg.Modes.DefaultMode, "prompts", "binary-core.md"))
+}
+
+func awdpCorePromptPath(cfg *config.Config) string {
+	return filepath.Clean(filepath.Join(cfg.Modes.CoreRoot, cfg.Modes.DefaultMode, "prompts", "awdp-core.md"))
+}
+
 func samePath(candidate, absolute string, cfg *config.Config) bool {
-	target := strings.ToLower(filepath.Clean(absolute))
-	normalizedCandidate := strings.ToLower(filepath.Clean(candidate))
+	normalize := func(value string) string {
+		value = strings.ReplaceAll(value, `\`, "/")
+		return strings.ToLower(filepath.Clean(value))
+	}
+	target := normalize(absolute)
+	normalizedCandidate := normalize(candidate)
 	if normalizedCandidate == target {
 		return true
 	}
-	if strings.HasSuffix(normalizedCandidate, strings.ToLower(filepath.Join("core", "awdp", "prompts", "agent.md"))) {
+	if strings.HasSuffix(normalizedCandidate, "core/awdp/prompts/agent.md") {
 		return true
 	}
-	joinedFromPluginRoot := strings.ToLower(filepath.Clean(filepath.Join(cfg.Modes.PluginRoot, candidate)))
+	if strings.HasSuffix(normalizedCandidate, "core/awdp/prompts/binary-core.md") {
+		return true
+	}
+	if strings.HasSuffix(normalizedCandidate, "core/awdp/prompts/awdp-core.md") {
+		return true
+	}
+	joinedFromPluginRoot := normalize(filepath.Join(cfg.Modes.PluginRoot, candidate))
 	return joinedFromPluginRoot == target
 }
 

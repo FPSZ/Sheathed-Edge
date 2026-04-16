@@ -1,0 +1,14 @@
+{
+  "package_type": "blue_patch_case",
+  "priority": "P0",
+  "quality": "high",
+  "recommended_for": [
+    "patch-review",
+    "red-blue-contrast"
+  ],
+  "core_lessons": [
+    "minimal call-target replacement can outperform broad lifecycle rewrites",
+    "checker-safe patches preserve protocol semantics",
+    "do not overfit patch strategy to a single exp script"
+  ]
+}

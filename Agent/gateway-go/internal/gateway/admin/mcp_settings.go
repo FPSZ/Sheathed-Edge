@@ -356,7 +356,7 @@ func sanitizeMCPServer(raw MCPServerProfile) (MCPServerProfile, error) {
 		return MCPServerProfile{}, fmt.Errorf("at least one plugin_scope is required")
 	}
 	for _, scope := range server.PluginScope {
-		if scope != "awdp" && scope != "web" && scope != "pwn" {
+		if scope != "awdp" && scope != "web" && scope != "pwn" && scope != "reverse" {
 			return MCPServerProfile{}, fmt.Errorf("unsupported plugin_scope: %s", scope)
 		}
 	}
@@ -495,7 +495,7 @@ func buildOpenWebUIConnection(server MCPServerProfile, runtime MCPRuntimeEntry) 
 		if connection.URL == "" {
 			connection.URL = runtime.EffectiveConnectionURL
 		}
-		connection.Path = "/openapi.json"
+		connection.Path = fmt.Sprintf("/%s/openapi.json", server.ID)
 		if connection.URL == "" {
 			connection.URL = "http://127.0.0.1:8092"
 		}

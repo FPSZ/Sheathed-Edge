@@ -1,0 +1,18 @@
+{
+  "id": "awdp-blue-availability-preserving-defense",
+  "kind": "playbook",
+  "competition_mode": "awdp",
+  "role": "blue",
+  "slug": "availability-preserving-defense",
+  "title": "AWDP Blue / Availability-preserving Defense",
+  "summary": "AWDP Blue / Availability-preserving Defense",
+  "tags": [
+    "awdp",
+    "blue",
+    "availability",
+    "defense"
+  ],
+  "source": "internal",
+  "version": "v1",
+  "status": "active"
+}

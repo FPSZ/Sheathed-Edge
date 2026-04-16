@@ -1,5 +1,6 @@
-use std::{collections::BTreeMap, process::Stdio, time::Instant};
+use std::{collections::BTreeMap, env, path::Path, process::Stdio, time::Instant};
 
+use encoding_rs::GBK;
 use serde_json::Value;
 use tokio::process::Command;
 
@@ -49,6 +50,7 @@ pub async fn run_terminal(
     let effective_timeout =
         timeout_with_retry(timeout_ms, tool.retry.max_attempts, tool.retry.backoff_ms);
     let mut process = build_command(shell, &command, workdir)?;
+    inject_default_local_env(&mut process);
     if !tool.env.is_empty() {
         process.envs(tool.env.iter());
     }
@@ -290,13 +292,14 @@ fn build_command(
         "powershell" => {
             let workdir = runtime_path_to_windows(workdir);
             let mut cmd = Command::new("powershell.exe");
+            let wrapped = wrap_powershell_command(command);
             cmd.args([
                 "-NoProfile",
                 "-NonInteractive",
                 "-ExecutionPolicy",
                 "Bypass",
                 "-Command",
-                command,
+                &wrapped,
             ]);
             cmd.current_dir(workdir);
             Ok(cmd)
@@ -345,11 +348,12 @@ fn default_timeout(state: &AppState, tool: &ToolEntry) -> u64 {
 }
 
 fn truncate_output(bytes: &[u8]) -> (String, bool) {
+    let decoded = decode_terminal_bytes(bytes);
     if bytes.len() <= MAX_CAPTURE_BYTES {
-        return (String::from_utf8_lossy(bytes).to_string(), false);
+        return (decoded, false);
     }
 
-    let truncated = String::from_utf8_lossy(&bytes[..MAX_CAPTURE_BYTES]).to_string();
+    let truncated = decode_terminal_bytes(&bytes[..MAX_CAPTURE_BYTES]);
     (
         format!(
             "{truncated}\n... [truncated {} bytes]",
@@ -357,6 +361,55 @@ fn truncate_output(bytes: &[u8]) -> (String, bool) {
         ),
         true,
     )
+}
+
+fn wrap_powershell_command(command: &str) -> String {
+    format!(
+        concat!(
+            "[Console]::InputEncoding = [System.Text.UTF8Encoding]::new($false); ",
+            "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); ",
+            "$OutputEncoding = [Console]::OutputEncoding; ",
+            "chcp 65001 > $null; ",
+            "{command}"
+        ),
+        command = command
+    )
+}
+
+fn decode_terminal_bytes(bytes: &[u8]) -> String {
+    if bytes.is_empty() {
+        return String::new();
+    }
+    if let Ok(text) = String::from_utf8(bytes.to_vec()) {
+        return text;
+    }
+    let (decoded_gbk, _, had_errors) = GBK.decode(bytes);
+    if !had_errors {
+        return decoded_gbk.into_owned();
+    }
+    String::from_utf8_lossy(bytes).to_string()
+}
+
+fn inject_default_local_env(process: &mut Command) {
+    let python_home = "D:\\Environment2\\Create\\Python314";
+    let python_scripts = "D:\\Environment2\\Create\\Python314\\Scripts";
+
+    let mut path_entries = vec![];
+    if Path::new(python_home).exists() {
+        path_entries.push(python_home.to_string());
+    }
+    if Path::new(python_scripts).exists() {
+        path_entries.push(python_scripts.to_string());
+    }
+    if let Some(existing) = env::var_os("PATH") {
+        path_entries.push(existing.to_string_lossy().into_owned());
+    }
+    if !path_entries.is_empty() {
+        process.env("PATH", path_entries.join(";"));
+    }
+
+    process.env("PYTHONUTF8", "1");
+    process.env("PYTHONIOENCODING", "utf-8");
 }
 
 fn timeout_response(
@@ -414,7 +467,11 @@ fn single_quote(value: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{normalize_command, single_quote};
+    use super::{
+        decode_terminal_bytes, inject_default_local_env, normalize_command, single_quote,
+        wrap_powershell_command,
+    };
+    use tokio::process::Command;
 
     #[test]
     fn quotes_single_quotes_for_bash() {
@@ -452,5 +509,38 @@ mod tests {
             normalize_command("wsl-bash", "gnome-calculator &"),
             "gnome-calculator &"
         );
+    }
+
+    #[test]
+    fn wraps_powershell_with_utf8_setup() {
+        let wrapped = wrap_powershell_command("Get-ChildItem");
+        assert!(wrapped.contains("[Console]::OutputEncoding"));
+        assert!(wrapped.contains("chcp 65001"));
+        assert!(wrapped.ends_with("Get-ChildItem"));
+    }
+
+    #[test]
+    fn decodes_gbk_terminal_output() {
+        let raw = vec![0xc3, 0xfb, 0xb3, 0xc6];
+        assert_eq!(decode_terminal_bytes(&raw), "名称");
+    }
+
+    #[test]
+    fn injects_python_defaults_into_local_env() {
+        let mut command = Command::new("powershell.exe");
+        inject_default_local_env(&mut command);
+        let envs = command.as_std().get_envs().collect::<Vec<_>>();
+        let has_pythonutf8 = envs.iter().any(|(k, v)| {
+            k.to_string_lossy() == "PYTHONUTF8"
+                && v.map(|v| v.to_string_lossy() == "1").unwrap_or(false)
+        });
+        let has_pythonioencoding = envs.iter().any(|(k, v)| {
+            k.to_string_lossy() == "PYTHONIOENCODING"
+                && v.map(|v| v.to_string_lossy() == "utf-8").unwrap_or(false)
+        });
+        let has_path = envs.iter().any(|(k, _)| k.to_string_lossy() == "PATH");
+        assert!(has_pythonutf8);
+        assert!(has_pythonioencoding);
+        assert!(has_path);
     }
 }

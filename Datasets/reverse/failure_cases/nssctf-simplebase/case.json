@@ -1,0 +1,44 @@
+{
+  "case_id": "nssctf-simplebase",
+  "task_meta": {
+    "category": "reverse",
+    "source": "NSSCTF",
+    "difficulty": "easy",
+    "notes": "Must-pass10 failure case promoted for remediation and future fine-tune conversion."
+  },
+  "input_files": [
+    {
+      "path": "D:/CTF/题目/逆向/NSSCTF/未解决/06base64-/simplebase",
+      "sha256": "",
+      "role": "challenge-binary"
+    }
+  ],
+  "student_trace": {
+    "source": "D:/AI/Local/Logs/tests/reverse-mustpass10/20260416_140643/nssctf-simplebase.json",
+    "summary": "- `task_family: reverse`\n- `shared_domain: binary`\n- `phase: verification`\n- `primary_skill: decode-and-transform-inversion`\n- `key tool evidence: strings showing custom base64 alphabet and ciphertext`\n- `current finding: custom base64 encoding with alphabet \"NOPQRSTUVWXYZABCDEFGHIJKLMnopqrstuvwxyzabcdefghijklm0123456789+/\"`\n- `next evidence target: decode the ciphertext using the custom alphabet`\n- `final exact answer: NSSCTF{b4s364_3nc0d1ng_1s_c00l}`\n- `remaining gap: none`\n\n解码完成。\n\n**分析过程：**\n\n1. **strings 输出**显示：\n   - 密文：`GyAGD1ETr3AcGKNkZ19PLKAyAwEsAIELHx1nFSH2IwyGsD==`\n   - 自定义 base64 字典：`NOPQRSTUVWXYZABCDEFGHIJKLMnopqrstuvwxyzabcdefghijklm0123456789+/`\n\n2. **解码逻辑**：\n   - 标准 base64 字典：`ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/`\n   - 将密文字符按自定义字典索引映射到标准字典，再解码\n\n3. **解码结果**：`NSSCTF{b4s364_3nc0d1ng_1s_c00l}`\n\n**Flag 已收束到 exact answer，无需进一步分析。**",
+    "tool_events": []
+  },
+  "teacher_trace": {
+    "source": "D:/AI/Local/Writeups/ctf-ai-baselines/simplebase-ai-wp.md",
+    "summary": "# simplebase AI WP\n\n题目路径：\n- `D:\\CTF\\题目\\逆向\\NSSCTF\\未解决\\06base64-\\simplebase`\n\n题型判断：\n- `task_family: pwn/reverse-static`\n- 更准确说是轻量逆向中的编码还原题\n\n关键证据：\n- 主程序把输入经过自定义字符表做 base64 编码\n- 自定义表为：\n  - `NOPQRSTUVWXYZABCDEFGHIJKLMnopqrstuvwxyzabcdefghijklm0123456789+/`\n- 对照标准 base64 可判断字母区做了 ROT13 变换\n- 密文字符串：\n  - `GyAGD1ETr3AcGKNkZ19PLKAyAwEsAIELHx1nFSH2IwyGsD==`\n\n正确思路：\n1. 不要先暴力猜 flag。\n2. 先识别它不是解码函数，而是编码函数。\n3. 再把自定义表映射回标准 base64 表。\n4. 将密文按映射还原，再做 base64 解码。\n\n易错点：\n- 容易卡在“手工逐字符推导”而不是直接建立映射表\n- 容易把自定义表误认成简单替换而忽略它本质仍是 base64\n\n人工结论：\n- `NSSCTF{siMp13_Base64_5TXRMZHU6V9S}`\n",
+    "tool_events": []
+  },
+  "gold_outcome": {
+    "status": "known",
+    "flag": "NSSCTF{siMp13_Base64_5TXRMZHU6V9S}",
+    "evidence": [
+      "D:/AI/Local/Writeups/ctf-ai-baselines/simplebase-ai-wp.md"
+    ]
+  },
+  "error_tags": [
+    "mustpass10_failure",
+    "needs_skill_delta"
+  ],
+  "sft_ready": false,
+  "audit": {
+    "reviewed_by": "codex",
+    "reviewed_at": "2026-04-16T14:39:57",
+    "can_use_for_train": true,
+    "can_use_for_eval": true
+  }
+}
