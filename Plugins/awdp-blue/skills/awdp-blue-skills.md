@@ -48,6 +48,136 @@ Fallback if fail:
 - if the service is unstable, reduce to a health-first recovery step
 - if risk is unclear, return to the family skill that best narrows the vulnerable edge
 
+## evidence-first-forensics
+
+Use this when the blue-team task is still ambiguous and the next need is evidence collection, not immediate patching.
+
+Goals:
+
+- collect the minimum evidence set before touching files or binaries
+- separate confirmed attacker behavior from guesses
+- preserve artifacts needed for later replay, rollback, or reporting
+
+Checklist:
+
+- identify what artifact class exists:
+  - process / port
+  - log / config
+  - uploaded file / webshell
+  - binary diff
+  - packet capture / pcap
+- state which artifact is primary and why
+- record the smallest evidence-producing command or read step
+- avoid editing, deleting, or restarting the target before evidence is captured when that evidence may disappear
+
+Expected evidence:
+
+- artifact class
+- exact evidence target
+- smallest safe acquisition step
+
+Fallback if fail:
+
+- if the evidence source is volatile, capture summary indicators first
+- if the source is already gone, pivot to adjacent logs, process state, or surviving network traces
+
+## tshark-pcap-triage
+
+Use this when AWDP blue work involves `.pcap`, `.pcapng`, live capture notes, suspicious egress, credential leakage, or checker traffic reconstruction.
+
+Goals:
+
+- extract attacker actions and service-critical flows quickly
+- turn packet evidence into concrete patch or containment guidance
+- avoid drowning in full-pcap output
+
+Hard rule:
+
+- do not dump the entire pcap by default
+- always narrow by one of:
+  - host
+  - port
+  - protocol
+  - http request path
+  - tcp stream
+  - time window
+
+Preferred tshark progression:
+
+1. identify conversations:
+   - `tshark -r <pcap> -q -z conv,tcp`
+   - `tshark -r <pcap> -q -z conv,udp`
+2. identify endpoints:
+   - `tshark -r <pcap> -q -z endpoints,ip`
+3. narrow to suspicious protocol:
+   - `tshark -r <pcap> -Y "http || dns || tcp.port==<port>"`
+4. extract decisive fields only:
+   - `-T fields -e ip.src -e ip.dst -e tcp.dstport -e http.host -e http.request.uri`
+5. if needed, inspect one stream:
+   - `tshark -r <pcap> -qz follow,tcp,ascii,<stream_id>`
+
+Local workstation note:
+
+- on this machine, if `tshark` is not in PATH, use:
+  - `D:\CTF\tool\zhuabao\Wireshark\tshark.exe`
+- the GUI path is:
+  - `D:\CTF\tool\zhuabao\Wireshark\Wireshark.exe`
+
+Checklist:
+
+- identify suspicious peer and target service
+- identify exploit or beacon protocol
+- identify whether credentials, paths, payloads, or webshell routes appear
+- summarize exactly how packet evidence changes the patch boundary
+
+Expected evidence:
+
+- suspicious endpoint pair
+- protocol or stream id
+- decisive field extract
+- resulting patch or containment implication
+
+Fallback if fail:
+
+- if tshark is unavailable, state that explicitly and fall back to:
+  - file presence check
+  - install path note
+  - alternative parser only if already present
+- if the pcap is too large, narrow by endpoints first before deeper parsing
+
+## incident-artifact-cleanup-boundary
+
+Use this when blue work involves removing webshells, rogue tasks, dropped binaries, or attacker persistence after evidence is already captured.
+
+Goals:
+
+- clean only what is justified by evidence
+- keep the service alive and the checker path intact
+- separate containment from destructive cleanup
+
+Checklist:
+
+- identify confirmed malicious artifact
+- identify evidence already preserved
+- choose the smallest cleanup action:
+  - quarantine
+  - rename
+  - permission removal
+  - route disable
+  - targeted deletion
+- define one post-cleanup service check
+
+Expected evidence:
+
+- confirmed artifact
+- cleanup action
+- post-cleanup verification
+
+Fallback if fail:
+
+- if artifact confidence is weak, quarantine instead of deleting
+- if cleanup may break service, contain first and defer full removal
+
 ## hotfix-and-minimal-patch
 
 Use this when the vulnerable boundary is known and the next question is the smallest workable fix.
@@ -57,6 +187,20 @@ Goals:
 - isolate the smallest patch boundary
 - preserve existing service behavior
 - keep rollback and replay practical
+
+Hard rule:
+
+- blue-team fixes should follow the minimum-change law
+- prefer a local guard, whitelist, canonicalization step, or one-line safe API replacement over structural rewrites
+- do not widen the patch across unrelated routes, templates, or modules unless the exploit chain truly crosses them
+- if the challenge only ships binaries and libc/loader artifacts, do not invent source files such as `main.c`, `server.c`, or controller names that are not present
+- in binary-only cases, describe the patch boundary as:
+  - menu state
+  - size field
+  - index check
+  - pointer lifetime guard
+  - function boundary
+  - or binary patch location
 
 Checklist:
 
@@ -75,6 +219,45 @@ Fallback if fail:
 
 - if the patch grows across unrelated files or routes, step back and narrow the boundary again
 - if root cause is weak, stop before overspecifying the fix
+
+## minimum-change-law
+
+Use this when there are multiple possible fixes and the blue-team question is which one is match-safe.
+
+Goals:
+
+- block the proven exploit chain with the fewest risky edits
+- keep service behavior and checker behavior stable
+- avoid turning a hotfix into a refactor
+
+Checklist:
+
+- identify the exact attacker-controlled input
+- identify the exact dangerous sink
+- patch the closest reliable boundary between them
+- prefer:
+  - input validation
+  - strict allowlists
+  - canonical path checks
+  - parameterized queries
+  - safe deserialization removal
+  - permission or route narrowing
+- reject:
+  - framework migration
+  - multi-module redesign
+  - "cleaner" rewrites that touch unrelated code
+  - hallucinated source trees that are not present in the shipped challenge files
+
+Expected evidence:
+
+- exact source-to-sink edge
+- smallest effective patch point
+- rejected larger alternatives
+
+Fallback if fail:
+
+- if several patch points look valid, choose the one closest to the sink that least changes normal behavior
+- if the sink is still unclear, return to family-level evidence before patching
 
 ## checker-safe-fix
 
@@ -158,6 +341,35 @@ Fallback if fail:
 
 - if the regression surface is too wide, test the two most score-critical behaviors first
 - if the patch breaks normal behavior, revert to the minimal boundary review rather than layering more fixes
+
+## blue-supervision-output
+
+Use this when reviewing a model-produced AWDP blue answer or training sample.
+
+Goals:
+
+- judge whether the fix is actually minimal
+- judge whether it blocks the stated exploit path
+- judge whether it preserves the expected service path
+
+Checklist:
+
+- require these four items in the review:
+  - vulnerable edge
+  - minimal patch point
+  - why larger edits are unnecessary
+  - smallest regression check
+- mark the answer incorrect if it:
+  - patches the wrong layer
+  - rewrites unrelated code
+  - claims "fixed" without naming the exploit path
+  - ignores checker or availability risk
+
+Expected evidence:
+
+- pass/fail supervision note
+- one-line reason
+- corrected minimal patch direction if needed
 
 ## backdoor-hunt-and-cleanup
 

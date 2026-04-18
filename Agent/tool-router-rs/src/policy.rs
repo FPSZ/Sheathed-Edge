@@ -18,10 +18,11 @@ pub fn check_tool_access(
     mode: &str,
     arguments: &Value,
 ) -> std::result::Result<ToolDef, (String, String)> {
-    let def = if let Some(def) = state.tools.get(tool) {
+    let canonical_tool = canonical_tool_name(tool);
+    let def = if let Some(def) = state.tools.get(canonical_tool) {
         def.clone()
     } else if let Some(user_email) = arguments.get("user_email").and_then(Value::as_str) {
-        mcp::resolve_dynamic_tool(state, tool, mode, user_email)?
+        mcp::resolve_dynamic_tool(state, canonical_tool, mode, user_email)?
             .ok_or_else(|| ("tool_not_found".into(), format!("unknown tool: {tool}")))?
     } else {
         return Err(("tool_not_found".into(), format!("unknown tool: {tool}")));
@@ -50,7 +51,7 @@ pub fn check_tool_access(
         return Err(("schema_invalid".into(), error.to_string()));
     }
 
-    if tool == "terminal" {
+    if canonical_tool == "terminal" {
         validate_terminal_access(state, &def, arguments)?;
     }
 
@@ -63,7 +64,7 @@ pub fn normalize_tool_arguments(state: &AppState, tool: &str, arguments: &Value)
     };
 
     let mut normalized = object.clone();
-    match tool {
+    match canonical_tool_name(tool) {
         "retrieval" | "filesystem/search" => normalize_search_arguments(&mut normalized),
         "terminal" => normalize_terminal_arguments(state, tool, &mut normalized),
         _ => {}
@@ -96,7 +97,7 @@ fn normalize_search_arguments(arguments: &mut Map<String, Value>) {
 }
 
 fn normalize_terminal_arguments(state: &AppState, tool: &str, arguments: &mut Map<String, Value>) {
-    let Some(def) = state.tools.get(tool) else {
+    let Some(def) = state.tools.get(canonical_tool_name(tool)) else {
         return;
     };
 
@@ -231,6 +232,13 @@ fn normalize_terminal_arguments(state: &AppState, tool: &str, arguments: &mut Ma
     );
 }
 
+fn canonical_tool_name(tool: &str) -> &str {
+    match tool {
+        "runTerminal" => "terminal",
+        _ => tool,
+    }
+}
+
 fn validate_terminal_access(
     state: &AppState,
     def: &ToolDef,
@@ -311,7 +319,14 @@ fn validate_execution_target_access(
     arguments: &Value,
 ) -> std::result::Result<(), (String, String)> {
     if user_email.trim().is_empty() {
-        return Ok(());
+        return match transport {
+            "local" => Err((
+                "terminal_user_required".into(),
+                "local terminal requires user_email in multi-user mode; refusing to fall back to the controller host without an identified user".into(),
+            )),
+            "ssh" => Ok(()),
+            _ => Ok(()),
+        };
     }
 
     let workspace = load_user_workspace(state, user_email).ok_or_else(|| {
@@ -611,9 +626,9 @@ fn is_within_allowed_path_windows(candidate: &str, allowed: &str) -> bool {
 mod tests {
     use super::{
         preferred_ssh_host_id, preferred_terminal_transport, runtime_path_to_windows,
-        windows_path_to_wsl,
+        validate_execution_target_access, windows_path_to_wsl,
     };
-    use crate::models::UserWorkspace;
+    use crate::models::{AppState, Config, LogsConfig, McpRuntimeState, UserWorkspace};
 
     #[test]
     fn converts_wsl_path_to_windows_path() {
@@ -668,5 +683,46 @@ mod tests {
 
         assert_eq!(preferred_terminal_transport(Some(&workspace)), "local");
         assert_eq!(preferred_ssh_host_id(Some(&workspace)), None);
+    }
+
+    #[test]
+    fn rejects_unscoped_local_terminal_when_user_is_missing() {
+        let result = validate_execution_target_access(
+            &AppState {
+                config: Config {
+                    listen_host: "127.0.0.1".into(),
+                    listen_port: 0,
+                    registry_path: String::new(),
+                    user_settings_path: String::new(),
+                    logs: LogsConfig {
+                        tool_log_dir: String::new(),
+                    },
+                    timeouts: Default::default(),
+                    allowed_paths: vec![],
+                    plugin_scope_defaults: Default::default(),
+                    mcp: Default::default(),
+                },
+                tools: std::sync::Arc::new(std::collections::HashMap::new()),
+                workspace_root: String::new(),
+                user_settings_path: String::new(),
+                ssh_hosts_path: String::new(),
+                ssh_runtime: crate::ssh::new_runtime(),
+                mcp_servers_path: String::new(),
+                mcp_tool_cache_path: String::new(),
+                mcp_runtime: std::sync::Arc::new(tokio::sync::Mutex::new(
+                    McpRuntimeState::default(),
+                )),
+                resources_count: 0,
+                prompts_count: 0,
+            },
+            "",
+            "local",
+            &serde_json::json!({}),
+        );
+
+        assert!(result.is_err());
+        let (code, message) = result.err().unwrap();
+        assert_eq!(code, "terminal_user_required");
+        assert!(message.contains("requires user_email"));
     }
 }

@@ -29,12 +29,55 @@ function Ensure-Dir([string]$Path) {
 }
 
 function Ensure-OpenSSHServer {
-    $capability = Get-WindowsCapability -Online | Where-Object Name -like 'OpenSSH.Server*' | Select-Object -First 1
-    if ($null -eq $capability) {
-        throw "OpenSSH.Server Windows Capability was not found on this machine."
+    $sshdExe = Join-Path $env:WINDIR 'System32\OpenSSH\sshd.exe'
+    $service = Get-Service -Name sshd -ErrorAction SilentlyContinue
+
+    if ($service -and (Test-Path -LiteralPath $sshdExe)) {
+        return
     }
+
+    $capability = Get-WindowsCapability -Online -ErrorAction SilentlyContinue |
+        Where-Object Name -like 'OpenSSH.Server*' |
+        Select-Object -First 1
+    if ($null -eq $capability) {
+        $capability = [PSCustomObject]@{
+            Name = 'OpenSSH.Server~~~~0.0.1.0'
+            State = 'Unknown'
+        }
+    }
+
     if ($capability.State -ne 'Installed') {
-        Add-WindowsCapability -Online -Name $capability.Name | Out-Null
+        try {
+            Add-WindowsCapability -Online -Name $capability.Name -ErrorAction Stop | Out-Null
+        } catch {
+            try {
+                & dism.exe /Online /Add-Capability /CapabilityName:$($capability.Name) /NoRestart | Out-Null
+            } catch {
+            }
+        }
+    }
+
+    if (-not (Test-Path -LiteralPath $sshdExe)) {
+        throw @"
+Failed to install OpenSSH Server automatically.
+Checked capability: $($capability.Name)
+Expected binary: $sshdExe
+
+Please install 'OpenSSH Server' from Optional Features first, then rerun this script as Administrator.
+"@
+    }
+
+    if (-not (Get-Service -Name sshd -ErrorAction SilentlyContinue)) {
+        & sc.exe create sshd binPath= "`"$sshdExe`"" start= auto | Out-Null
+        Start-Sleep -Milliseconds 500
+    }
+
+    if (-not (Get-Service -Name ssh-agent -ErrorAction SilentlyContinue)) {
+        $sshAgentExe = Join-Path $env:WINDIR 'System32\OpenSSH\ssh-agent.exe'
+        if (Test-Path -LiteralPath $sshAgentExe) {
+            & sc.exe create ssh-agent binPath= "`"$sshAgentExe`"" start= demand | Out-Null
+            Start-Sleep -Milliseconds 500
+        }
     }
 }
 
@@ -113,11 +156,43 @@ function Ensure-AuthorizedKey {
     }
 
     & icacls $sshDir /inheritance:r | Out-Null
-    & icacls $sshDir /grant:r "${UserName}:(OI)(CI)F" "SYSTEM:(OI)(CI)F" | Out-Null
+    & icacls $sshDir /grant "${UserName}:(OI)(CI)F" /grant "SYSTEM:(OI)(CI)F" | Out-Null
     & icacls $authorizedKeys /inheritance:r | Out-Null
-    & icacls $authorizedKeys /grant:r "${UserName}:F" "SYSTEM:F" | Out-Null
+    & icacls $authorizedKeys /grant "${UserName}:F" /grant "SYSTEM:F" | Out-Null
 
-    return $authorizedKeys
+    $result = [ordered]@{
+        user_authorized_keys = $authorizedKeys
+        administrators_authorized_keys = ""
+        used_admin_path = $false
+    }
+
+    $isAdmin = $false
+    try {
+        $member = Get-LocalGroupMember -Group 'Administrators' -ErrorAction Stop | Where-Object {
+            $_.Name -match "(^|\\)$([regex]::Escape($UserName))$"
+        } | Select-Object -First 1
+        if ($null -ne $member) {
+            $isAdmin = $true
+        }
+    } catch {
+    }
+
+    if ($isAdmin) {
+        $adminKeys = 'C:\ProgramData\ssh\administrators_authorized_keys'
+        if (-not (Test-Path -LiteralPath $adminKeys)) {
+            New-Item -ItemType File -Path $adminKeys -Force | Out-Null
+        }
+        $adminExisting = Get-Content -LiteralPath $adminKeys -ErrorAction SilentlyContinue
+        if (-not ($adminExisting | Where-Object { $_.Trim() -eq $PublicKey.Trim() })) {
+            Add-Content -LiteralPath $adminKeys -Value $PublicKey
+        }
+        & icacls $adminKeys /inheritance:r | Out-Null
+        & icacls $adminKeys /grant "Administrators:F" /grant "SYSTEM:F" | Out-Null
+        $result.administrators_authorized_keys = $adminKeys
+        $result.used_admin_path = $true
+    }
+
+    return [PSCustomObject]$result
 }
 
 function Ensure-FirewallRule {
@@ -225,7 +300,7 @@ $sshdConfigPath = 'C:\ProgramData\ssh\sshd_config'
 Ensure-SshdConfig -ConfigPath $sshdConfigPath -UserName $Username -ListenPort $Port -EnablePasswordAuth:$AllowPasswordAuth.IsPresent
 
 Write-Host "[3/8] Write authorized_keys..."
-$authorizedKeysPath = Ensure-AuthorizedKey -UserName $Username -PublicKey $ControllerPublicKey
+$authorizedKeyInfo = Ensure-AuthorizedKey -UserName $Username -PublicKey $ControllerPublicKey
 
 Write-Host "[4/8] Set default shell..."
 Set-DefaultShellToPowerShell
@@ -260,7 +335,9 @@ $report = [ordered]@{
         tcp_open = $probe.tcp_open
         loopback_note = $probe.loopback_note
         default_shell = (Get-ItemProperty -Path 'HKLM:\SOFTWARE\OpenSSH' -Name DefaultShell -ErrorAction SilentlyContinue).DefaultShell
-        authorized_keys = $authorizedKeysPath
+        authorized_keys = $authorizedKeyInfo.user_authorized_keys
+        administrators_authorized_keys = $authorizedKeyInfo.administrators_authorized_keys
+        used_admin_path = $authorizedKeyInfo.used_admin_path
         fingerprints = $fingerprints
     }
     network = [ordered]@{

@@ -103,6 +103,7 @@ If `competition_mode=awdp`, always apply the shared `awdp-core` rules before div
 
 If `task_family=reverse`, jump to the `reverse` family skills and work through:
 
+- `ida-typed-tool-opening-sequence` first when the local IDA adapter is available
 - `key-function-recovery`
 - `validation-and-check-tracing`
 - `algorithm-reconstruction`
@@ -185,6 +186,8 @@ Tools help produce evidence. They do not replace routing.
 - Prefer the minimum tool sequence that produces the next missing evidence.
 - If a tool fails, set a concrete `fallback_if_fail` and continue conservatively.
 - For `shared_domain=binary`, if binary-analysis tools are available, use one within the first solve steps instead of staying at the level of generic methodology.
+- For `task_family=reverse`, if the local IDA adapter tools are available, prefer `ida_open_file` plus typed IDA tools before generic RPC fallback or long planning language.
+- For `task_family=reverse`, once typed-tool evidence exposes the exact transform or static data needed for closure, finish that small inversion step now instead of ending on a vague “next step”.
 - Do not enter `finalization` for a binary task unless concrete tool evidence has already been cited from at least one real analysis step.
 
 ## Prohibited Behavior

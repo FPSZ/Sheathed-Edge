@@ -102,6 +102,9 @@ tools/
 Workflows/**
 !Workflows/windows/
 !Workflows/windows/setup-teammate-ssh.ps1
+!Workflows/windows/ida-open-and-wait.py
+!Workflows/windows/ida-mcp-bootstrap.py
+!Workflows/windows/IDA-自动打开与MCP自启说明.md
 
 # Local backups / generated binaries / ad-hoc dumps
 Agent/gateway-go/*.exe

@@ -385,6 +385,7 @@ async fn sync_runtime_with_config(state: &AppState) -> Result<McpRuntimeStatusRe
         start_enabled_bridges(state, &servers, &mut runtime).await?;
     } else {
         refresh_runtime_processes(&mut runtime).await;
+        reconcile_runtime_processes(state, &servers, &mut runtime).await?;
     }
 
     let mut entries = Vec::with_capacity(servers.len());
@@ -477,6 +478,66 @@ async fn refresh_runtime_processes(runtime: &mut McpRuntimeState) {
     }
 }
 
+async fn reconcile_runtime_processes(
+    state: &AppState,
+    servers: &[McpServerProfile],
+    runtime: &mut McpRuntimeState,
+) -> Result<()> {
+    let enabled: Vec<McpServerProfile> = servers
+        .iter()
+        .filter(|item| item.enabled && item.kind != "native_streamable_http")
+        .cloned()
+        .collect();
+
+    let mut retained: Vec<McpBridgeProcess> = Vec::with_capacity(enabled.len());
+    for (index, server) in enabled.iter().enumerate() {
+        let port = state
+            .config
+            .mcp
+            .bridge_port_start
+            .saturating_add(index as u16);
+        if port > state.config.mcp.bridge_port_end {
+            return Err(anyhow!("mcp bridge port range exhausted"));
+        }
+
+        let existing = runtime
+            .bridges
+            .iter_mut()
+            .position(|item| item.server_id.eq_ignore_ascii_case(&server.id))
+            .map(|pos| runtime.bridges.remove(pos));
+
+        let keep_existing = existing.as_ref().is_some_and(|process| {
+            process.port == port && process.last_error.is_empty() && process.child.is_some()
+        });
+
+        if keep_existing {
+            retained.push(existing.expect("existing process should be present"));
+            continue;
+        }
+
+        if let Some(mut process) = existing {
+            if let Some(child) = &mut process.child {
+                let _ = child.kill().await;
+            }
+        }
+
+        let mut restarted = spawn_bridge_process(state, server, port).await?;
+        if restarted.child.is_none() && restarted.last_error.is_empty() {
+            restarted.last_error = "mcpo bridge failed to start".into();
+        }
+        retained.push(restarted);
+    }
+
+    for mut orphan in runtime.bridges.drain(..) {
+        if let Some(child) = &mut orphan.child {
+            let _ = child.kill().await;
+        }
+    }
+
+    runtime.bridges = retained;
+    Ok(())
+}
+
 async fn start_enabled_bridges(
     state: &AppState,
     servers: &[McpServerProfile],
@@ -496,39 +557,48 @@ async fn start_enabled_bridges(
         if port > state.config.mcp.bridge_port_end {
             return Err(anyhow!("mcp bridge port range exhausted"));
         }
-        let config_path = write_mcpo_server_config(state, server)?;
-        let log_path = mcpo_log_path(state, server);
-        let mut command = mcpo_command(state);
-        command
-            .arg("--config")
-            .arg(&config_path)
-            .arg("--port")
-            .arg(port.to_string());
-        command.stdout(Stdio::piped()).stderr(Stdio::piped());
-        let child_result = command.spawn();
-        let mut process = McpBridgeProcess {
-            server_id: server.id.clone(),
-            kind: server.kind.clone(),
-            port,
-            config_path,
-            pid: 0,
-            last_error: String::new(),
-            child: None,
-        };
-        match child_result {
-            Ok(mut child) => {
-                process.pid = child.id().unwrap_or_default();
-                pipe_child_logs(&mut child, &log_path).await;
-                process.child = Some(child);
-                sleep(Duration::from_millis(250)).await;
-            }
-            Err(err) => {
-                process.last_error = format!("spawn mcpo failed: {err}");
-            }
-        }
+        let process = spawn_bridge_process(state, server, port).await?;
         runtime.bridges.push(process);
     }
     Ok(())
+}
+
+async fn spawn_bridge_process(
+    state: &AppState,
+    server: &McpServerProfile,
+    port: u16,
+) -> Result<McpBridgeProcess> {
+    let config_path = write_mcpo_server_config(state, server)?;
+    let log_path = mcpo_log_path(state, server);
+    let mut command = mcpo_command(state);
+    command
+        .arg("--config")
+        .arg(&config_path)
+        .arg("--port")
+        .arg(port.to_string());
+    command.stdout(Stdio::piped()).stderr(Stdio::piped());
+    let child_result = command.spawn();
+    let mut process = McpBridgeProcess {
+        server_id: server.id.clone(),
+        kind: server.kind.clone(),
+        port,
+        config_path,
+        pid: 0,
+        last_error: String::new(),
+        child: None,
+    };
+    match child_result {
+        Ok(mut child) => {
+            process.pid = child.id().unwrap_or_default();
+            pipe_child_logs(&mut child, &log_path).await;
+            process.child = Some(child);
+            sleep(Duration::from_millis(250)).await;
+        }
+        Err(err) => {
+            process.last_error = format!("spawn mcpo failed: {err}");
+        }
+    }
+    Ok(process)
 }
 
 fn mcpo_command(state: &AppState) -> Command {

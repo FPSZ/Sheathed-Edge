@@ -1,23 +1,16 @@
 {
-  "listen_host": "0.0.0.0",
-  "listen_port": 8090,
-  "provider_model_alias": "qwen3.5-35b-a3b-q8-experimental",
-  "llama_server": {
-    "base_url": "http://127.0.0.1:8080/v1",
-    "timeout_ms": 420000
-  },
-  "tool_router": {
-    "base_url": "http://127.0.0.1:8091",
-    "timeout_ms": 120000
-  },
-  "modes": {
-    "core_root": "D:\\AI\\Local\\Core",
-    "default_mode": "awdp",
-    "plugin_root": "D:\\AI\\Local\\Plugins",
-    "allowed_plugins": [
-      "web",
-      "pwn"
-    ]
+  "action_envelope_schema": "D:\\AI\\Local\\Agent\\action-envelope.schema.json",
+  "admin": {
+    "host_agent_binary": "D:\\AI\\Local\\Agent\\host-control-rs\\target\\release\\host-control-rs.exe",
+    "host_agent_config": "D:\\AI\\Local\\Agent\\host-control.8106.config.json",
+    "host_agent_url": "http://127.0.0.1:8107",
+    "model_profiles_path": "D:\\AI\\Local\\Agent\\model-profiles.json",
+    "open_webui_url": "http://127.0.0.1:3000",
+    "timeout_ms": 180000,
+    "tool_log_dir": "D:\\AI\\Local\\Logs\\tools",
+    "tool_router_config_path": "D:\\AI\\Local\\Agent\\tool-router.config.json",
+    "ui_dist_dir": "D:\\AI\\Local\\ui\\gateway-admin\\dist",
+    "webui_share_port": 33101
   },
   "knowledge_roots": [
     "D:\\AI\\Local\\Core\\awdp",
@@ -25,29 +18,43 @@
     "D:\\AI\\Local\\Plugins\\pwn\\datasets",
     "D:\\AI\\Local\\Eval",
     "D:\\AI\\Local\\Writeups",
-    "D:\\AI\\Local\\Templates"
+    "D:\\AI\\Local\\Templates",
+    "D:\\AI\\Local\\Plugins\\reverse\\datasets",
+    "D:\\AI\\Local\\Plugins\\awdp-red\\datasets",
+    "D:\\AI\\Local\\Plugins\\awdp-blue\\datasets",
+    "D:\\AI\\Local\\Knowledge\\awdp"
   ],
-  "retrieval": {
-    "sqlite_index": "D:\\AI\\Local\\Datasets\\index\\knowledge.db",
-    "fallback_command": "rg",
-    "max_fragments": 8,
-    "max_fragment_chars": 2400
+  "listen_host": "0.0.0.0",
+  "listen_port": 8090,
+  "llama_server": {
+    "base_url": "http://127.0.0.1:8080/v1",
+    "timeout_ms": 420000
   },
-  "action_envelope_schema": "D:\\AI\\Local\\Agent\\action-envelope.schema.json",
   "logs": {
-    "session_log_dir": "D:\\AI\\Local\\Logs\\sessions",
-    "audit_log_dir": "D:\\AI\\Local\\Logs\\audit"
+    "audit_log_dir": "D:\\AI\\Local\\Logs\\audit",
+    "session_log_dir": "D:\\AI\\Local\\Logs\\sessions"
   },
-  "admin": {
-    "host_agent_url": "http://127.0.0.1:8102",
-    "host_agent_binary": "D:\\AI\\Local\\Agent\\host-control-rs\\target\\release\\host-control-rs.exe",
-    "host_agent_config": "D:\\AI\\Local\\Agent\\host-control.config.json",
-    "tool_router_config_path": "D:\\AI\\Local\\Agent\\tool-router.config.json",
-    "open_webui_url": "http://127.0.0.1:3000",
-    "webui_share_port": 3001,
-    "tool_log_dir": "D:\\AI\\Local\\Logs\\tools",
-    "model_profiles_path": "D:\\AI\\Local\\Agent\\model-profiles.json",
-    "ui_dist_dir": "D:\\AI\\Local\\ui\\gateway-admin\\dist",
-    "timeout_ms": 5000
+  "modes": {
+    "allowed_plugins": [
+      "web",
+      "pwn",
+      "reverse",
+      "awdp-red",
+      "awdp-blue"
+    ],
+    "core_root": "D:\\AI\\Local\\Core",
+    "default_mode": "awdp",
+    "plugin_root": "D:\\AI\\Local\\Plugins"
+  },
+  "provider_model_alias": "qwen3.6-35b-a3b-q8",
+  "retrieval": {
+    "fallback_command": "rg",
+    "max_fragment_chars": 2400,
+    "max_fragments": 8,
+    "sqlite_index": "D:\\AI\\Local\\Datasets\\index\\knowledge.db"
+  },
+  "tool_router": {
+    "base_url": "http://127.0.0.1:8002",
+    "timeout_ms": 120000
   }
 }

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/FPSZ/Sheathed-Edge/Agent/gateway-go/internal/gateway/config"
@@ -84,6 +85,7 @@ func (c *Client) postJSON(ctx context.Context, path string, request any, out any
 	if err != nil {
 		return err
 	}
+	_ = os.WriteFile(`D:\AI\Local\Logs\debug-last-toolclient-request.json`, []byte(fmt.Sprintf("%s%s\n%s", c.baseURL, path, string(data))), 0o644)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, bytes.NewReader(data))
 	if err != nil {
 		return err

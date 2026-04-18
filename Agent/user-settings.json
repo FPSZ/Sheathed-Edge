@@ -13,7 +13,11 @@
       "ssh:fpsz-linux-vm"
     ],
     "enabled_mcp_server_ids": [
-      "local-workspace"
+      "local-workspace",
+      "radare2-local",
+      "ida-9-1-bridge",
+      "ghidra-local",
+      "x64dbg-local"
     ],
     "disabled_mcp_tools_by_server": {}
   },
@@ -26,8 +30,16 @@
       "D:\\Environment2"
     ],
     "default_local_workdir": "",
-    "enabled_execution_targets": [],
-    "enabled_mcp_server_ids": [],
+    "default_ssh_host_id": "huang-local-win",
+    "enabled_execution_targets": [
+      "ssh:huang-local-win"
+    ],
+    "enabled_mcp_server_ids": [
+      "radare2-local",
+      "ghidra-local",
+      "ida-9-1-bridge",
+      "x64dbg-local"
+    ],
     "disabled_mcp_tools_by_server": {}
   },
   {
@@ -39,8 +51,16 @@
       "D:\\Environment2"
     ],
     "default_local_workdir": "",
-    "enabled_execution_targets": [],
-    "enabled_mcp_server_ids": [],
+    "default_ssh_host_id": "wu-local-win",
+    "enabled_execution_targets": [
+      "ssh:wu-local-win"
+    ],
+    "enabled_mcp_server_ids": [
+      "radare2-local",
+      "ghidra-local",
+      "ida-9-1-bridge",
+      "x64dbg-local"
+    ],
     "disabled_mcp_tools_by_server": {}
   },
   {
@@ -52,8 +72,16 @@
       "D:\\Environment2"
     ],
     "default_local_workdir": "",
-    "enabled_execution_targets": [],
-    "enabled_mcp_server_ids": [],
-    "disabled_mcp_tools_by_server": {}
+    "enabled_execution_targets": [
+      "ssh:hong-local-win"
+    ],
+    "enabled_mcp_server_ids": [
+      "radare2-local",
+      "ghidra-local",
+      "ida-9-1-bridge",
+      "x64dbg-local"
+    ],
+    "disabled_mcp_tools_by_server": {},
+    "default_ssh_host_id": "hong-local-win"
   }
 ]

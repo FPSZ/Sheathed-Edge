@@ -6,6 +6,8 @@ import { useAdminScope } from "../app/AdminScopeContext";
 import { apiGet } from "../lib/api";
 import { formatTime } from "../lib/format";
 import type {
+  AgentLayerPreset,
+  AgentLayersResponse,
   MCPOpenWebUIPreviewResponse,
   MCPRuntimeEntry,
   MCPServersResponse,
@@ -55,6 +57,8 @@ export function DetailsDrawer({ title, subtitle }: Props) {
   const [sshBindings, setSshBindings] = useState<SSHBindingsResponse | null>(null);
   const [mcpServers, setMcpServers] = useState<MCPServersResponse | null>(null);
   const [mcpPreview, setMcpPreview] = useState<MCPOpenWebUIPreviewResponse | null>(null);
+  const [agentLayers, setAgentLayers] = useState<AgentLayersResponse | null>(null);
+  const [selectedAgentPreset, setSelectedAgentPreset] = useState<AgentLayerPreset | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -84,6 +88,7 @@ export function DetailsDrawer({ title, subtitle }: Props) {
     setSshBindings(null);
     setMcpServers(null);
     setMcpPreview(null);
+    setAgentLayers(null);
 
     if (route === "/admin/models") {
       apiGet<ModelsResponse>("/internal/admin/models")
@@ -139,8 +144,57 @@ export function DetailsDrawer({ title, subtitle }: Props) {
         .catch(() => {});
     }
 
+    if (route === "/admin/agent-layers") {
+      apiGet<AgentLayersResponse>("/internal/admin/agent-layers")
+        .then((response) => {
+          if (!active) {
+            return;
+          }
+          setAgentLayers(response);
+          const raw = window.sessionStorage.getItem("admin-agent-layers-selected-preset");
+          if (raw) {
+            try {
+              const parsed = JSON.parse(raw) as AgentLayerPreset;
+              setSelectedAgentPreset(parsed);
+              return;
+            } catch {
+              // ignore malformed cache
+            }
+          }
+          const fallback =
+            response.presets.find((item) => item.id === response.default_preset_id) ??
+            response.presets[0] ??
+            null;
+          setSelectedAgentPreset(fallback);
+        })
+        .catch(() => {});
+    }
+
     return () => {
       active = false;
+    };
+  }, [route]);
+
+  useEffect(() => {
+    if (route !== "/admin/agent-layers") {
+      return;
+    }
+
+    const handlePresetChanged = () => {
+      const raw = window.sessionStorage.getItem("admin-agent-layers-selected-preset");
+      if (!raw) {
+        return;
+      }
+      try {
+        setSelectedAgentPreset(JSON.parse(raw) as AgentLayerPreset);
+      } catch {
+        // ignore malformed cache
+      }
+    };
+
+    window.addEventListener("admin-agent-layers-preset-changed", handlePresetChanged);
+    return () => {
+      window.removeEventListener("admin-agent-layers-preset-changed", handlePresetChanged);
     };
   }, [route]);
 
@@ -166,9 +220,7 @@ export function DetailsDrawer({ title, subtitle }: Props) {
   return (
     <aside className="hidden h-full w-[22rem] min-w-0 overflow-x-hidden bg-[var(--panel-muted)] px-5 py-5 shadow-[inset_1px_0_0_rgba(255,255,255,0.55)] xl:flex xl:flex-col">
       <div className="min-w-0 pb-5">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.26em] text-slate-400">
-          侧栏
-        </div>
+        <div className="text-[11px] font-semibold uppercase tracking-[0.26em] text-slate-400">侧栏</div>
         <div className="mt-2 text-base font-semibold text-slate-950">{title}</div>
         <p className="mt-1 break-words text-sm leading-6 text-slate-500">{subtitle}</p>
       </div>
@@ -176,28 +228,24 @@ export function DetailsDrawer({ title, subtitle }: Props) {
       <div className="admin-divider" />
 
       <div className="admin-scrollbar-hidden min-w-0 flex-1 overflow-auto overflow-x-hidden pt-5">
-        <section className="admin-rail-summary min-w-0">
-          <div className="admin-rail-summary-grid">
-            <SummaryBlock label="模式" value="awdp" />
-            <SummaryBlock
-              label="用户"
-              value={selectedUserEmail || "全部用户 / All Users"}
-            />
-            <SummaryBlock
-              label="模型"
-              value={overview?.active_model.label ?? overview?.active_model.profile_id ?? "Unknown"}
-            />
-            <SummaryBlock
-              label="在线"
-              value={`${onlineServices}/${(overview?.services ?? []).length || 4}`}
-            />
-          </div>
-          <div className="mt-4 grid grid-cols-3 gap-3">
-            <ServiceMark name="Gateway" status={findServiceStatus(overview?.services, "gateway")} />
-            <ServiceMark name="Router" status={findServiceStatus(overview?.services, "tool-router")} />
-            <ServiceMark name="WebUI" status={findServiceStatus(overview?.services, "open-webui")} />
-          </div>
-        </section>
+        {route !== "/admin/agent-layers" ? (
+          <section className="admin-rail-summary min-w-0">
+            <div className="admin-rail-summary-grid">
+              <SummaryBlock label="模式" value="awdp" />
+              <SummaryBlock label="用户" value={selectedUserEmail || "全部用户 / All Users"} />
+              <SummaryBlock
+                label="模型"
+                value={overview?.active_model.label ?? overview?.active_model.profile_id ?? "Unknown"}
+              />
+              <SummaryBlock label="在线" value={`${onlineServices}/${(overview?.services ?? []).length || 4}`} />
+            </div>
+            <div className="mt-4 grid grid-cols-3 gap-3">
+              <ServiceMark name="Gateway" status={findServiceStatus(overview?.services, "gateway")} />
+              <ServiceMark name="Router" status={findServiceStatus(overview?.services, "tool-router")} />
+              <ServiceMark name="WebUI" status={findServiceStatus(overview?.services, "open-webui")} />
+            </div>
+          </section>
+        ) : null}
 
         {route === "/admin" ? (
           <>
@@ -224,7 +272,7 @@ export function DetailsDrawer({ title, subtitle }: Props) {
                   }))}
                 />
               ) : (
-                <EmptyHint text="No recent failures in the overview feed." />
+                <EmptyHint text="最近没有异常记录。" />
               )}
             </RailSection>
           </>
@@ -285,11 +333,11 @@ export function DetailsDrawer({ title, subtitle }: Props) {
                     title: `${plugin.name} · ${plugin.tool_scope.length} tools`,
                   })),
                 ]}
-                emptyText="Mode metadata will appear after the route loads."
+                emptyText="模式元数据将在加载后显示。"
               />
             </RailSection>
 
-            <RailSection title="Current Rules" footer={<QuickJumpLink to={quickJump.to} label={quickJump.label} />}>
+            <RailSection title="当前规则" footer={<QuickJumpLink to={quickJump.to} label={quickJump.label} />}>
               <MetricList
                 items={[
                   { label: "Core Prompts", value: String(modes?.core.prompt_files.length ?? 0) },
@@ -347,12 +395,10 @@ export function DetailsDrawer({ title, subtitle }: Props) {
                       { label: "状态", value: detectLogTone(selectedLog.item) },
                     ]}
                   />
-                  <p className="mt-4 text-sm leading-7 text-slate-700">
-                    {summarizeLogEntry(selectedLog.item)}
-                  </p>
+                  <p className="mt-4 text-sm leading-7 text-slate-700">{summarizeLogEntry(selectedLog.item)}</p>
                 </>
               ) : (
-                <EmptyHint text="Pick a log entry in the main list to inspect it here." />
+                <EmptyHint text="请在主列表中选择一条日志进行预览。" />
               )}
             </RailSection>
           </>
@@ -365,9 +411,7 @@ export function DetailsDrawer({ title, subtitle }: Props) {
                 items={[
                   {
                     label: "启用",
-                    value: String(
-                      (mcpServers?.servers ?? []).filter((item) => item.profile.enabled).length,
-                    ),
+                    value: String((mcpServers?.servers ?? []).filter((item) => item.profile.enabled).length),
                   },
                   {
                     label: "Native",
@@ -403,8 +447,51 @@ export function DetailsDrawer({ title, subtitle }: Props) {
                   }))}
                 />
               ) : (
-                <EmptyHint text="No MCP servers configured yet." />
+                <EmptyHint text="还没有配置 MCP 服务。" />
               )}
+            </RailSection>
+          </>
+        ) : null}
+
+        {route === "/admin/agent-layers" ? (
+          <>
+            <RailSection title="当前预设">
+              {selectedAgentPreset ? (
+                <MetricList
+                  items={[
+                    { label: "Preset ID", value: selectedAgentPreset.id },
+                    { label: "Label", value: selectedAgentPreset.label },
+                    {
+                      label: "默认",
+                      value:
+                        agentLayers?.default_preset_id === selectedAgentPreset.id ? "是 / Default" : "否 / Not Default",
+                    },
+                    { label: "配置文件", value: agentLayers?.config_path ?? "-" },
+                  ]}
+                />
+              ) : (
+                <EmptyHint text="请先在左侧选择一个预设。" />
+              )}
+            </RailSection>
+
+            <RailSection title="Effective Plugins">
+              <RailTagList items={selectedAgentPreset?.effective_plugins ?? []} emptyText="无" />
+            </RailSection>
+
+            <RailSection title="Effective Prompt Files">
+              <RailTagList items={selectedAgentPreset?.effective_prompt_files ?? []} emptyText="无" />
+            </RailSection>
+
+            <RailSection title="Effective Skill Files">
+              <RailTagList items={selectedAgentPreset?.effective_skill_files ?? []} emptyText="无" />
+            </RailSection>
+
+            <RailSection title="Effective Tool Scope">
+              <RailTagList items={selectedAgentPreset?.effective_tool_scope ?? []} emptyText="无" />
+            </RailSection>
+
+            <RailSection title="Effective Retrieval Roots">
+              <RailTagList items={selectedAgentPreset?.effective_retrieval_roots ?? []} emptyText="无" />
             </RailSection>
           </>
         ) : null}
@@ -472,9 +559,7 @@ function RailSection({
 function SummaryBlock({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
-      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-        {label}
-      </div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</div>
       <div className="mt-2 break-words text-sm font-medium leading-6 text-slate-900">{value}</div>
     </div>
   );
@@ -495,7 +580,9 @@ function MetricList({ items }: { items: Array<{ label: string; value: string }> 
       {items.map((item) => (
         <div key={item.label} className="flex min-w-0 items-start justify-between gap-4">
           <span className="shrink-0 text-xs uppercase tracking-[0.16em] text-slate-400">{item.label}</span>
-          <span className="min-w-0 max-w-[10.25rem] break-all text-right text-sm leading-6 text-slate-800">{item.value}</span>
+          <span className="min-w-0 max-w-[10.25rem] break-all text-right text-sm leading-6 text-slate-800">
+            {item.value}
+          </span>
         </div>
       ))}
     </div>
@@ -516,10 +603,11 @@ function PlainList({
   return (
     <div className="space-y-4">
       {items.map((item, index) => (
-        <div key={item.key} className={index > 0 ? "admin-rail-row admin-rail-row-bordered min-w-0" : "admin-rail-row min-w-0"}>
-          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-            {item.eyebrow}
-          </div>
+        <div
+          key={item.key}
+          className={index > 0 ? "admin-rail-row admin-rail-row-bordered min-w-0" : "admin-rail-row min-w-0"}
+        >
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{item.eyebrow}</div>
           <div className="mt-1 break-words text-sm leading-6 text-slate-800">{item.title}</div>
         </div>
       ))}
@@ -531,10 +619,11 @@ function NarrativeList({ items }: { items: Array<{ title: string; body: string }
   return (
     <div className="space-y-4">
       {items.map((item, index) => (
-        <div key={item.title} className={index > 0 ? "admin-rail-row admin-rail-row-bordered min-w-0" : "admin-rail-row min-w-0"}>
-          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-            {item.title}
-          </div>
+        <div
+          key={item.title}
+          className={index > 0 ? "admin-rail-row admin-rail-row-bordered min-w-0" : "admin-rail-row min-w-0"}
+        >
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{item.title}</div>
           <p className="mt-1 break-words text-sm leading-7 text-slate-700">{item.body}</p>
         </div>
       ))}
@@ -558,6 +647,25 @@ function InlineTagRow({ items }: { items: string[] }) {
   );
 }
 
+function RailTagList({ items, emptyText }: { items: string[]; emptyText: string }) {
+  if (items.length === 0) {
+    return <EmptyHint text={emptyText} />;
+  }
+
+  return (
+    <div className="space-y-2">
+      {items.map((item) => (
+        <div
+          key={item}
+          className="admin-surface-muted break-all rounded-2xl px-3 py-2 text-xs leading-6 text-slate-700"
+        >
+          {item}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function FilterRow({
   label,
   options,
@@ -571,9 +679,7 @@ function FilterRow({
 }) {
   return (
     <div className="mb-4">
-      <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-        {label}
-      </div>
+      <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</div>
       <div className="flex min-w-0 flex-wrap gap-x-3 gap-y-2">
         {options.map((option) => (
           <button

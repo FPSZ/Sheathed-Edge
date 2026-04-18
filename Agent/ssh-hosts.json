@@ -11,9 +11,9 @@
         "remote_shell_default":  "bash",
         "allowed_paths":  [
                               "/home/fpsz",
-                              "/home/fpsz/妗岄潰/CTF"
+                              "/home/fpsz/濡楀矂娼?CTF"
                           ],
-        "default_workdir":  "/home/fpsz/妗岄潰/CTF",
+        "default_workdir":  "/home/fpsz/濡楀矂娼?CTF",
         "host_key_status":  "trusted",
         "host_key_fingerprint":  "SHA256:2GqlKCo3n4fsBfGxjxe+6nnOiWRYjJcmGaVW38ialpw",
         "has_password":  true
@@ -22,18 +22,80 @@
         "id":  "huang-local-win",
         "label":  "Huang",
         "enabled":  true,
-        "host":  "100.2.178.239",
+        "host":  "192.168.1.100",
         "port":  22,
         "username":  "space",
         "auth_type":  "private_key",
         "private_key":  "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW\nQyNTUxOQAAACB0PrL+e9INMBDOo9FCWJwf1k+UxS13Gidc8qblDdkaQAAAAJBeT06bXk9O\nmwAAAAtzc2gtZWQyNTUxOQAAACB0PrL+e9INMBDOo9FCWJwf1k+UxS13Gidc8qblDdkaQA\nAAAEC4SaqSm17emB3LMF+Yotu+YmM/0POWafsY6Z4snOwnInQ+sv570g0wEM6j0UJYnB/W\nT5TFLXcaJ1zypuUN2RpAAAAAC3NwYWNlQHNwYWNlAQI=\n-----END OPENSSH PRIVATE KEY-----",
         "remote_shell_default":  "powershell",
         "allowed_paths":  [
-                              "E:\\比赛题目\\2026"
+                              "C:\\Users\\space",
+                              "D:\\CTF",
+                              "D:\\newwork\\ctf"
                           ],
+        "default_workdir":  "C:\\Users\\space",
         "host_key_status":  "trusted",
-        "host_key_fingerprint":  "SHA256:g8jQikhikXpTLad4JK3QmyU1pECmPD+g6pX4qYIvS1g",
-        "has_private_key":  true,
-        "default_workdir":  "E:\\比赛题目\\2026"
+        "host_key_fingerprint":  "SHA256:8xEVRDDLxt2/V669fr+xlE3a+TIVRDwWAJkMTpa23cw",
+        "has_private_key":  true
+    },
+    {
+        "id":  "hong-local-win",
+        "label":  "Tang",
+        "enabled":  true,
+        "host":  "192.168.1.105",
+        "port":  22,
+        "username":  "33371",
+        "auth_type":  "private_key",
+        "private_key":  "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW\nQyNTUxOQAAACB0PrL+e9INMBDOo9FCWJwf1k+UxS13Gidc8qblDdkaQAAAAJBeT06bXk9O\nmwAAAAtzc2gtZWQyNTUxOQAAACB0PrL+e9INMBDOo9FCWJwf1k+UxS13Gidc8qblDdkaQA\nAAAEC4SaqSm17emB3LMF+Yotu+YmM/0POWafsY6Z4snOwnInQ+sv570g0wEM6j0UJYnB/W\nT5TFLXcaJ1zypuUN2RpAAAAAC3NwYWNlQHNwYWNlAQI=\n-----END OPENSSH PRIVATE KEY-----",
+        "remote_shell_default":  "powershell",
+        "allowed_paths":  [
+                              "C:\\Users\\33371",
+                              "D:\\CTF",
+                              "D:\\newwork\\ctf"
+                          ],
+        "default_workdir":  "C:\\Users\\33371",
+        "host_key_status":  "trusted",
+        "host_key_fingerprint":  "SHA256:8xEVRDDLxt2/V669fr+xlE3a+TIVRDwWAJkMTpa23cw",
+        "has_private_key":  true
+    },
+    {
+        "id":  "yv-local-win",
+        "label":  "Yv",
+        "enabled":  true,
+        "host":  "100.2.131.20",
+        "port":  22,
+        "username":  "asus",
+        "auth_type":  "private_key",
+        "private_key":  "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW\nQyNTUxOQAAACB0PrL+e9INMBDOo9FCWJwf1k+UxS13Gidc8qblDdkaQAAAAJBeT06bXk9O\nmwAAAAtzc2gtZWQyNTUxOQAAACB0PrL+e9INMBDOo9FCWJwf1k+UxS13Gidc8qblDdkaQA\nAAAEC4SaqSm17emB3LMF+Yotu+YmM/0POWafsY6Z4snOwnInQ+sv570g0wEM6j0UJYnB/W\nT5TFLXcaJ1zypuUN2RpAAAAAC3NwYWNlQHNwYWNlAQI=\n-----END OPENSSH PRIVATE KEY-----",
+        "remote_shell_default":  "powershell",
+        "allowed_paths":  [
+                              "C:\\Users\\asus",
+                              "D:\\CTF",
+                              "D:\\newwork\\ctf"
+                          ],
+        "default_workdir":  "C:\\Users\\asus",
+        "host_key_status":  "trusted",
+        "host_key_fingerprint":  "SHA256:lCp/6dCACtodpxaL8MwUm2M36kPPvQoe4EZY/RE1jwg",
+        "has_private_key":  true
+    },
+    {
+        "id":  "wu-local-win",
+        "label":  "WU",
+        "enabled":  true,
+        "host":  "100.125.4.38",
+        "port":  22,
+        "username":  "DELL",
+        "auth_type":  "private_key",
+        "private_key":  "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW\nQyNTUxOQAAACB0PrL+e9INMBDOo9FCWJwf1k+UxS13Gidc8qblDdkaQAAAAJBeT06bXk9O\nmwAAAAtzc2gtZWQyNTUxOQAAACB0PrL+e9INMBDOo9FCWJwf1k+UxS13Gidc8qblDdkaQA\nAAAEC4SaqSm17emB3LMF+Yotu+YmM/0POWafsY6Z4snOwnInQ+sv570g0wEM6j0UJYnB/W\nT5TFLXcaJ1zypuUN2RpAAAAAC3NwYWNlQHNwYWNlAQI=\n-----END OPENSSH PRIVATE KEY-----",
+        "remote_shell_default":  "powershell",
+        "allowed_paths":  [
+                              "C:\\Users\\DELL",
+                              "D:\\CTF",
+                              "D:\\AWDP"
+                          ],
+        "default_workdir":  "C:\\Users\\DELL",
+        "host_key_status":  "trusted",
+        "host_key_fingerprint":  "SHA256:FRzD1Abd4yY7sptzzztvMJKGPoMD3PsuS28nF2xwBVI",
+        "has_private_key":  true
     }
 ]

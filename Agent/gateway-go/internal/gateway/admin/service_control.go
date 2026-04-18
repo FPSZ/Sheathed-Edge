@@ -2,12 +2,14 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -96,6 +98,42 @@ func (s *Service) startToolRouter(ctx context.Context) error {
 		return fmt.Errorf("tool-router project directory not found: %s", projectDir)
 	}
 
+	toolRouterPort, err := readToolRouterListenPort(configPath)
+	if err != nil {
+		return err
+	}
+	toolRouterHealthURL := strings.TrimRight(s.cfg.ToolRouter.BaseURL, "/") + "/healthz"
+	portCandidates := buildToolRouterPortCandidates(toolRouterPort, 8001, 8002, 8003, 8004, 8005)
+	selectedPort := ""
+	selectedHealthURL := ""
+	for _, candidate := range portCandidates {
+		candidateHealthURL := fmt.Sprintf("http://127.0.0.1:%s/healthz", candidate)
+		if candidate == toolRouterPort && isHTTPHealthy(ctx, candidateHealthURL, 1500*time.Millisecond) {
+			s.cfg.ToolRouter.BaseURL = fmt.Sprintf("http://127.0.0.1:%s", candidate)
+			return nil
+		}
+		if err := s.clearStaleToolRouterListener(ctx, candidate, candidateHealthURL); err != nil {
+			continue
+		}
+		if s.waitForTCPPortClosed(candidate, 1500*time.Millisecond) {
+			selectedPort = candidate
+			selectedHealthURL = candidateHealthURL
+			break
+		}
+	}
+	if selectedPort == "" {
+		return fmt.Errorf("no usable tool-router port available in candidates: %s", strings.Join(portCandidates, ", "))
+	}
+	if selectedPort != toolRouterPort {
+		if err := s.updateToolRouterPort(selectedPort); err != nil {
+			return err
+		}
+		toolRouterPort = selectedPort
+		toolRouterHealthURL = selectedHealthURL
+	} else {
+		toolRouterHealthURL = selectedHealthURL
+	}
+
 	exePath := firstExistingPath(
 		filepath.Join(projectDir, "target", "release", "tool-router-rs.exe"),
 		filepath.Join(projectDir, "target", "debug", "tool-router-rs.exe"),
@@ -107,30 +145,121 @@ func (s *Service) startToolRouter(ctx context.Context) error {
 	stdoutPath := filepath.Join(logDir, "tool-router.out.log")
 	stderrPath := filepath.Join(logDir, "tool-router.err.log")
 
-	var command string
+	powershellPath, err := resolveWindowsCommand("powershell.exe", "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe")
+	if err != nil {
+		return err
+	}
+
+	var psCmd string
 	if exePath != "" {
-		command = fmt.Sprintf(
-			"cd %s && nohup %s --config %s > %s 2> %s < /dev/null &",
-			shellQuote(projectDir),
-			shellQuote(exePath),
-			shellQuote(normalizeWindowsPath(configPath)),
-			shellQuote(stdoutPath),
-			shellQuote(stderrPath),
+		psCmd = fmt.Sprintf(
+			`Start-Process -FilePath '%s' -ArgumentList '--config','%s' -WorkingDirectory '%s' -RedirectStandardOutput '%s' -RedirectStandardError '%s' -WindowStyle Hidden`,
+			strings.ReplaceAll(normalizeWindowsPath(exePath), `'`, `''`),
+			strings.ReplaceAll(normalizeWindowsPath(configPath), `'`, `''`),
+			strings.ReplaceAll(normalizeWindowsPath(filepath.Dir(exePath)), `'`, `''`),
+			strings.ReplaceAll(normalizeWindowsPath(stdoutPath), `'`, `''`),
+			strings.ReplaceAll(normalizeWindowsPath(stderrPath), `'`, `''`),
 		)
 	} else {
-		command = fmt.Sprintf(
-			"cd %s && nohup cargo run -- --config %s > %s 2> %s < /dev/null &",
-			shellQuote(projectDir),
-			shellQuote(configPath),
-			shellQuote(stdoutPath),
-			shellQuote(stderrPath),
+		psCmd = fmt.Sprintf(
+			`Start-Process -FilePath 'cargo.exe' -ArgumentList 'run','--','--config','%s' -WorkingDirectory '%s' -RedirectStandardOutput '%s' -RedirectStandardError '%s' -WindowStyle Hidden`,
+			strings.ReplaceAll(normalizeWindowsPath(configPath), `'`, `''`),
+			strings.ReplaceAll(normalizeWindowsPath(projectDir), `'`, `''`),
+			strings.ReplaceAll(normalizeWindowsPath(stdoutPath), `'`, `''`),
+			strings.ReplaceAll(normalizeWindowsPath(stderrPath), `'`, `''`),
 		)
 	}
-	cmd := exec.CommandContext(ctx, "/bin/bash", "-lc", command)
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("start tool-router: %w", err)
+
+	cmd := exec.CommandContext(ctx, powershellPath, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", psCmd)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("start tool-router: %w: %s", err, strings.TrimSpace(string(output)))
 	}
-	_ = cmd.Process.Release()
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		if isHTTPHealthy(ctx, toolRouterHealthURL, 1200*time.Millisecond) {
+			s.cfg.ToolRouter.BaseURL = strings.TrimSuffix(toolRouterHealthURL, "/healthz")
+			return nil
+		}
+		time.Sleep(350 * time.Millisecond)
+	}
+	return nil
+}
+
+func buildToolRouterPortCandidates(primary string, fallbacks ...int) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, 1+len(fallbacks))
+	add := func(value string) {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			return
+		}
+		if _, ok := seen[value]; ok {
+			return
+		}
+		seen[value] = struct{}{}
+		out = append(out, value)
+	}
+	add(primary)
+	for _, port := range fallbacks {
+		add(strconv.Itoa(port))
+	}
+	return out
+}
+
+func (s *Service) updateToolRouterPort(port string) error {
+	port = strings.TrimSpace(port)
+	if port == "" {
+		return fmt.Errorf("tool-router port is required")
+	}
+
+	var toolRouterPayload map[string]any
+	toolRouterData, err := os.ReadFile(s.toolRouterConfigPath)
+	if err != nil {
+		return fmt.Errorf("read tool-router config: %w", err)
+	}
+	if err := json.Unmarshal(toolRouterData, &toolRouterPayload); err != nil {
+		return fmt.Errorf("parse tool-router config: %w", err)
+	}
+	listenPort, err := strconv.Atoi(port)
+	if err != nil {
+		return fmt.Errorf("invalid tool-router port %s: %w", port, err)
+	}
+	toolRouterPayload["listen_port"] = listenPort
+	updatedToolRouterData, err := json.MarshalIndent(toolRouterPayload, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode tool-router config: %w", err)
+	}
+	updatedToolRouterData = append(updatedToolRouterData, '\n')
+	if err := os.WriteFile(s.toolRouterConfigPath, updatedToolRouterData, 0o644); err != nil {
+		return fmt.Errorf("write tool-router config: %w", err)
+	}
+
+	if strings.TrimSpace(s.gatewayConfigPath) != "" {
+		var gatewayPayload map[string]any
+		gatewayData, err := os.ReadFile(s.gatewayConfigPath)
+		if err != nil {
+			return fmt.Errorf("read gateway config: %w", err)
+		}
+		if err := json.Unmarshal(gatewayData, &gatewayPayload); err != nil {
+			return fmt.Errorf("parse gateway config: %w", err)
+		}
+		rawToolRouter, _ := gatewayPayload["tool_router"].(map[string]any)
+		if rawToolRouter == nil {
+			rawToolRouter = map[string]any{}
+		}
+		rawToolRouter["base_url"] = fmt.Sprintf("http://127.0.0.1:%s", port)
+		gatewayPayload["tool_router"] = rawToolRouter
+		updatedGatewayData, err := json.MarshalIndent(gatewayPayload, "", "  ")
+		if err != nil {
+			return fmt.Errorf("encode gateway config: %w", err)
+		}
+		updatedGatewayData = append(updatedGatewayData, '\n')
+		if err := os.WriteFile(s.gatewayConfigPath, updatedGatewayData, 0o644); err != nil {
+			return fmt.Errorf("write gateway config: %w", err)
+		}
+	}
+
+	s.cfg.ToolRouter.BaseURL = fmt.Sprintf("http://127.0.0.1:%s", port)
 	return nil
 }
 
@@ -139,6 +268,10 @@ func (s *Service) stopToolRouter(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	toolRouterPort, portErr := readToolRouterListenPort(strings.TrimSpace(s.toolRouterConfigPath))
+	if portErr != nil {
+		toolRouterPort = strings.TrimSpace(hostAgentPortFromURL(s.cfg.ToolRouter.BaseURL))
+	}
 	psCmd := `[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; ` +
 		`$targets = Get-CimInstance Win32_Process | Where-Object { ` +
 		`$_.Name -match 'tool-router-rs(\.exe)?|cargo(\.exe)?' -and ($_.CommandLine -like '*tool-router-rs*' -or $_.CommandLine -like '*tool-router.config.json*') }; ` +
@@ -146,6 +279,93 @@ func (s *Service) stopToolRouter(ctx context.Context) error {
 	cmd := exec.CommandContext(ctx, powershellPath, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", psCmd)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("stop tool-router: %w: %s", err, strings.TrimSpace(string(output)))
+	}
+	if toolRouterPort != "" && !s.waitForTCPPortClosed(toolRouterPort, 8*time.Second) {
+		return fmt.Errorf("tool-router stop timed out waiting for port %s to close", toolRouterPort)
+	}
+	return nil
+}
+
+func readToolRouterListenPort(configPath string) (string, error) {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return "", fmt.Errorf("read tool-router config: %w", err)
+	}
+	var payload struct {
+		ListenPort int `json:"listen_port"`
+	}
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return "", fmt.Errorf("parse tool-router config: %w", err)
+	}
+	if payload.ListenPort <= 0 {
+		return "", fmt.Errorf("tool-router listen_port is invalid in %s", configPath)
+	}
+	return fmt.Sprintf("%d", payload.ListenPort), nil
+}
+
+func isHTTPHealthy(ctx context.Context, rawURL string, timeout time.Duration) bool {
+	rawURL = strings.TrimSpace(rawURL)
+	if rawURL == "" {
+		return false
+	}
+	checkCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	dialer := &net.Dialer{Timeout: timeout}
+	client := &httpClientWithTimeout{dialer: dialer, timeout: timeout}
+	return client.ok(checkCtx, rawURL)
+}
+
+type httpClientWithTimeout struct {
+	dialer  *net.Dialer
+	timeout time.Duration
+}
+
+func (c *httpClientWithTimeout) ok(ctx context.Context, rawURL string) bool {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	host := parsed.Hostname()
+	port := parsed.Port()
+	if host == "" || port == "" {
+		return false
+	}
+	conn, err := c.dialer.DialContext(ctx, "tcp", net.JoinHostPort(host, port))
+	if err != nil {
+		return false
+	}
+	_ = conn.SetDeadline(time.Now().Add(c.timeout))
+	defer conn.Close()
+	req := fmt.Sprintf("GET %s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n\r\n", parsed.RequestURI(), parsed.Host)
+	if _, err := conn.Write([]byte(req)); err != nil {
+		return false
+	}
+	buf := make([]byte, 128)
+	n, err := conn.Read(buf)
+	if err != nil || n <= 0 {
+		return false
+	}
+	return strings.Contains(string(buf[:n]), "200")
+}
+
+func (s *Service) clearStaleToolRouterListener(ctx context.Context, port string, healthURL string) error {
+	port = strings.TrimSpace(port)
+	if port == "" {
+		return nil
+	}
+	if isHTTPHealthy(ctx, healthURL, 1500*time.Millisecond) {
+		return nil
+	}
+	powershellPath, err := resolveWindowsCommand("powershell.exe", "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe")
+	if err != nil {
+		return err
+	}
+	psCmd := `[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; ` +
+		fmt.Sprintf(`$listener = Get-NetTCPConnection -LocalPort %s -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1; `, port) +
+		`if ($listener) { Stop-Process -Id $listener.OwningProcess -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 900 }; exit 0`
+	cmd := exec.CommandContext(ctx, powershellPath, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", psCmd)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("clear stale tool-router listener: %w: %s", err, strings.TrimSpace(string(output)))
 	}
 	return nil
 }

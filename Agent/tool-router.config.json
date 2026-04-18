@@ -4,14 +4,17 @@
     "D:\\Environment2",
     "D:\\CTF",
     "D:\\AWDP",
-    "E:\\比赛题目\\2026"
+    "E:\\姣旇禌棰樼洰\\2026"
   ],
   "listen_host": "127.0.0.1",
-  "listen_port": 8091,
+  "listen_port": 8002,
   "logs": {
     "tool_log_dir": "D:\\AI\\Local\\Logs\\tools"
   },
   "mcp": {
+    "bridge_command": [
+      "D:\\Environment2\\Create\\Python314\\Scripts\\mcpo.exe"
+    ],
     "bridge_host": "127.0.0.1",
     "bridge_port_end": 8124,
     "bridge_port_start": 8092,
@@ -28,6 +31,10 @@
     "pwn": [
       "radare2",
       "terminal:pwn"
+    ],
+    "reverse": [
+      "radare2",
+      "terminal:reverse"
     ],
     "web": [
       "browser",

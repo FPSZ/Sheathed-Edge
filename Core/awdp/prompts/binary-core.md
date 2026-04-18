@@ -84,6 +84,14 @@ Use real binary-analysis tools when available:
 
 Prefer the shortest tool sequence that yields the next decisive fact.
 
+If the local IDA adapter tools are available, do not ask the user to manually open IDA first. Use this sequence instead:
+
+- `ida_open_file` (it should replace any stale old IDA session instead of asking the user to close it manually)
+- prefer typed IDA tools first such as `ida_get_metadata`, `ida_list_strings`, `ida_list_functions`, `ida_get_xrefs_to`, `ida_decompile_function`
+- when decompile exposes static arrays, encoded buffers, or literal compare targets, continue with typed data tools such as `ida_get_global_variable_value_by_name`, `ida_get_global_variable_value_at_address`, `ida_read_dword_array`, `ida_read_byte_array`, `ida_read_string`, or `ida_read_memory_bytes`
+- use `ida_list_rpc_methods` only if you truly need method discovery
+- use `ida_rpc_call` only for an exact method that is not already covered by a typed tool
+
 For reverse and pwn tasks, the preferred opening evidence chain is:
 
 1. metadata or file-open step
@@ -97,6 +105,7 @@ For lightweight reverse tasks, use these additional rules:
 - if `strings` shows a flag-like candidate but there is evidence of a nearby check or mutation function, do one narrow validation step before finalizing
 - if a binary looks packed but `strings` already exposes a complete flag, prefer extraction over ritualistic unpack-first behavior
 - if a challenge is clearly a simple transform task, prefer one tiny reconstruction script over long generic methodology
+- if the only remaining blocker is a short arithmetic / base64 / xor / permutation inversion, do that step now with one tiny script instead of ending on a plan
 - do not stop at "current finding" if one more narrow step can turn a candidate into an exact answer
 
 If strings and function names are not enough, do exactly one deeper step next:

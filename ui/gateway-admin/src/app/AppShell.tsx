@@ -84,7 +84,7 @@ export function AppShell() {
   }
 
   useEffect(() => {
-    refreshUsers();
+    void refreshUsers();
   }, []);
 
   return (

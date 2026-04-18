@@ -182,3 +182,73 @@
 - 输出：
   - 默认报告路径：C:\Users\Public\Documents\sheathed-edge-ssh-report.json
   - 让队友把终端输出和该 JSON 文件一起回传，再由控制端继续验证 ssh username@ip -p port
+
+[2026-04-16] Generic Windows SSH bootstrap script
+- 新增脚本：D:\AI\Local\Workflows\windows\setup-generic-ssh-server.ps1
+- 目标：给任意队友 Windows 机器做最小 SSH 可达性初始化，只处理 OpenSSH Server / authorized_keys / firewall / auto-start / report，不再绑定 Huang 或工作区业务逻辑。
+- 参数：
+  - -Username
+  - -Port
+  - -ControllerPublicKey 或 -ControllerPublicKeyFile（二选一，必填）
+  - -AllowPasswordAuth（可选）
+  - -ReportPath（可选）
+- 用法示例：
+  - powershell -ExecutionPolicy Bypass -File .\setup-generic-ssh-server.ps1 -Username space -ControllerPublicKeyFile .\controller.pub
+- 输出：
+  - 默认报告路径：C:\Users\Public\Documents\sheathed-edge-generic-ssh-report.json
+- 说明：
+  - 这份脚本更适合发给所有队友统一使用。
+  - 旧脚本 setup-teammate-ssh.ps1 仍可保留，适合当前控制端已有固定公钥、想快速给单机落地时使用。
+[2026-04-16] 修复 AdminUI SSH“测试连接” workdir 假失败
+- 现象：AdminUI 中 Hong 主机测试连接在 `shell` 成功后，`workdir` 阶段报 `open ssh session channel`，被错误归类成 `workdir_out_of_bounds`。
+- 根因：诊断流程在同一条 SSH 连接上连续开第二个 session channel 做 workdir 探测；对当前 Windows OpenSSH 目标机，这一步会偶发/稳定失败，但真实 terminal 业务链路并未受此影响。
+- 修复：调整 `Agent/tool-router-rs/src/ssh.rs` 中的 `test_ssh_host()`：
+  - shell 探测完成后先断开首条诊断连接；
+  - workdir 探测改为使用一条新的独立 SSH 连接重新认证后执行；
+  - 同时把错误分类细化，避免把 channel 失败统一误报成路径越界。
+- 验证：
+  - `cargo test --manifest-path D:\AI\Local\Agent\tool-router-rs\Cargo.toml` 通过（15/15）
+  - 重编译并重启 `tool-router-rs`（8096）
+  - `POST http://127.0.0.1:8096/internal/ssh/test` 对 `hong-local-win` 返回：
+    - `connect ok`
+    - `host_key ok`
+    - `auth ok`
+    - `shell ok`
+    - `workdir ok: C:\Users\33371`
+- 后续若还要看实现位置，优先查看：
+  - `Agent/tool-router-rs/src/ssh.rs`
+[2026-04-16] 修复 generic/teammate SSH 脚本在部分 Windows 上 OpenSSH 安装失败
+- 现象：队友执行 `setup-generic-ssh-server.ps1` 时，`Add-WindowsCapability` 报“系统找不到指定的文件”。
+- 原因：部分 Windows 主机虽然支持 OpenSSH，但 capability 元数据/组件源不可用，导致 PowerShell 安装入口直接失败。
+- 修复：
+  - `Workflows/windows/setup-generic-ssh-server.ps1`
+  - `Workflows/windows/setup-teammate-ssh.ps1`
+  - 新增多级兜底：
+    - 若 `sshd` 服务和 `C:\Windows\System32\OpenSSH\sshd.exe` 已存在，直接复用
+    - `Add-WindowsCapability` 失败后再尝试 `dism /Online /Add-Capability`
+    - 若二进制已存在但服务缺失，则自动注册 `sshd` / `ssh-agent`
+    - 若仍失败，输出明确的手动安装指引，而不是直接报 PowerShell 生错误
+- 同步动作：桌面 `给队友-SSH一键配置` 已覆盖为新版，并重新打包 `一键配置.zip`。
+[2026-04-16] Huang SSH 主机地址切换并打通
+- 根据 Huang 回传的局域网地址，将 `Agent/ssh-hosts.json` 中 `huang-local-win.host` 从 `100.2.178.239` 更新为 `192.168.1.100`。
+- 保持用户绑定不变：
+  - `user_email = 2286923612@qq.com`
+  - `default_ssh_host_id = huang-local-win`
+- 实测验证通过：
+  - `POST /api/tools/terminal` with `pwd` -> `transport=ssh`, `host_id=huang-local-win`, workdir=`E:\比赛题目\2026`
+  - `POST /api/tools/terminal` with `whoami` -> `space\\space`
+  - `POST /internal/ssh/test` -> connect/auth/shell/workdir 全通过
+- 结论：Huang 现在默认 SSH 已打通，可在 WebUI 新会话直接测试 AI 是否落到他自己的机器上。
+[2026-04-16] 禁止无 user_email 的 terminal 默认回退控制端本机
+- 目标：队友会话如果没有把 `user_email` 传下来，不允许再默认执行 `transport=local` 访问控制端主机。
+- 修改：`Agent/tool-router-rs/src/policy.rs`
+  - 在 `validate_execution_target_access()` 中新增规则：
+    - 当 `user_email` 为空且 `transport=local` 时，直接拒绝请求
+    - 返回错误码：`terminal_user_required`
+    - 错误信息明确提示：multi-user 模式下必须带 `user_email`，否则拒绝回退到 controller host
+  - 保留显式 SSH 行为不变，便于已有 SSH 绑定用户正常执行
+- 验证：
+  - 匿名 `POST /api/tools/terminal` with `command=pwd` -> 被拒绝，返回 `terminal_user_required`
+  - Tang (`3337153688@qq.com`) `POST /api/tools/terminal` with `pwd` -> 仍成功走 `transport=ssh`, `host_id=hong-local-win`
+- 影响：
+  - 后续若 WebUI / runTerminal 没带 `user_email`，请求不会再偷偷访问控制端本机，而是直接报错，便于继续追查前端链路。

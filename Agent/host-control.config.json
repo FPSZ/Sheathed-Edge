@@ -3,6 +3,6 @@
   "listen_port": 8102,
   "llama_server_config_path": "D:\\AI\\Local\\Agent\\llama-server.config.json",
   "model_profiles_path": "D:\\AI\\Local\\Agent\\model-profiles.json",
-  "default_profile_id": "qwen3.5-35b-a3b-q8-experimental",
-  "timeout_ms": 5000
+  "default_profile_id": "qwen3.6-35b-a3b-q8-experimental",
+  "timeout_ms": 180000
 }

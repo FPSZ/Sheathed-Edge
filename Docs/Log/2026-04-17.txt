@@ -1,0 +1,260 @@
+﻿[2026-04-17] AdminUI 首页队友访问地址改为“1 个可信局域网 + 1 个 Tailscale”
+- 目标：首页不再展示一堆虚拟网卡/不可用地址，只保留最适合直接发给队友的分享地址。
+- 修改文件：`D:\AI\Local\Agent\gateway-go\internal\gateway\admin\service.go`
+- 规则：
+  - 优先选择 1 个最优局域网 IPv4
+  - 同时保留 1 个最优 Tailscale IPv4
+  - 自动过滤/降权 VMware、Hyper-V、WSL、Docker、VPN、Oray 等虚拟或中转网卡
+  - 在局域网候选中优先 `192.168.x.x`，其次 `10.x.x.x`，再其次 `172.16-31.x.x`
+  - 在接口名上优先 WLAN / Wi-Fi / wireless，其次 Ethernet / 以太网
+- 已执行：
+  - `gofmt -w D:\AI\Local\Agent\gateway-go\internal\gateway\admin\service.go`
+  - `go build -o D:\AI\Local\Agent\gateway-go\gateway.exe .\cmd\gateway`
+  - 重启 `gateway.exe`
+- 验证结果：
+  - `GET http://127.0.0.1:8090/internal/admin/host-ips`
+  - 返回：
+    - `192.168.1.103`
+    - `100.121.186.38`
+  - `share_urls`：
+    - `http://192.168.1.103:33101`
+    - `http://100.121.186.38:33101`
+- 结论：
+  - 现在 AdminUI 首页会同时给出：
+    - 一个最可信的局域网入口
+    - 一个 Tailscale 入口
+  - 这样队友在同局域网和非同局域网场景下都能各取其一，不再优先看到 10.* 中转地址或虚拟网卡地址。
+
+[2026-04-17] 新增 IDA 自动打开 + MCP 自动桥接脚本
+- 目标：避免每次都要人工先打开 IDA，再手动点 `Edit -> Plugins -> MCP`。
+- 新增文件：
+  - `D:\AI\Local\Workflows\windows\ida-open-and-wait.py`
+  - `D:\AI\Local\Workflows\windows\ida-mcp-bootstrap.py`
+  - `D:\AI\Local\Workflows\windows\IDA-自动打开与MCP自启说明.md`
+- 实现方式：
+  - 外部启动器通过 `ida.exe -S<bootstrap.py> <target>` 打开题目
+  - `bootstrap.py` 在 IDA 内动态加载 `plugins\mcp-plugin.py`
+  - 直接实例化并启动 `Server()`，不再依赖人工点插件菜单
+  - 启动器轮询 `http://127.0.0.1:13337/mcp`，直到 bridge ready 或超时
+- 设计边界：
+  - 这一版先做“可自动拉起”
+  - 还没有把它包装成 Gateway / tool-router 的正式工具
+  - 后续可再补 `ida_open_file` / `ida_bridge_status` 之类的受控工具封装
+- 进一步升级：把 `ida-9-1-bridge` 从不可用的 `native_streamable_http` 改成了真正可发现的 `mcpo_stdio` 适配器。
+- 新增文件：
+  - `D:\AI\Local\MCP\ida_bridge_adapter.py`
+- 适配器暴露 4 个 MCP 工具：
+  - `ida_open_file`
+  - `ida_bridge_status`
+  - `ida_list_rpc_methods`
+  - `ida_rpc_call`
+- 已验证：
+  - 启动器能自动打开 `IDA 9.1` 并拉起 `13337/mcp`
+  - 适配器能发现 59 个底层 JSON-RPC 方法
+  - `tool-router` 对 `ida-9-1-bridge` 成功 discover 出 4 个可调用工具
+- 继续增强 IDA 工具链：新增“自动替换旧会话”能力。
+- 现在 `ida_open_file` 默认会在发现旧 bridge 占用 `13337` 时：
+  - 关闭已有 `ida.exe` / `idat.exe`
+  - 等端口释放
+  - 再打开新题并重新拉起 bridge
+- 同时新增适配器工具：
+  - `ida_close_active_session`
+- 修改文件：
+  - `D:\AI\Local\Workflows\windows\ida-open-and-wait.py`
+  - `D:\AI\Local\MCP\ida_bridge_adapter.py`
+  - `D:\AI\Local\Workflows\windows\IDA-自动打开与MCP自启说明.md`
+  - `D:\AI\Local\Core\awdp\prompts\binary-core.md`
+  - `D:\AI\Local\Plugins\reverse\prompts\fragment.md`
+- 已验证：
+  - 先开 `notepad-test.exe`
+  - 再开 `calc-test.exe`
+  - 第二次启动会自动关闭旧 IDA 会话并成功切到新题
+- 继续推进 A/B：
+  - A：把 IDA adapter 从 4 个通用工具扩成 15 个工具入口，其中新增多组 typed reverse tools：
+    - `ida_get_metadata`
+    - `ida_list_functions`
+    - `ida_list_strings`
+    - `ida_get_function_by_name`
+    - `ida_get_function_by_address`
+    - `ida_decompile_function`
+    - `ida_disassemble_function`
+    - `ida_get_xrefs_to`
+    - `ida_get_callers`
+    - `ida_get_callees`
+    - `ida_close_active_session`
+  - B：在 `tool-router-rs/src/mcp.rs` 增加 bridge runtime 自愈逻辑；当 mcpo 子进程退出或出错时，后续 runtime sync 会尝试重建，而不只是把状态卡死在 error。
+- 已验证：
+  - typed tools 可直接通过 adapter 调用成功
+  - 手工拉起 mcpo 到 8123 时，openapi 实际暴露 15 个 endpoint
+- 继续强化 reverse 路线：把总路由与 `reverse-skills.md` 明确收紧到“IDA typed tool 优先”顺序。
+- 修改文件：
+  - `D:\AI\Local\Plugins\reverse\skills\reverse-skills.md`
+  - `D:\AI\Local\Core\awdp\prompts\agent.md`
+  - `D:\AI\Local\Workflows\windows\IDA-自动打开与MCP自启说明.md`
+- 新增要点：
+  - reverse 首选 `ida-typed-tool-opening-sequence`
+  - 优先 `ida_open_file -> ida_get_metadata -> ida_list_strings / ida_list_functions -> xrefs/callers/callees -> ida_decompile_function`
+  - 只有 typed tool 不覆盖时才退回 `ida_list_rpc_methods` / `ida_rpc_call`
+[2026-04-17] 继续强化 reverse/IDA 收口 + WebUI skill 可见性
+- 目标：
+  - 让模型不只是“会用 IDA”，还要更稳定收口到最终答案。
+  - 让 WebUI 聊天界面直接显示本轮实际挂载并正在阅读的 router/skills。
+- 本轮修改：
+  - `D:\AI\Local\MCP\ida_bridge_adapter.py`
+    - 新增静态数据读取 typed tools：
+      - `ida_get_global_variable_value_by_name`
+      - `ida_get_global_variable_value_at_address`
+      - `ida_read_string`
+      - `ida_read_memory_bytes`
+      - `ida_read_dword_array`
+      - `ida_read_byte_array`
+  - `D:\AI\Local\Workflows\testing\ida_mustpass10_eval.py`
+    - 新增 `python_exec` 验证腿
+    - 强化 prompt：看到数组/字节表/自定义字母表时，必须继续读静态数据并做最小验证
+    - 新增“禁止再调工具”的 forced-final-answer 收口阶段，避免最后一轮停在工具循环
+  - `D:\AI\Local\Plugins\reverse\skills\reverse-skills.md`
+  - `D:\AI\Local\Plugins\reverse\prompts\fragment.md`
+  - `D:\AI\Local\Core\awdp\prompts\binary-core.md`
+  - `D:\AI\Local\Core\awdp\prompts\agent.md`
+    - 全部补强 exact-closure 规则：
+      - 读到静态表就继续取表
+      - 只差窄变换时必须做完，不允许停在“下一步准备……”
+  - `D:\CTF\tool\SURBIFByb2Zlc3Npb25hbCA5LjE\plugins\WPeChatGPT.py`
+    - 将启动时 `openai.OpenAI` 报错降为非致命，避免污染 IDA 自动化启动链
+- 10 题 IDA-first 回归：
+  - 结果目录：`D:\AI\Local\Logs\tests\ida-mustpass10\20260417_115237`
+  - summary：
+    - total: 10
+    - pass: 6
+    - partial: 4
+    - fail: 0
+    - used_ida_on: 10
+    - used_open_file_on: 10
+    - used_metadata_on: 10
+    - used_decompile_on: 10
+    - used_python_on: 0
+  - 结论：
+    - 模型已经稳定“会主动开 IDA、会走 typed tools”
+    - 加入 forced-final-answer 后，最终答案收口明显改善，从此前 2/10 提升到 6/10
+    - 仍待继续打磨的题型主要是：custom-base64 / 静态表重建 / packed-early-stop 这几类
+- WebUI / Gateway skill 可见性：
+  - 修改文件：
+    - `D:\AI\Local\Agent\gateway-go\internal\gateway\mode\loader.go`
+    - `D:\AI\Local\Agent\gateway-go\internal\gateway\orchestrator\orchestrator.go`
+    - `D:\AI\Local\Agent\gateway-go\internal\gateway\transport\openai\server.go`
+  - 新增能力：
+    - Loader 记录本轮实际挂载的 `PromptFiles` / `SkillFiles`
+    - Gateway 在响应前构造状态行，例如：
+      - `正在阅读：agent.md、binary-core.md、reverse-skills.md`
+    - 非流式响应会把状态行前置到回答顶部
+    - 流式响应会先发一个状态 chunk，再继续正常输出模型内容
+  - 已本地验证：
+    - reverse layers 下会显示：`正在阅读：agent.md、binary-core.md、reverse-skills.md`
+- 运行注意：
+  - 这次已重新编译并覆盖：`D:\AI\Local\Agent\gateway.exe`
+  - 若当前在线 Gateway 还是旧进程，需要重启 Gateway 才会看到 WebUI 状态行生效
+
+## 2026-04-17 reverse skills 收缩拆分
+
+- 将 `D:\AI\Local\Plugins\reverse\skills\reverse-skills.md` 从长文档收缩为短主干版：
+  - 保留 opening / key function / check tracing / data extraction / script verification / exact answer closure / packed fallback / companion file rule
+  - 明确要求命中具体模式时转去 `skills/micro/`，不再把所有题型细节堆进主 skill
+- 新增 reverse micro skills：
+  - `D:\AI\Local\Plugins\reverse\skills\micro\custom-alphabet.md`
+  - `D:\AI\Local\Plugins\reverse\skills\micro\static-table-script.md`
+  - `D:\AI\Local\Plugins\reverse\skills\micro\permutation-xor.md`
+  - `D:\AI\Local\Plugins\reverse\skills\micro\packed-upx.md`
+  - `D:\AI\Local\Plugins\reverse\skills\micro\companion-file.md`
+- 同步更新 `D:\AI\Local\Plugins\reverse\prompts\fragment.md`：
+  - 将 `primary_skill` 路线改为短主干版命名
+  - 明确 narrow-pattern 命中时只挂一份 micro skill
+- 当前状态：
+  - 内容层已完成“短主干 + micro 卡片”重构
+  - 挂载层暂未做自动 micro 注入；下一步可在 gateway loader / orchestrator 上增加 evidence-triggered micro skill 注入
+
+## 2026-04-17 AWDP Blue 训练基线补充
+
+- 以 `D:\AWDP\CISCN半决赛\攻防\WEB` 为主，先挑出最适合“最小改动修复法则”的 WEB 蓝队题做监督训练。
+- 已完成首批蓝队监督样本：
+  - `D:\AI\Local\Plugins\awdp-blue\datasets\ciscn-finals-web-mediadrive-blue.md`
+  - `D:\AI\Local\Plugins\awdp-blue\datasets\ciscn-finals-web-easy-time-blue.md`
+  - `D:\AI\Local\Plugins\awdp-blue\datasets\awdp-blue-training-manifest.json`
+  - `D:\AI\Local\Plugins\awdp-blue\datasets\web-awdp-blue-training-set-2026-04-17.md`
+- `awdp-blue-skills.md` 已强化：
+  - 新增 `minimum-change-law`
+  - 新增 `blue-supervision-output`
+  - 明确蓝队修复必须优先局部热补丁，不准默认大改。
+- `awdp-blue` prompt fragment 已同步收紧：
+  - 路线中加入 `minimum-change-law`
+  - 明确禁止比赛中默认给出重构级方案。
+- 当前首批适合监督训练的题：
+  - MediaDrive：cookie 反序列化 + preview 路径约束
+  - easy_time：插件 zip 解压函数替换为现有安全 helper
+
+## 2026-04-17 AWDP Blue 首轮监督结果
+
+- 已新增训练/监督脚本：
+  - `D:\AI\Local\Workflows\testing\train_awdp_blue.py`
+- 首轮训练结果：
+  - 第 1 轮：2/2 fail
+  - 原因：模型停在“先看目录/先分析结构”计划模式，未直接给出蓝队最小修补结论。
+- 已补强训练脚本：
+  - 增加强制收口追问，禁止继续给计划模式回答
+  - 第二轮结果：2/2 pass（仅格式监督）
+- 当前人工监督结论：
+  - 进步：模型已经能按 `competition_mode / awdp_role / vulnerable_edge / minimal_patch_point / regression` 的蓝队格式输出
+  - 仍未达标：语义仍可能漂移，出现幻觉文件名/代码片段
+    - `MediaDrive` 题中把真实 `user` cookie / `preview.php` 路线泛化成不存在的 `user_pref` / `controller.php`
+  - 说明当前阶段属于：
+    - `format_ok`
+    - `blue_role_ok`
+    - `minimum-change style partly ok`
+    - `semantic_grounding_not_ok_yet`
+- 已继续收紧监督规则：
+  - `train_awdp_blue.py` 新增语义检查
+  - `MediaDrive` 必须提到 `unserialize`、`preview.php`，且不能胡编 `controller.php` / `user_pref`
+  - `easy_time` 必须提到 `index.py`、`safe_upload`、`safe_extract_zip`、`/plugin/upload`
+
+## 2026-04-17 AWDP Blue 训练扩展到 PWN
+
+- 用户明确要求：PWN 那 5 题也全部按蓝队修复题纳入训练，不能只训 WEB。
+- 已新增 PWN 蓝队训练集：
+  - `D:\AI\Local\Plugins\awdp-blue\datasets\ciscn-finals-pwn-blue-training-set-2026-04-17.md`
+- 已新增 5 个 PWN 蓝队监督样本占位：
+  - `ciscn-finals-pwn-broken-manager-blue.md`
+  - `ciscn-finals-pwn-catchme-blue.md`
+  - `ciscn-finals-pwn-easy-rw-revenge-blue.md`
+  - `ciscn-finals-pwn-minidb-blue.md`
+  - `ciscn-finals-pwn-upnodetrap-blue.md`
+- 已扩展 `awdp-blue-training-manifest.json`：
+  - 现在从 2 个 WEB 蓝队样本扩到 7 个样本（2 WEB + 5 PWN）。
+- 已修改训练脚本 `train_awdp_blue.py`：
+  - 按 `task_family` 自动选择 `x_plugins`
+  - WEB 题走 `web + awdp-blue`
+  - PWN 题走 `pwn + awdp-blue`
+  - 同步切换 `enable_pwn_skills / enable_web_skills`
+- 当前阶段说明：
+  - WEB 蓝队已经能做第一轮结构化监督
+  - PWN 蓝队目前已纳入训练链，但还需要继续补“二进制最小热补”的语义监督规则
+
+## 2026-04-17 AWDP Blue 七题联合训练结果
+
+- 已跑 7 题联合训练：
+  - 2 WEB + 5 PWN
+- 最新结果目录：
+  - `D:\AI\Local\Logs\tests\awdp-blue-training\20260417_221920`
+  - `D:\AI\Local\Logs\tests\awdp-blue-training\20260417_223009`
+- 当前观察：
+  - 模型已能稳定输出 AWDP Blue 结构字段
+  - 但 PWN 蓝队题仍有“binary-only 却编造源码文件名”的问题
+  - 例如：`main.c` / `server.c` / `src/*.c` 模板化回答
+- 已继续收紧：
+  - `awdp-blue` prompt 与 skill 增加 binary-only 约束
+  - `train_awdp_blue.py` 增加 PWN 语义检查：
+    - 禁止胡编源码文件名
+    - 鼓励使用 binary patch 边界语言
+    - 压制通用 `gets()` 模板答案
+  - 5 个 PWN 蓝队监督样本补充“不可接受答案模式”
+- 当前阶段结论：
+  - WEB 蓝队：已进入“结构 + 语义双监督”阶段
+  - PWN 蓝队：已进入“结构通过、语义继续压缩模板化幻觉”阶段

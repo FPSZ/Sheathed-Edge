@@ -1,0 +1,64 @@
+{
+  "manifest_id": "awdp-blue-training-2026-04-17",
+  "version": 1,
+  "competition_mode": "awdp",
+  "awdp_role": "blue",
+  "cases": [
+    {
+      "case_id": "awdp-blue-forensics-tshark-foundation",
+      "task_family": "web",
+      "challenge_root": "D:/AWDP",
+      "training_note": "Evidence-first blue workflow. If pcap artifacts exist, prefer tshark narrowing before patching; if not, still preserve artifact discipline before cleanup or hotfix.",
+      "supervision_doc": "D:/AI/Local/Plugins/awdp-blue/datasets/awdp-blue-forensics-tshark-training-2026-04-18.md"
+    },
+    {
+      "case_id": "ciscn-finals-web-mediadrive",
+      "task_family": "web",
+      "challenge_root": "D:/AWDP/CISCN半决赛/攻防/WEB/MediaDrive",
+      "training_note": "Minimum-change repair of cookie deserialization and preview path confinement.",
+      "supervision_doc": "D:/AI/Local/Plugins/awdp-blue/datasets/ciscn-finals-web-mediadrive-blue.md"
+    },
+    {
+      "case_id": "ciscn-finals-web-easy-time",
+      "task_family": "web",
+      "challenge_root": "D:/AWDP/CISCN半决赛/攻防/WEB/easy_time/easy_time",
+      "training_note": "Minimum-change repair of plugin zip extraction by replacing unsafe helper with existing safer helper.",
+      "supervision_doc": "D:/AI/Local/Plugins/awdp-blue/datasets/ciscn-finals-web-easy-time-blue.md"
+    },
+    {
+      "case_id": "ciscn-finals-pwn-broken-manager",
+      "task_family": "pwn",
+      "challenge_root": "D:/AWDP/CISCN半决赛/攻防/PWN/broken_manager/broken_manager",
+      "training_note": "Minimum-change binary hotfix. Prefer a local guard near the proven exploit primitive over broad rewrites.",
+      "supervision_doc": "D:/AI/Local/Plugins/awdp-blue/datasets/ciscn-finals-pwn-broken-manager-blue.md"
+    },
+    {
+      "case_id": "ciscn-finals-pwn-catchme",
+      "task_family": "pwn",
+      "challenge_root": "D:/AWDP/CISCN半决赛/攻防/PWN/catchme",
+      "training_note": "Minimum-change binary hotfix. Keep protocol stable and block the narrow exploit edge.",
+      "supervision_doc": "D:/AI/Local/Plugins/awdp-blue/datasets/ciscn-finals-pwn-catchme-blue.md"
+    },
+    {
+      "case_id": "ciscn-finals-pwn-easy-rw-revenge",
+      "task_family": "pwn",
+      "challenge_root": "D:/AWDP/CISCN半决赛/攻防/PWN/easy_rw_revenge/easy_rw_revenge",
+      "training_note": "Minimum-change binary hotfix for a likely read/write primitive. Prefer bounds and state guards.",
+      "supervision_doc": "D:/AI/Local/Plugins/awdp-blue/datasets/ciscn-finals-pwn-easy-rw-revenge-blue.md"
+    },
+    {
+      "case_id": "ciscn-finals-pwn-minidb",
+      "task_family": "pwn",
+      "challenge_root": "D:/AWDP/CISCN半决赛/攻防/PWN/minidb/minidb",
+      "training_note": "Minimum-change binary hotfix for DB-like service logic. Prefer parser and heap safety guards.",
+      "supervision_doc": "D:/AI/Local/Plugins/awdp-blue/datasets/ciscn-finals-pwn-minidb-blue.md"
+    },
+    {
+      "case_id": "ciscn-finals-pwn-upnodetrap",
+      "task_family": "pwn",
+      "challenge_root": "D:/AWDP/CISCN半决赛/攻防/PWN/UpNodeTrap",
+      "training_note": "Minimum-change binary hotfix in a mixed-shape service. Preserve web/front behavior while patching the narrow native exploit edge.",
+      "supervision_doc": "D:/AI/Local/Plugins/awdp-blue/datasets/ciscn-finals-pwn-upnodetrap-blue.md"
+    }
+  ]
+}

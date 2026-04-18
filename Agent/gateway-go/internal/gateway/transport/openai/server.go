@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -172,7 +174,10 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		r.Header.Get("X-AWDP-User-Email"),
 		r.Header.Get("X-User-Email"),
 	)
+	sanitizeOpenWebUIToolSelectorRequest(&req)
+	applyDefaultMaxTokens(&req)
 	s.applyDefaultAgentPreset(&req)
+	applyDefaultNativeToolFallback(&req)
 	trace.Begin("request_received").End(true, summarizeChatRequest(req))
 
 	selectedModel, err := s.admin.EnsureModelReady(r.Context(), req.Model)
@@ -185,7 +190,7 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 	if req.UsesNativeTools() {
 		if req.Stream {
-			upstreamReq, err := s.orchestrator.PrepareNativeStreamingRequest(req, selectedModel.ModelID)
+			upstreamReq, active, err := s.orchestrator.PrepareNativeStreamingRequest(req, selectedModel.ModelID)
 			if err != nil {
 				finalSpan.End(false, err.Error())
 				writeErrorWithRequestID(w, http.StatusBadGateway, "provider_error", err.Error(), requestID)
@@ -199,6 +204,7 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			writeSSEHeaders(w)
+			writeSSEStatusPreamble(w, flusher, selectedModel.ModelID, buildSkillReadingStatus(active))
 			if err := s.provider.StreamChatCompletion(r.Context(), upstreamReq, selectedModel.ModelID, w, flusher.Flush); err != nil {
 				finalSpan.End(false, err.Error())
 				return
@@ -207,7 +213,7 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		resp, _, _, err := s.orchestrator.RunNativeToolTurn(r.Context(), requestID, selectedModel.ModelID, req, trace)
+		resp, active, _, err := s.orchestrator.RunNativeToolTurn(r.Context(), requestID, selectedModel.ModelID, req, trace)
 		if err != nil {
 			finalSpan.End(false, err.Error())
 			writeErrorWithRequestID(w, http.StatusBadGateway, "provider_error", err.Error(), requestID)
@@ -220,13 +226,14 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		}
 
 		resp.Model = selectedModel.ModelID
+		prependSkillReadingStatus(resp, active)
 		finalSpan.End(true, "")
 		writeJSON(w, http.StatusOK, resp)
 		return
 	}
 
 	if req.Stream {
-		streamReq, ok, err := s.orchestrator.PrepareStreamingRequest(req, selectedModel.ModelID)
+		streamReq, active, ok, err := s.orchestrator.PrepareStreamingRequest(req, selectedModel.ModelID)
 		if err != nil {
 			finalSpan.End(false, err.Error())
 			writeErrorWithRequestID(w, http.StatusBadGateway, "provider_error", err.Error(), requestID)
@@ -240,6 +247,7 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			writeSSEHeaders(w)
+			writeSSEStatusPreamble(w, flusher, selectedModel.ModelID, buildSkillReadingStatus(active))
 			if err := s.provider.StreamChatCompletion(r.Context(), streamReq, selectedModel.ModelID, w, flusher.Flush); err != nil {
 				finalSpan.End(false, err.Error())
 				return
@@ -249,7 +257,7 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	resp, _, _, err := s.orchestrator.RunTurn(r.Context(), requestID, selectedModel.ModelID, req, trace)
+	resp, active, _, err := s.orchestrator.RunTurn(r.Context(), requestID, selectedModel.ModelID, req, trace)
 	if err != nil {
 		finalSpan.End(false, err.Error())
 		writeErrorWithRequestID(w, http.StatusBadGateway, "provider_error", err.Error(), requestID)
@@ -262,6 +270,7 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp.Model = selectedModel.ModelID
+	prependSkillReadingStatus(resp, active)
 	if req.Stream {
 		finalSpan.End(true, "")
 		writeSSEChatCompletion(w, selectedModel.ModelID, envelope.FirstContent(resp))
@@ -269,6 +278,270 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 	finalSpan.End(true, "")
 	writeJSON(w, http.StatusOK, resp)
+}
+
+func hasToolResultMessages(messages []types.ChatMessage) bool {
+	for _, message := range messages {
+		if strings.EqualFold(strings.TrimSpace(message.Role), "tool") {
+			return true
+		}
+	}
+	return false
+}
+
+func applyDefaultMaxTokens(req *types.ChatCompletionRequest) {
+	if req == nil || req.MaxTokens != nil {
+		return
+	}
+
+	maxTokens := 4096
+	if req.UsesNativeTools() {
+		maxTokens = 3072
+	}
+	req.MaxTokens = &maxTokens
+}
+
+func applyDefaultNativeToolFallback(req *types.ChatCompletionRequest) {
+	if req == nil || req.UsesNativeTools() {
+		return
+	}
+	if !hasTechnicalPlugin(req.XPlugins) {
+		return
+	}
+	query := strings.ToLower(strings.TrimSpace(latestUserContent(req.Messages)))
+	if query == "" || !looksLikeTechnicalTask(query) {
+		return
+	}
+
+	req.Tools = []types.ToolSpec{
+		{
+			Type: "function",
+			Function: types.FunctionSpec{
+				Name:        "runTerminal",
+				Description: "Choose transport per call. If transport is omitted, the server resolves the current user's default execution target automatically. Use local for host scripts, repo operations, binary triage, packaging, and file transfer orchestration. Use ssh with host_id for remote directories, logs, processes, and running tasks on that host.",
+				Parameters: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"command": map[string]any{
+							"type":        "string",
+							"minLength":   1,
+							"description": "Shell command to run on the selected execution target.",
+						},
+						"transport": map[string]any{
+							"type":        "string",
+							"enum":        []string{"local", "ssh"},
+							"description": "Execution target kind. If omitted, the server selects the current user's preferred target automatically.",
+						},
+						"host_id": map[string]any{
+							"type":        "string",
+							"minLength":   1,
+							"description": "Required when transport=ssh unless the current user has a default SSH host binding.",
+						},
+						"shell": map[string]any{
+							"type":        "string",
+							"enum":        []string{"powershell", "wsl-bash"},
+							"description": "Local shell. Only used when transport resolves to local.",
+						},
+						"remote_shell": map[string]any{
+							"type":        "string",
+							"enum":        []string{"bash", "powershell"},
+							"description": "Remote shell to launch on the SSH host. Only used when transport=ssh.",
+						},
+						"workdir": map[string]any{
+							"type":        "string",
+							"minLength":   1,
+							"description": "Working directory on the selected target. Keep it inside the target allowed paths.",
+						},
+						"timeout_ms": map[string]any{
+							"type":        "integer",
+							"minimum":     1,
+							"description": "Overall execution timeout in milliseconds.",
+						},
+						"user_email": map[string]any{
+							"type":        "string",
+							"minLength":   3,
+							"description": "Current Open WebUI user email. Used to enforce per-user execution target authorization.",
+						},
+					},
+					"required":             []string{"command"},
+					"additionalProperties": false,
+				},
+			},
+		},
+	}
+	req.ToolChoice = "required"
+	parallel := false
+	req.ParallelToolCalls = &parallel
+}
+
+func sanitizeOpenWebUIToolSelectorRequest(req *types.ChatCompletionRequest) {
+	if req == nil || len(req.Messages) == 0 {
+		return
+	}
+
+	foundSyntheticSelector := false
+	filtered := make([]types.ChatMessage, 0, len(req.Messages))
+	for _, message := range req.Messages {
+		if isSyntheticOpenWebUIToolSelectorMessage(message) {
+			foundSyntheticSelector = true
+			continue
+		}
+		filtered = append(filtered, message)
+	}
+
+	if !foundSyntheticSelector {
+		return
+	}
+
+	for index := range filtered {
+		if !strings.EqualFold(strings.TrimSpace(filtered[index].Role), "user") {
+			continue
+		}
+		content := strings.TrimSpace(filtered[index].Content)
+		if len(content) < len("Query:") || !strings.EqualFold(content[:len("Query:")], "Query:") {
+			continue
+		}
+		filtered[index].Content = strings.TrimSpace(content[len("Query:"):])
+	}
+
+	req.Messages = filtered
+	if len(req.Tools) > 0 {
+		req.ToolChoice = nil
+		req.ParallelToolCalls = nil
+	}
+}
+
+func isSyntheticOpenWebUIToolSelectorMessage(message types.ChatMessage) bool {
+	if !strings.EqualFold(strings.TrimSpace(message.Role), "system") {
+		return false
+	}
+
+	content := strings.TrimSpace(message.Content)
+	if content == "" {
+		return false
+	}
+
+	if !strings.Contains(content, "Available Tools:") {
+		return false
+	}
+
+	markers := []string{
+		"Return only the JSON object",
+		"tool_calls",
+		"If no tools match the query",
+		"The format for the JSON response is strictly",
+	}
+	for _, marker := range markers {
+		if !strings.Contains(content, marker) {
+			return false
+		}
+	}
+	return true
+}
+
+func hasTechnicalPlugin(plugins []string) bool {
+	for _, plugin := range plugins {
+		switch strings.ToLower(strings.TrimSpace(plugin)) {
+		case "reverse", "pwn", "web", "awdp-red", "awdp-blue":
+			return true
+		}
+	}
+	return false
+}
+
+func latestUserContent(messages []types.ChatMessage) string {
+	for i := len(messages) - 1; i >= 0; i-- {
+		if strings.EqualFold(strings.TrimSpace(messages[i].Role), "user") {
+			return messages[i].Content
+		}
+	}
+	return ""
+}
+
+func looksLikeTechnicalTask(query string) bool {
+	if strings.Contains(query, "\\") || strings.Contains(query, "/") {
+		return true
+	}
+	for _, marker := range []string{
+		".exe", ".dll", ".so", ".py", ".php", ".js", ".ts", ".go",
+		"ctf", "awdp", "pwn", "reverse", "web", "mcp", "ssh",
+		"解题", "分析", "逆向", "漏洞", "修复", "补丁", "目录", "文件", "看看", "运行", "读取",
+	} {
+		if strings.Contains(query, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+func prependSkillReadingStatus(resp *types.ChatCompletionResponse, active *mode.Active) {
+	if resp == nil || len(resp.Choices) == 0 {
+		return
+	}
+	status := buildSkillReadingStatus(active)
+	if status == "" {
+		return
+	}
+	message := resp.Choices[0].Message
+	content := strings.TrimSpace(message.Content)
+	if content == "" {
+		resp.Choices[0].Message.Content = status
+		return
+	}
+	resp.Choices[0].Message.Content = status + "\n\n" + content
+}
+
+func buildSkillReadingStatus(active *mode.Active) string {
+	if active == nil {
+		return ""
+	}
+	labels := make([]string, 0, len(active.PromptFiles)+len(active.SkillFiles))
+	seen := make(map[string]struct{}, len(active.PromptFiles)+len(active.SkillFiles))
+	appendLabel := func(path string) {
+		base := strings.TrimSpace(filepath.Base(path))
+		if base == "" {
+			return
+		}
+		if _, ok := seen[base]; ok {
+			return
+		}
+		seen[base] = struct{}{}
+		labels = append(labels, base)
+	}
+	for _, path := range active.PromptFiles {
+		base := strings.ToLower(filepath.Base(path))
+		if base == "agent.md" || base == "binary-core.md" || base == "awdp-core.md" {
+			appendLabel(path)
+		}
+	}
+	for _, path := range active.SkillFiles {
+		appendLabel(path)
+	}
+	if len(labels) == 0 {
+		return ""
+	}
+	return "正在阅读：`" + strings.Join(labels, "`、`") + "`"
+}
+
+func writeSSEStatusPreamble(w io.Writer, flusher http.Flusher, model string, status string) {
+	status = strings.TrimSpace(status)
+	if status == "" {
+		return
+	}
+	id := fmt.Sprintf("chatcmpl-skill-%d", time.Now().UnixNano())
+	created := time.Now().Unix()
+	event := map[string]any{
+		"id":      id,
+		"object":  "chat.completion.chunk",
+		"created": created,
+		"model":   model,
+		"choices": []map[string]any{
+			{"index": 0, "delta": map[string]any{"content": status + "\n\n"}, "finish_reason": nil},
+		},
+	}
+	data, _ := json.Marshal(event)
+	_, _ = fmt.Fprintf(w, "data: %s\n\n", data)
+	flusher.Flush()
 }
 
 func (s *Server) applyDefaultAgentPreset(req *types.ChatCompletionRequest) {

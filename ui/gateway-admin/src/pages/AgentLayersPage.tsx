@@ -56,6 +56,14 @@ export function AgentLayersPage() {
     [editingID, presets],
   );
 
+  useEffect(() => {
+    if (!editingPreset) {
+      return;
+    }
+    window.sessionStorage.setItem("admin-agent-layers-selected-preset", JSON.stringify(editingPreset));
+    window.dispatchEvent(new CustomEvent("admin-agent-layers-preset-changed"));
+  }, [editingPreset]);
+
   function updatePreset(presetID: string, patch: Partial<AgentLayerPreset>) {
     setPresets((current) => current.map((item) => (item.id === presetID ? { ...item, ...patch } : item)));
   }
@@ -176,7 +184,7 @@ export function AgentLayersPage() {
                 </Field>
               </div>
 
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
+              <div className="grid gap-3 grid-cols-1">
                 <ToggleCard
                   checked={editingPreset.enable_agent_router}
                   description="共享路由入口，负责 task_family、competition_mode、phase 与 primary_skill 的统一约束。"
@@ -226,12 +234,6 @@ export function AgentLayersPage() {
                   删除预设
                 </button>
               </div>
-
-              <PreviewBlock label="Effective Plugins" items={editingPreset.effective_plugins ?? []} />
-              <PreviewBlock label="Effective Prompt Files" items={editingPreset.effective_prompt_files ?? []} />
-              <PreviewBlock label="Effective Skill Files" items={editingPreset.effective_skill_files ?? []} />
-              <PreviewBlock label="Effective Tool Scope" items={editingPreset.effective_tool_scope ?? []} />
-              <PreviewBlock label="Effective Retrieval Roots" items={editingPreset.effective_retrieval_roots ?? []} />
             </div>
           ) : (
             <div className="text-sm text-slate-500">请选择或新建一个预设。</div>
@@ -264,34 +266,15 @@ function ToggleCard({
 }) {
   return (
     <div className="admin-surface-muted rounded-2xl p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="font-medium text-slate-900">{label}</div>
-          <div className="mt-1 text-xs text-slate-500">{description}</div>
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="text-base font-medium text-slate-900">{label}</div>
+          <div className="mt-1 text-sm leading-6 text-slate-500">{description}</div>
         </div>
         <label className="admin-switch" aria-label={label}>
           <input checked={checked} type="checkbox" onChange={(event) => onChange(event.target.checked)} />
-          <span />
+          <span className="admin-switch-track" />
         </label>
-      </div>
-    </div>
-  );
-}
-
-function PreviewBlock({ label, items }: { label: string; items: string[] }) {
-  return (
-    <div>
-      <div className="mb-2 text-xs uppercase tracking-[0.16em] text-slate-400">{label}</div>
-      <div className="space-y-2">
-        {items.length > 0 ? (
-          items.map((item) => (
-            <div key={item} className="admin-surface-muted rounded-2xl px-3 py-2 text-xs text-slate-700">
-              {item}
-            </div>
-          ))
-        ) : (
-          <div className="admin-surface-muted rounded-2xl px-3 py-2 text-xs text-slate-500">无</div>
-        )}
       </div>
     </div>
   );

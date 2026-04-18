@@ -459,6 +459,9 @@ pub async fn test_ssh_host(host: &SshHostProfile, timeout_ms: u64) -> Result<Ssh
         .clone()
         .or_else(|| host.allowed_paths.first().cloned())
         .unwrap_or_default();
+
+    let _ = disconnect_quietly(&mut connected.handle).await;
+
     if workdir.trim().is_empty() {
         phases.push(skipped_phase(
             "workdir",
@@ -470,10 +473,74 @@ pub async fn test_ssh_host(host: &SshHostProfile, timeout_ms: u64) -> Result<Ssh
             &workdir,
             &shell_probe_body(&host.remote_shell_default),
         );
+        let mut workdir_session = match connect_session(&host, budget.connect_ms).await {
+            Ok(session) => session,
+            Err(err) => {
+                phases.push(SshDiagnosticPhase {
+                    phase: "workdir".into(),
+                    status: "failed".into(),
+                    message: format!("workdir probe reconnect failed: {}", err.message),
+                });
+                return Ok(SshTestResponse {
+                    ok: false,
+                    summary: err.message.clone(),
+                    host_key_status: host.host_key_status.clone(),
+                    host_key_fingerprint: String::new(),
+                    phases,
+                    suggested_fix:
+                        "检查远程主机是否允许重新建立 SSH 会话，并确认连接限制没有触发。".into(),
+                    error: Some(ErrorEnvelope {
+                        code: "workdir_probe_reconnect_failed".into(),
+                        message: err.message,
+                    }),
+                });
+            }
+        };
+
         if let Err(err) =
-            execute_session_command(&mut connected.handle, &workdir_command, budget.exec_ms).await
+            authenticate_session_with_timeout(&mut workdir_session.handle, &host, budget.auth_ms)
+                .await
         {
-            let _ = disconnect_quietly(&mut connected.handle).await;
+            let _ = disconnect_quietly(&mut workdir_session.handle).await;
+            phases.push(SshDiagnosticPhase {
+                phase: "workdir".into(),
+                status: "failed".into(),
+                message: format!("workdir probe authentication failed: {}", err.message),
+            });
+            return Ok(SshTestResponse {
+                ok: false,
+                summary: err.message.clone(),
+                host_key_status: host.host_key_status.clone(),
+                host_key_fingerprint: workdir_session.fingerprint,
+                phases,
+                suggested_fix: "检查 SSH 账号在重新建立会话时是否仍可成功认证。".into(),
+                error: Some(ErrorEnvelope {
+                    code: "workdir_probe_auth_failed".into(),
+                    message: err.message,
+                }),
+            });
+        }
+
+        if let Err(err) = execute_session_command(
+            &mut workdir_session.handle,
+            &workdir_command,
+            budget.exec_ms,
+        )
+        .await
+        {
+            let _ = disconnect_quietly(&mut workdir_session.handle).await;
+            let (code, suggested_fix) = if err.message.contains("open ssh session channel") {
+                (
+                    "workdir_probe_channel_failed",
+                    "SSH 已连通，但 workdir 探测时无法打开新的 session channel；优先检查远程 OpenSSH/并发会话限制，或改用新的独立连接重试。".to_string(),
+                )
+            } else {
+                (
+                    "workdir_out_of_bounds",
+                    "检查 default_workdir 和 allowed_paths 是否指向远程主机上真实可访问的路径。"
+                        .to_string(),
+                )
+            };
             phases.push(SshDiagnosticPhase {
                 phase: "workdir".into(),
                 status: "failed".into(),
@@ -483,17 +550,17 @@ pub async fn test_ssh_host(host: &SshHostProfile, timeout_ms: u64) -> Result<Ssh
                 ok: false,
                 summary: err.message.clone(),
                 host_key_status: host.host_key_status.clone(),
-                host_key_fingerprint: connected.fingerprint,
+                host_key_fingerprint: workdir_session.fingerprint,
                 phases,
-                suggested_fix:
-                    "检查 default_workdir 和 allowed_paths 是否指向远程主机上真实可访问的路径。"
-                        .into(),
+                suggested_fix,
                 error: Some(ErrorEnvelope {
-                    code: "workdir_out_of_bounds".into(),
+                    code: code.into(),
                     message: err.message,
                 }),
             });
         }
+
+        let _ = disconnect_quietly(&mut workdir_session.handle).await;
         phases.push(SshDiagnosticPhase {
             phase: "workdir".into(),
             status: "ok".into(),
@@ -501,7 +568,6 @@ pub async fn test_ssh_host(host: &SshHostProfile, timeout_ms: u64) -> Result<Ssh
         });
     }
 
-    let _ = disconnect_quietly(&mut connected.handle).await;
     Ok(SshTestResponse {
         ok: true,
         summary: "ssh host diagnostics passed".into(),

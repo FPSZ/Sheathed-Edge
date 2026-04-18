@@ -34,16 +34,16 @@ func New(modeLoader *mode.Loader, retrievalSvc *retrieval.Service, providerClien
 	}
 }
 
-func (o *Orchestrator) PrepareStreamingRequest(req types.ChatCompletionRequest, responseModel string) (types.ChatCompletionRequest, bool, error) {
+func (o *Orchestrator) PrepareStreamingRequest(req types.ChatCompletionRequest, responseModel string) (types.ChatCompletionRequest, *mode.Active, bool, error) {
 	plugins := extractPlugins(req)
 	active, err := o.modeLoader.Load(plugins, extractAgentLayers(req))
 	if err != nil {
-		return types.ChatCompletionRequest{}, false, err
+		return types.ChatCompletionRequest{}, nil, false, err
 	}
 
 	query := latestUserMessage(req.Messages)
 	if classifyTurn(query) != turnKindConversation {
-		return types.ChatCompletionRequest{}, false, nil
+		return types.ChatCompletionRequest{}, active, false, nil
 	}
 
 	upstreamReq := req
@@ -54,13 +54,13 @@ func (o *Orchestrator) PrepareStreamingRequest(req types.ChatCompletionRequest, 
 	})
 	upstreamReq.Messages = prependSystemContext(req.Messages, buildConversationPrompt(active.ConversationPrompt), nil)
 
-	return upstreamReq, true, nil
+	return upstreamReq, active, true, nil
 }
 
-func (o *Orchestrator) PrepareNativeStreamingRequest(req types.ChatCompletionRequest, responseModel string) (types.ChatCompletionRequest, error) {
+func (o *Orchestrator) PrepareNativeStreamingRequest(req types.ChatCompletionRequest, responseModel string) (types.ChatCompletionRequest, *mode.Active, error) {
 	active, fragments, turnPrompt, err := o.loadTurnContext(context.Background(), req)
 	if err != nil {
-		return types.ChatCompletionRequest{}, err
+		return types.ChatCompletionRequest{}, nil, err
 	}
 
 	upstreamReq := req
@@ -71,8 +71,7 @@ func (o *Orchestrator) PrepareNativeStreamingRequest(req types.ChatCompletionReq
 	})
 	upstreamReq.Messages = prependSystemContext(req.Messages, buildNativeToolPrompt(turnPrompt), fragments)
 
-	_ = active
-	return upstreamReq, nil
+	return upstreamReq, active, nil
 }
 
 func (o *Orchestrator) RunTurn(ctx context.Context, requestID string, responseModel string, req types.ChatCompletionRequest, trace *logging.StageTrace) (*types.ChatCompletionResponse, *mode.Active, []retrieval.Fragment, error) {
@@ -154,12 +153,13 @@ func (o *Orchestrator) executeTurnLogic(ctx context.Context, requestID string, r
 			msg := resp.Choices[0].Message
 
 			if len(msg.ToolCalls) == 0 {
-				compatContent := strings.TrimSpace(msg.Content)
+				contentOnly := strings.TrimSpace(msg.Content)
+				compatContent := contentOnly
 				if compatContent == "" {
 					compatContent = strings.TrimSpace(msg.ReasoningContent)
 				}
 				if env, ok := envelope.Parse(compatContent); ok && env.Type == "tool_call" {
-					if env.Tool == "terminal" {
+					if isExternalTerminalTool(env.Tool) {
 						req.Messages = append(req.Messages,
 							types.ChatMessage{Role: "assistant", Content: compatContent},
 							types.ChatMessage{Role: "user", Content: buildFailClosedBlock(env.Tool, "terminal is handled by the Open WebUI external OpenAPI tool path, not the Gateway legacy tool path")},
@@ -226,15 +226,25 @@ func (o *Orchestrator) executeTurnLogic(ctx context.Context, requestID string, r
 					continue
 				}
 
+				if contentOnly == "" && strings.TrimSpace(msg.ReasoningContent) != "" {
+					req.Messages = append(req.Messages, types.ChatMessage{
+						Role:    "user",
+						Content: "Your previous reply contained only private reasoning with no final user-visible answer. Answer the latest request now in plain language. Do not emit reasoning_content, <think> tags, or raw tool markup. If you truly still need another tool, use the native tool interface directly.",
+					})
+					continue
+				}
+
 				finalResp = resp
 				return finalResp, active, fragments, nil
 			}
 
 			req.Messages = append(req.Messages, msg)
 			hasToolError := false
+			hasExternalTerminalTool := false
 
 			for _, tc := range msg.ToolCalls {
-				if tc.Function.Name == "terminal" {
+				if isExternalTerminalTool(tc.Function.Name) {
+					hasExternalTerminalTool = true
 					req.Messages = append(req.Messages, types.ChatMessage{
 						Role:       "tool",
 						ToolCallID: tc.ID,
@@ -254,6 +264,7 @@ func (o *Orchestrator) executeTurnLogic(ctx context.Context, requestID string, r
 					hasToolError = true
 					continue
 				}
+				args = augmentToolArguments(tc.Function.Name, originalReq.UserEmail, args)
 
 				resolveSpan := trace.Begin("tool_resolve")
 				resolveResp, err := o.toolClient.Resolve(ctx, toolclient.ResolveRequest{
@@ -317,7 +328,15 @@ func (o *Orchestrator) executeTurnLogic(ctx context.Context, requestID string, r
 			if hasToolError {
 				req.Messages = append(req.Messages, types.ChatMessage{
 					Role:    "user",
-					Content: "Some tools failed. Please analyze the errors and either fix your arguments or answer directly without using tools.",
+					Content: "Some tools failed. Analyze the exact error first. If the failure is caused by shell mismatch, missing command, or bad arguments, retry yourself once with a materially different native tool call before giving up. Do not ask the user to run the command for you unless the available tools truly cannot produce the missing evidence.",
+				})
+			} else if hasExternalTerminalTool {
+				req.Tools = nil
+				req.ToolChoice = nil
+				req.ParallelToolCalls = nil
+				req.Messages = append(req.Messages, types.ChatMessage{
+					Role:    "user",
+					Content: "You already received the external terminal tool result for this request. Do not call more tools. Answer directly in natural language using that result. Do not print literal <tool_call> markup.",
 				})
 			} else if shouldStopNativeToolLoop(req.Messages, turn) {
 				req.Tools = nil
@@ -337,7 +356,7 @@ func (o *Orchestrator) executeTurnLogic(ctx context.Context, requestID string, r
 					return finalResp, active, fragments, nil
 				}
 				if env.Type == "tool_call" {
-					if env.Tool == "terminal" {
+					if isExternalTerminalTool(env.Tool) {
 						req.Messages = append(req.Messages,
 							types.ChatMessage{Role: "assistant", Content: content},
 							types.ChatMessage{Role: "user", Content: buildFailClosedBlock(env.Tool, "terminal is handled by the Open WebUI external OpenAPI tool path, not the Gateway legacy tool path")},
@@ -347,8 +366,9 @@ func (o *Orchestrator) executeTurnLogic(ctx context.Context, requestID string, r
 					}
 
 					resolveSpan := trace.Begin("tool_resolve")
+					args := augmentToolArguments(env.Tool, originalReq.UserEmail, env.Arguments)
 					resolveResp, err := o.toolClient.Resolve(ctx, toolclient.ResolveRequest{
-						SessionID: resp.ID, Mode: mode.BuildLabel(active), Tool: env.Tool, UserEmail: originalReq.UserEmail, Arguments: env.Arguments,
+						SessionID: resp.ID, Mode: mode.BuildLabel(active), Tool: env.Tool, UserEmail: originalReq.UserEmail, Arguments: args,
 					})
 					if err != nil || !resolveResp.Allowed {
 						reason := "tool resolve denied"
@@ -405,6 +425,15 @@ func (o *Orchestrator) executeTurnLogic(ctx context.Context, requestID string, r
 				continue
 			}
 
+			message := resp.Choices[0].Message
+			if strings.TrimSpace(message.Content) == "" && strings.TrimSpace(message.ReasoningContent) != "" {
+				req.Messages = append(req.Messages, types.ChatMessage{
+					Role:    "user",
+					Content: "Your previous reply contained only private reasoning with no final user-visible answer. Answer the latest request now in plain language. If you still need a tool, emit one valid tool_call envelope. Do not output pure reasoning or <think> blocks.",
+				})
+				continue
+			}
+
 			finalResp = resp
 			return finalResp, active, fragments, nil
 		}
@@ -435,11 +464,22 @@ func prependSystemContext(messages []types.ChatMessage, systemPrompt string, fra
 	if len(parts) == 0 {
 		return messages
 	}
+
+	nonSystem := make([]types.ChatMessage, 0, len(messages))
+	for _, msg := range messages {
+		if strings.EqualFold(strings.TrimSpace(msg.Role), "system") {
+			if trimmed := strings.TrimSpace(msg.Content); trimmed != "" {
+				parts = append(parts, trimmed)
+			}
+			continue
+		}
+		nonSystem = append(nonSystem, msg)
+	}
 	system := types.ChatMessage{
 		Role:    "system",
 		Content: strings.Join(parts, "\n\n"),
 	}
-	return append([]types.ChatMessage{system}, messages...)
+	return append([]types.ChatMessage{system}, nonSystem...)
 }
 
 func (o *Orchestrator) loadTurnContext(ctx context.Context, req types.ChatCompletionRequest) (*mode.Active, []retrieval.Fragment, string, error) {
@@ -741,6 +781,13 @@ For binary and reverse tasks:
   - tool_list_decompilers_post / tool_use_decompiler_post
   - tool_run_command_post for one narrow binary-inspection command when no simpler helper can produce the needed function detail
 
+For terminal tool failures:
+- do not ask the user to manually run a command you can run yourself
+- if a command fails because it is missing, not recognized, or shell-specific, immediately choose a shell-appropriate equivalent and retry once with a materially different command
+- on Windows local transport with powershell, avoid Linux-only commands such as file, strings, ls, and cat unless you intentionally switch to wsl-bash
+- after a failed terminal attempt, prefer a PowerShell equivalent, a different visible native tool, or a narrower command that produces the same evidence
+- only stop retrying when the missing evidence truly cannot be produced with the available tools
+
 If one tool name is unavailable, choose the closest visible native tool instead of falling back to plain command suggestions.
 Do not leave raw tool-call markup such as <tool_call> in the final natural-language answer.
 
@@ -854,5 +901,36 @@ func failClosedToolResponse(modelAlias, toolName, summary string) *types.ChatCom
 				FinishReason: "stop",
 			},
 		},
+	}
+}
+
+func augmentToolArguments(toolName, userEmail string, arguments map[string]any) map[string]any {
+	if len(arguments) == 0 {
+		arguments = map[string]any{}
+	}
+
+	cloned := make(map[string]any, len(arguments)+1)
+	for key, value := range arguments {
+		cloned[key] = value
+	}
+
+	switch strings.TrimSpace(toolName) {
+	case "terminal", "runTerminal":
+		if strings.TrimSpace(userEmail) != "" {
+			// Never trust model-supplied user_email for terminal execution.
+			// The authenticated chat user must own the execution context.
+			cloned["user_email"] = userEmail
+		}
+	}
+
+	return cloned
+}
+
+func isExternalTerminalTool(toolName string) bool {
+	switch strings.TrimSpace(toolName) {
+	case "terminal", "runTerminal":
+		return false
+	default:
+		return false
 	}
 }

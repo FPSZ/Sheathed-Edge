@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -60,6 +61,7 @@ func (p *Client) ChatCompletion(ctx context.Context, reqBody types.ChatCompletio
 	if err != nil {
 		return nil, err
 	}
+	_ = os.WriteFile(`D:\AI\Local\Logs\debug-last-provider-request.json`, data, 0o644)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, base+"/chat/completions", bytes.NewReader(data))
 	if err != nil {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -18,6 +19,7 @@ type Service struct {
 	provider             *provider.Client
 	host                 *HostClient
 	client               *http.Client
+	gatewayConfigPath    string
 	toolRouterConfigPath string
 	toolRouterProjectDir string
 	userSettingsPath     string
@@ -56,6 +58,7 @@ func NewService(cfg *config.Config, providerClient *provider.Client, gatewayConf
 		client: &http.Client{
 			Timeout: time.Duration(cfg.Admin.TimeoutMS) * time.Millisecond,
 		},
+		gatewayConfigPath:    gatewayConfigPath,
 		toolRouterConfigPath: toolRouterConfigPath,
 		toolRouterProjectDir: toolRouterProjectDir,
 		userSettingsPath:     userSettingsPath,
@@ -311,24 +314,96 @@ func (s *Service) UpdateModelProfile(ctx context.Context, profile ModelProfile, 
 }
 
 func (s *Service) HostIPs() (*HostIPsResponse, error) {
-	addrs, err := net.InterfaceAddrs()
+	ifaces, err := net.Interfaces()
 	if err != nil {
 		return nil, fmt.Errorf("enumerate interfaces: %w", err)
 	}
 
-	var ips []string
-	for _, addr := range addrs {
-		var ip net.IP
-		switch v := addr.(type) {
-		case *net.IPNet:
-			ip = v.IP
-		case *net.IPAddr:
-			ip = v.IP
-		}
-		if ip == nil || ip.IsLoopback() || ip.To4() == nil {
+	type candidate struct {
+		ip    string
+		score int
+		kind  string
+	}
+
+	var candidates []candidate
+	seen := map[string]bool{}
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
 			continue
 		}
-		ips = append(ips, ip.String())
+		addrs, addrErr := iface.Addrs()
+		if addrErr != nil {
+			continue
+		}
+
+		nameScore, kind := preferredShareInterfaceScore(iface.Name)
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			ipv4 := ip.To4()
+			if ipv4 == nil || ipv4.IsLoopback() {
+				continue
+			}
+			ipStr := ipv4.String()
+			if seen[ipStr] {
+				continue
+			}
+			seen[ipStr] = true
+
+			score := nameScore
+			if isRFC1918IPv4(ipv4) {
+				score += privateIPv4Preference(ipv4)
+				if kind == "" {
+					kind = "lan"
+				}
+			} else {
+				score -= 50
+			}
+			if strings.HasPrefix(strings.ToLower(strings.TrimSpace(iface.Name)), "tailscale") {
+				kind = "tailscale"
+				score += 30
+			}
+			candidates = append(candidates, candidate{ip: ipStr, score: score, kind: kind})
+		}
+	}
+
+	sort.SliceStable(candidates, func(i, j int) bool {
+		if candidates[i].score == candidates[j].score {
+			return candidates[i].ip < candidates[j].ip
+		}
+		return candidates[i].score > candidates[j].score
+	})
+
+	var ips []string
+	var bestLAN *candidate
+	var bestTailscale *candidate
+	for i := range candidates {
+		item := &candidates[i]
+		switch item.kind {
+		case "tailscale":
+			if bestTailscale == nil {
+				bestTailscale = item
+			}
+		case "lan":
+			if bestLAN == nil {
+				bestLAN = item
+			}
+		}
+	}
+	if bestLAN != nil {
+		ips = append(ips, bestLAN.ip)
+	}
+	if bestTailscale != nil && (bestLAN == nil || bestTailscale.ip != bestLAN.ip) {
+		ips = append(ips, bestTailscale.ip)
+	}
+	if len(ips) == 0 && len(candidates) > 0 {
+		// 兜底只展示一个最可信地址，避免把 WSL/VMware/VPN 等无效链接也抛给队友。
+		ips = []string{candidates[0].ip}
 	}
 
 	port := s.cfg.Admin.WebUISharePort
@@ -342,6 +417,87 @@ func (s *Service) HostIPs() (*HostIPsResponse, error) {
 		SharePort: port,
 		ShareURLs: urls,
 	}, nil
+}
+
+func preferredShareInterfaceScore(name string) (int, string) {
+	lower := strings.ToLower(strings.TrimSpace(name))
+	score := 0
+	kind := ""
+
+	physicalHints := []string{"wlan", "wi-fi", "wifi", "wireless", "ethernet", "以太网"}
+	for _, hint := range physicalHints {
+		if strings.Contains(lower, hint) {
+			if hint == "wlan" || hint == "wi-fi" || hint == "wifi" || hint == "wireless" {
+				score += 55
+			} else {
+				score += 35
+			}
+			kind = "lan"
+			break
+		}
+	}
+
+	if strings.Contains(lower, "tailscale") {
+		score += 50
+		kind = "tailscale"
+	}
+
+	virtualHints := []string{
+		"vmware",
+		"virtual",
+		"vethernet",
+		"hyper-v",
+		"wsl",
+		"oray",
+		"vpn",
+		"loopback",
+		"docker",
+		"bridge",
+	}
+	for _, hint := range virtualHints {
+		if strings.Contains(lower, hint) {
+			score -= 80
+			break
+		}
+	}
+
+	return score, kind
+}
+
+func isRFC1918IPv4(ip net.IP) bool {
+	ipv4 := ip.To4()
+	if ipv4 == nil {
+		return false
+	}
+
+	switch {
+	case ipv4[0] == 10:
+		return true
+	case ipv4[0] == 172 && ipv4[1] >= 16 && ipv4[1] <= 31:
+		return true
+	case ipv4[0] == 192 && ipv4[1] == 168:
+		return true
+	default:
+		return false
+	}
+}
+
+func privateIPv4Preference(ip net.IP) int {
+	ipv4 := ip.To4()
+	if ipv4 == nil {
+		return 0
+	}
+
+	switch {
+	case ipv4[0] == 192 && ipv4[1] == 168:
+		return 140
+	case ipv4[0] == 10:
+		return 110
+	case ipv4[0] == 172 && ipv4[1] >= 16 && ipv4[1] <= 31:
+		return 100
+	default:
+		return 0
+	}
 }
 
 func (s *Service) checkStatus(ctx context.Context, name, address string, fn func(context.Context) error) ServiceStatus {

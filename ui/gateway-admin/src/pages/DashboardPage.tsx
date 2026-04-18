@@ -41,7 +41,7 @@ export function DashboardPage() {
   }
 
   useEffect(() => {
-    loadOverview();
+    void loadOverview();
   }, []);
 
   useEffect(() => {
@@ -169,15 +169,11 @@ export function DashboardPage() {
       />
 
       {error ? (
-        <div className="admin-surface rounded-3xl bg-rose-50 p-4 text-sm text-rose-700">
-          {error}
-        </div>
+        <div className="admin-surface rounded-3xl bg-rose-50 p-4 text-sm text-rose-700">{error}</div>
       ) : null}
 
       {stackNotice ? (
-        <div className="admin-surface rounded-3xl bg-emerald-50 p-4 text-sm text-emerald-700">
-          {stackNotice}
-        </div>
+        <div className="admin-surface rounded-3xl bg-emerald-50 p-4 text-sm text-emerald-700">{stackNotice}</div>
       ) : null}
 
       <section className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
@@ -263,10 +259,7 @@ export function DashboardPage() {
           <div className="mt-4 grid gap-4 md:grid-cols-3">
             <Metric title="用户" value={workspace.workspace.user_email} />
             <Metric title="默认 SSH" value={workspace.workspace.default_ssh_host_id || "未设置"} />
-            <Metric
-              title="可访问目录"
-              value={String(workspace.workspace.terminal_allowed_paths.length)}
-            />
+            <Metric title="可访问目录" value={String(workspace.workspace.terminal_allowed_paths.length)} />
           </div>
         </section>
       ) : null}
@@ -276,7 +269,8 @@ export function DashboardPage() {
           <div>
             <div className="text-sm font-semibold text-slate-900">队友访问地址</div>
             <div className="mt-1 text-xs text-slate-500">
-              读取当前机器的局域网 IP，生成 Open WebUI 可访问地址。
+              仅展示当前机器最可信、最可能可达的局域网 / Tailscale 分享地址，避免把虚拟网卡 / VPN /
+              WSL 地址发给队友。
             </div>
           </div>
           <button className="admin-button" disabled={shareLoading} onClick={fetchShareLinks} type="button">
@@ -285,9 +279,7 @@ export function DashboardPage() {
         </div>
 
         {shareError ? (
-          <div className="mt-4 admin-surface rounded-3xl bg-rose-50 p-3 text-sm text-rose-700">
-            {shareError}
-          </div>
+          <div className="mt-4 admin-surface rounded-3xl bg-rose-50 p-3 text-sm text-rose-700">{shareError}</div>
         ) : null}
 
         {shareData && shareData.share_urls.length > 0 ? (
@@ -305,7 +297,7 @@ export function DashboardPage() {
             ))}
           </div>
         ) : shareData && shareData.share_urls.length === 0 ? (
-          <div className="mt-4 text-sm text-slate-500">未找到可用的局域网 IP。</div>
+          <div className="mt-4 text-sm text-slate-500">未找到可用的局域网或 Tailscale 地址。</div>
         ) : null}
       </section>
 

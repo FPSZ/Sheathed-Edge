@@ -31,6 +31,8 @@ type Active struct {
 	Plugins            []string
 	SystemPrompt       string
 	ConversationPrompt string
+	PromptFiles        []string
+	SkillFiles         []string
 	ToolScope          []string
 	RetrievalRoots     []string
 	EvalTags           []string
@@ -77,6 +79,7 @@ func (l *Loader) Load(plugins []string, layers *SessionAgentLayers) (*Active, er
 	var conversationPromptParts []string
 	coreDir := filepath.Dir(corePath)
 	for _, rel := range core.PromptFiles {
+		active.PromptFiles = append(active.PromptFiles, filepath.Join(coreDir, rel))
 		content, err := os.ReadFile(filepath.Join(coreDir, rel))
 		if err != nil {
 			return nil, fmt.Errorf("read core prompt %s: %w", rel, err)
@@ -85,6 +88,7 @@ func (l *Loader) Load(plugins []string, layers *SessionAgentLayers) (*Active, er
 	}
 	if effectiveLayers.EnableAgentRouter {
 		agentPath := filepath.Join(coreDir, "prompts", "agent.md")
+		active.PromptFiles = append(active.PromptFiles, agentPath)
 		content, err := os.ReadFile(agentPath)
 		if err != nil {
 			return nil, fmt.Errorf("read agent router prompt %s: %w", agentPath, err)
@@ -94,6 +98,7 @@ func (l *Loader) Load(plugins []string, layers *SessionAgentLayers) (*Active, er
 	}
 	if usesBinaryCore(effectiveLayers) {
 		binaryCorePath := filepath.Join(coreDir, "prompts", "binary-core.md")
+		active.PromptFiles = append(active.PromptFiles, binaryCorePath)
 		content, err := os.ReadFile(binaryCorePath)
 		if err != nil {
 			return nil, fmt.Errorf("read binary core prompt %s: %w", binaryCorePath, err)
@@ -103,6 +108,7 @@ func (l *Loader) Load(plugins []string, layers *SessionAgentLayers) (*Active, er
 	}
 	if usesAWDPCore(effectiveLayers) {
 		awdpCorePath := filepath.Join(coreDir, "prompts", "awdp-core.md")
+		active.PromptFiles = append(active.PromptFiles, awdpCorePath)
 		content, err := os.ReadFile(awdpCorePath)
 		if err != nil {
 			return nil, fmt.Errorf("read awdp core prompt %s: %w", awdpCorePath, err)
@@ -142,6 +148,7 @@ func (l *Loader) Load(plugins []string, layers *SessionAgentLayers) (*Active, er
 			if isAgentRouterPrompt(rel) || isBinaryCorePrompt(rel) || isAWDPCorePrompt(rel) {
 				continue
 			}
+			active.PromptFiles = append(active.PromptFiles, filepath.Join(pluginDir, rel))
 			content, err := os.ReadFile(filepath.Join(pluginDir, rel))
 			if err != nil {
 				return nil, fmt.Errorf("read plugin prompt %s: %w", rel, err)
@@ -162,10 +169,15 @@ func (l *Loader) Load(plugins []string, layers *SessionAgentLayers) (*Active, er
 			}
 			conversationPromptParts = append(conversationPromptParts, strings.TrimSpace(string(content)))
 		}
+		for _, rel := range pcfg.SkillFiles {
+			active.SkillFiles = append(active.SkillFiles, filepath.Join(pluginDir, rel))
+		}
 	}
 
 	active.SystemPrompt = strings.Join(promptParts, "\n\n")
 	active.ConversationPrompt = strings.Join(conversationPromptParts, "\n\n")
+	active.PromptFiles = uniqueStrings(nil, active.PromptFiles)
+	active.SkillFiles = uniqueStrings(nil, active.SkillFiles)
 	return active, nil
 }
 

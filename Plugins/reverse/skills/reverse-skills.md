@@ -1,275 +1,239 @@
 # Reverse Family Skills
 
-This document is the family skill reference for `task_family=reverse`.
+This is the short main skill for `task_family=reverse`.
 
-Use it after the shared router has classified the task as `reverse` and the `binary-core` layer has established the first binary evidence set.
-
-If `competition_mode=awdp`, keep the reverse route technical and let `awdp-core` plus `awdp-red` / `awdp-blue` control the match behavior.
-
-## Stable Fields
-
-When possible, keep these concepts visible:
+Use it after:
 
 - `task_family: reverse`
 - `shared_domain: binary`
-- `competition_mode`
-- `awdp_role`
+- `binary-core` has already produced the first evidence set
+
+Do not turn this file into a knowledge dump.
+
+If a sub-pattern becomes obvious, load one matching micro skill from `skills/micro/` instead of expanding this file.
+
+## Stable Fields
+
+Keep these fields visible when possible:
+
+- `task_family: reverse`
+- `shared_domain: binary`
 - `phase`
 - `primary_skill`
-- `secondary_skills`
 - `evidence_required`
 - `fallback_if_fail`
 
-## key-function-recovery
+## Reverse Main Route
 
-Use this when the first reverse question is which function or basic path actually matters.
+Default route:
 
-Goals:
+1. open the target in the most stable binary tool
+2. get one real metadata result
+3. get one real strings/functions result
+4. choose one concrete xref / caller / callee / decompile target
+5. extract exact static data if the logic depends on tables, blobs, or target bytes
+6. once the data is enough, run one tiny verification script
+7. close with the exact flag / key if the remaining gap is only a narrow transform
 
-- locate the most relevant functions
-- connect strings, xrefs, imports, and entry flow
-- reduce the search space to one or two high-signal targets
+Do not spend multiple turns narrating the plan after step 5.
+
+## IDA Typed Tool Opening
+
+Use this path when the local IDA bridge is available.
 
 Checklist:
 
-- identify the most suspicious strings, symbols, or xrefs
-- map entry or caller flow toward likely validation logic
-- nominate the next key function
-- explain why weaker function candidates were rejected
-- cite the actual tool step used to obtain those candidates
-- if a full flag already appears in strings with no contradictory logic, stop here and promote it to extraction instead of forcing deeper analysis
-- if multiple flag-like strings appear, explicitly rank them and justify which one deserves one more verification step
+- call `ida_open_file`
+- call `ida_get_metadata`
+- call either `ida_list_strings` or `ida_list_functions`
+- choose one concrete suspicious address / function
+- call one of:
+  - `ida_get_xrefs_to`
+  - `ida_get_callers`
+  - `ida_get_callees`
+  - `ida_decompile_function`
+- if the clue points to exact static data, immediately switch to:
+  - `ida_get_global_variable_value_*`
+  - `ida_read_dword_array`
+  - `ida_read_byte_array`
+  - `ida_read_string`
+
+Expected evidence:
+
+- current binary metadata
+- one suspicious clue
+- one next target
+
+Fallback if fail:
+
+- if `ida_open_file` fails, fall back to the next stable binary tool
+- if the bridge is stale, try `ida_close_active_session` once, then reopen
+
+## Key Function Recovery
+
+Use this when the blocker is still “which function matters?”
+
+Checklist:
+
+- connect one string / import / branch to one function
+- prefer one xref or caller step over broad traversal
+- reduce the search space to one or two high-signal targets
+- reject weak candidates explicitly
 
 Expected evidence:
 
 - key function candidate
-- supporting strings or xrefs
+- supporting clue
 - narrow next target
 
 Fallback if fail:
 
 - if names are stripped, pivot to strings and xrefs
-- if strings are weak, pivot to imports and entry flow
+- if strings are weak, pivot to entry-adjacent logic or imports
 
-## validation-and-check-tracing
+## Check Tracing
 
-Use this when the main task is to understand how input is checked or how success is decided.
-
-Goals:
-
-- trace the validation path
-- identify compare points, expected constants, or branch conditions
-- understand what must be true for success
+Use this when the blocker is “what must be true for success?”
 
 Checklist:
 
-- follow the input path into the check logic
-- identify comparisons, branch conditions, or table lookups
+- decompile the check function
+- identify compare points, branch conditions, or table lookups
 - summarize the exact success condition
-- state what evidence is still missing before final extraction
-- ground the summary in at least one concrete function, xref, or decompile result
-- if strings/functions are still too shallow, take one deeper step only: one xref, one chosen function detail, or one pseudocode view
+- name the exact missing evidence before extraction
 
 Expected evidence:
 
 - check routine summary
-- decisive branches or constants
-- missing evidence list
+- decisive compare / branch / constant
 
 Fallback if fail:
 
-- if tracing is noisy, reduce scope to one branch or compare site
-- if the check is indirect, step back to callers and state flow
+- if the trace is noisy, reduce scope to one branch or one compare site
+- if the path is indirect, step back to callers
 
-## algorithm-reconstruction
+## Data Extraction
 
-Use this when the decisive blocker is the transform or algorithm itself.
-
-Goals:
-
-- reconstruct the minimal algorithm needed to derive the answer
-- separate signal from compiler noise
-- turn logic into reproducible steps
+Use this when the blocker is no longer control flow, but exact values.
 
 Checklist:
 
-- identify state, loops, tables, and per-byte or per-block operations
-- rewrite the logic in plain language
-- capture constants, order, and edge handling
-- decide whether a tiny local script is the next best step
-- make sure the reconstruction references real tool-visible logic rather than pure guesswork
+- if a symbol exists, prefer `ida_get_global_variable_value_*`
+- if it is an index table, prefer `ida_read_dword_array`
+- if it is a byte blob or target buffer, prefer `ida_read_byte_array`
+- if it is a literal string, prefer `ida_read_string`
+- only use raw memory reads when the higher-level read fails
+
+Hard rule:
+
+- once exact data is in hand, stop broad RE narration and move to one tiny script
 
 Expected evidence:
 
-- algorithm summary
-- constants / tables
-- reproducible transform steps
+- exact table / blob / target bytes
 
 Fallback if fail:
 
-- if the full algorithm is too large, isolate one round or one byte path first
-- if compiler noise dominates, simplify via pseudocode and variable role mapping
+- confirm width and endianness with a smaller read first
 
-## decode-and-transform-inversion
+## Script Verification
 
-Use this when the problem is now about reversing a known transform.
-
-Goals:
-
-- invert the discovered transform
-- confirm candidate plaintext / flag structure
-- keep the inversion reproducible
+Use this when one short script can finish the solve.
 
 Checklist:
 
-- state the forward transform clearly
-- derive the inverse step order
-- test the smallest inversion path
-- verify the output shape against challenge conventions
+- use one single-purpose script only
+- script types that should close quickly:
+  - custom alphabet decode
+  - xor / add / sub inversion
+  - permutation inversion
+  - index-based reorder
+  - small arithmetic normalization
+- print only decisive output
+
+Hard rule:
+
+- do not hand-calculate a transform once the exact data is already available
 
 Expected evidence:
 
-- inverse transform
-- candidate plaintext or flag
-- validation signal
+- candidate flag / key
+- one short reproducible solve step
 
 Fallback if fail:
 
-- if inversion is ambiguous, go back to the exact forward step order
-- if outputs look close but wrong, inspect indexing and constant order first
+- go back to operation order, index order, or one unresolved constant
 
-## flag-and-key-extraction
+## Exact Answer Closure
 
-Use this when enough evidence exists to derive the final answer.
-
-Goals:
-
-- produce the final flag or key
-- connect the answer to the evidence chain
-- avoid over-explaining beyond what proves correctness
+Use this when only one narrow step remains.
 
 Checklist:
 
-- state the exact extraction path
-- cite the decisive function / constant / transform clue
-- provide the final answer
-- note any remaining uncertainty if still partial
-- name the real tool result that most directly supports the answer
-- never leave a raw `<tool_call>` block or tool-planning text in the final answer
-- if a near-miss candidate exists, do one last narrow normalization or mutation check before answering
-- never stop at "best candidate" when the remaining gap is only one reversible transform, one character mutation, or one index-based inversion
+- cite the decisive function / table / transform clue
+- if the gap is only `base64`, custom alphabet, xor, permutation, or one common mutation such as `o -> 0`, finish it
+- do not stop at “best candidate” if one more reversible step gives the exact answer
+- do not leave tool-planning text in the final answer
 
 Expected evidence:
 
-- final flag / key candidate
-- extraction chain
-- confidence level
+- final flag / key
+- short extraction chain
 
 Fallback if fail:
 
-- if extraction is still partial, return to the closest unresolved transform edge
-- if multiple candidates exist, state the deciding check you still need
-- if a candidate differs from the obvious string by common reverse mutations such as `o -> 0`, index xor, permutation, or custom base64 alphabet, validate that exact mutation before giving up
+- return to the closest unresolved transform edge
 
-## anti-obfuscation-fallback
+## Packed / Thin Main Fallback
 
-Use this when packing, junk control flow, symbol stripping, or opaque transforms are the blocker.
-
-Goals:
-
-- identify the exact blocker
-- choose the narrowest workaround
-- avoid turning the solve into an open-ended deobfuscation project
+Use this when `main` is too empty or strings are too thin.
 
 Checklist:
 
-- name the blocker precisely
-- choose the next smallest workaround (unpack, rename, trace one path, dump one layer)
-- keep the solve focused on the target evidence
+- name the blocker precisely: packed, UPX, stub main, junk flow, or stripped clue path
+- if IDA strings are thin, do one wider raw strings pass on the original binary
+- if a full flag already appears in strings, stop and answer
+- do not turn this into a huge deobfuscation project unless the task truly requires it
 
 Expected evidence:
 
 - blocker summary
-- workaround choice
-- next evidence target
+- next smallest workaround
 
-Fallback if fail:
+## Companion File Rule
 
-- if the workaround grows too wide, step back to the smallest high-signal path
-- if runtime tracing is required, define exactly what must be observed
+Use this when the binary obviously depends on a sibling artifact such as:
 
-## writeup-finalization
+- `output.txt`
+- `enc.txt`
+- `input.txt`
+- `result.txt`
 
-Use this when the solve is finished or the user explicitly asks for a writeup / WP.
+Rules:
 
-Goals:
+- inspect the companion artifact before inventing a static data source
+- do not treat an arbitrary `.rdata` / `.rodata` blob as expected output if the program behavior points to a file
+- once the file data is known, invert with one short script
 
-- produce a plain, low-AI-tone reverse WP
-- keep the writeup evidence-based and reproducible
+## Micro Skill Dispatch
+
+If the pattern is obvious, load one matching file from `skills/micro/`:
+
+- `custom-alphabet.md`
+- `static-table-script.md`
+- `permutation-xor.md`
+- `packed-upx.md`
+- `companion-file.md`
+
+Do not load multiple micro skills unless the evidence really spans multiple patterns.
+
+## Writeup Rule
+
+Only switch to writeup mode when the user asks for WP / writeup.
+
+Then:
+
+- keep it short
+- keep it factual
+- cite concrete evidence
 - separate solved facts from any remaining uncertainty
-
-Checklist:
-
-- write in short, professional, non-first-person language
-- do not use `我`, `我们`, or AI-style filler openings
-- keep the structure compact: title, solve process, final flag
-- cite concrete evidence such as strings, constants, branches, transforms, addresses, or script output
-- if a solve script exists, include a runnable final script section rather than pseudocode
-- use relative paths in WP examples when possible; avoid absolute `D:\...` paths in the body
-- if any step was not directly verified, label that gap explicitly instead of fabricating detail
-
-Expected evidence:
-
-- compact writeup outline
-- decisive evidence chain
-- final flag or clearly labeled partial conclusion
-
-Fallback if fail:
-
-- if evidence is too thin, produce a short factual solve note instead of bloated prose
-- if the solve is still partial, mark the WP as partial and state the exact unresolved gap
-
-
-## micro-patterns-for-must-pass-devset
-
-Use these compact patterns for small reverse tasks that should close quickly.
-
-### custom-alphabet-and-encoding
-
-Use when strings expose:
-- a custom alphabet
-- a ciphertext blob
-- obvious base64/base32-like shape
-
-Rules:
-- first decide whether the binary is encoding or decoding
-- if a custom alphabet is present, build an index mapping back to the standard alphabet before decoding
-- do not stop at a plausible decoded string if one tiny inversion step can produce the exact flag
-
-### runtime-mutation-of-static-candidate
-
-Use when strings expose a near-flag like `{hello_world}` but the check function may mutate it before compare.
-
-Rules:
-- treat static candidate strings as pre-mutation candidates, not automatic final answers
-- do one narrow function-detail or command step on the compare path
-- explicitly test common reverse mutations such as `o -> 0`, case rewrite, index xor, add/sub by index
-
-### permutation-then-byte-transform
-
-Use when the challenge length is fixed and logic suggests both reordering and xor/add/sub by index.
-
-Rules:
-- determine the forward order first
-- invert in the exact reverse order
-- do not mix up "permute then xor" with "xor then permute"
-- if the output length is wrong, check whether you dropped trailing indices before assuming the whole reconstruction is wrong
-
-### packed-or-upx-early-stop
-
-Use when filename, strings, or section/import clues strongly indicate UPX or a simple packer.
-
-Rules:
-- if strings already reveal the complete flag, stop and answer
-- if strings are thin but UPX is strongly suggested, treat unpacking as the next narrow evidence step, not a whole open-ended reversing project
-- do not spend long on ordinary function walkthroughs before deciding whether the packer is the real blocker

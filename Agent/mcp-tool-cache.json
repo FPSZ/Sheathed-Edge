@@ -16,6 +16,724 @@
       ],
       "last_discovered_at": "1774882580808",
       "last_error": ""
+    },
+    {
+      "server_id": "ghidra-local",
+      "tools": [
+        {
+          "name": "tool_decompile_function_by_address_post",
+          "description": "Decompile Function By Address",
+          "disabled": false
+        },
+        {
+          "name": "tool_decompile_function_post",
+          "description": "Decompile Function",
+          "disabled": false
+        },
+        {
+          "name": "tool_disassemble_function_post",
+          "description": "Disassemble Function",
+          "disabled": false
+        },
+        {
+          "name": "tool_get_current_address_post",
+          "description": "Get Current Address",
+          "disabled": false
+        },
+        {
+          "name": "tool_get_current_function_post",
+          "description": "Get Current Function",
+          "disabled": false
+        },
+        {
+          "name": "tool_get_function_by_address_post",
+          "description": "Get Function By Address",
+          "disabled": false
+        },
+        {
+          "name": "tool_get_function_xrefs_post",
+          "description": "Get Function Xrefs",
+          "disabled": false
+        },
+        {
+          "name": "tool_get_xrefs_from_post",
+          "description": "Get Xrefs From",
+          "disabled": false
+        },
+        {
+          "name": "tool_get_xrefs_to_post",
+          "description": "Get Xrefs To",
+          "disabled": false
+        },
+        {
+          "name": "tool_list_classes_post",
+          "description": "List Classes",
+          "disabled": false
+        },
+        {
+          "name": "tool_list_data_items_post",
+          "description": "List Data Items",
+          "disabled": false
+        },
+        {
+          "name": "tool_list_exports_post",
+          "description": "List Exports",
+          "disabled": false
+        },
+        {
+          "name": "tool_list_functions_post",
+          "description": "List Functions",
+          "disabled": false
+        },
+        {
+          "name": "tool_list_imports_post",
+          "description": "List Imports",
+          "disabled": false
+        },
+        {
+          "name": "tool_list_methods_post",
+          "description": "List Methods",
+          "disabled": false
+        },
+        {
+          "name": "tool_list_namespaces_post",
+          "description": "List Namespaces",
+          "disabled": false
+        },
+        {
+          "name": "tool_list_segments_post",
+          "description": "List Segments",
+          "disabled": false
+        },
+        {
+          "name": "tool_list_strings_post",
+          "description": "List Strings",
+          "disabled": false
+        },
+        {
+          "name": "tool_rename_data_post",
+          "description": "Rename Data",
+          "disabled": false
+        },
+        {
+          "name": "tool_rename_function_by_address_post",
+          "description": "Rename Function By Address",
+          "disabled": false
+        },
+        {
+          "name": "tool_rename_function_post",
+          "description": "Rename Function",
+          "disabled": false
+        },
+        {
+          "name": "tool_rename_variable_post",
+          "description": "Rename Variable",
+          "disabled": false
+        },
+        {
+          "name": "tool_search_functions_by_name_post",
+          "description": "Search Functions By Name",
+          "disabled": false
+        },
+        {
+          "name": "tool_set_decompiler_comment_post",
+          "description": "Set Decompiler Comment",
+          "disabled": false
+        },
+        {
+          "name": "tool_set_disassembly_comment_post",
+          "description": "Set Disassembly Comment",
+          "disabled": false
+        },
+        {
+          "name": "tool_set_function_prototype_post",
+          "description": "Set Function Prototype",
+          "disabled": false
+        },
+        {
+          "name": "tool_set_local_variable_type_post",
+          "description": "Set Local Variable Type",
+          "disabled": false
+        }
+      ],
+      "last_discovered_at": "1776270814990",
+      "last_error": ""
+    },
+    {
+      "server_id": "radare2-local",
+      "tools": [
+        {
+          "name": "tool_analyze_post",
+          "description": "Analyze",
+          "disabled": false
+        },
+        {
+          "name": "tool_close_file_post",
+          "description": "Close File",
+          "disabled": false
+        },
+        {
+          "name": "tool_close_session_post",
+          "description": "Close Session",
+          "disabled": false
+        },
+        {
+          "name": "tool_get_current_address_post",
+          "description": "Get Current Address",
+          "disabled": false
+        },
+        {
+          "name": "tool_get_function_prototype_post",
+          "description": "Get Function Prototype",
+          "disabled": false
+        },
+        {
+          "name": "tool_list_all_strings_post",
+          "description": "List All Strings",
+          "disabled": false
+        },
+        {
+          "name": "tool_list_classes_post",
+          "description": "List Classes",
+          "disabled": false
+        },
+        {
+          "name": "tool_list_decompilers_post",
+          "description": "List Decompilers",
+          "disabled": false
+        },
+        {
+          "name": "tool_list_entrypoints_post",
+          "description": "List Entrypoints",
+          "disabled": false
+        },
+        {
+          "name": "tool_list_exports_post",
+          "description": "List Exports",
+          "disabled": false
+        },
+        {
+          "name": "tool_list_functions_post",
+          "description": "List Functions",
+          "disabled": false
+        },
+        {
+          "name": "tool_list_functions_tree_post",
+          "description": "List Functions Tree",
+          "disabled": false
+        },
+        {
+          "name": "tool_list_imports_post",
+          "description": "List Imports",
+          "disabled": false
+        },
+        {
+          "name": "tool_list_libraries_post",
+          "description": "List Libraries",
+          "disabled": false
+        },
+        {
+          "name": "tool_list_memory_maps_post",
+          "description": "List Memory Maps",
+          "disabled": false
+        },
+        {
+          "name": "tool_list_methods_post",
+          "description": "List Methods",
+          "disabled": false
+        },
+        {
+          "name": "tool_list_sections_post",
+          "description": "List Sections",
+          "disabled": false
+        },
+        {
+          "name": "tool_list_sessions_post",
+          "description": "List Sessions",
+          "disabled": false
+        },
+        {
+          "name": "tool_list_strings_post",
+          "description": "List Strings",
+          "disabled": false
+        },
+        {
+          "name": "tool_list_symbols_post",
+          "description": "List Symbols",
+          "disabled": false
+        },
+        {
+          "name": "tool_open_file_post",
+          "description": "Open File",
+          "disabled": false
+        },
+        {
+          "name": "tool_open_session_post",
+          "description": "Open Session",
+          "disabled": false
+        },
+        {
+          "name": "tool_rename_flag_post",
+          "description": "Rename Flag",
+          "disabled": false
+        },
+        {
+          "name": "tool_rename_function_post",
+          "description": "Rename Function",
+          "disabled": false
+        },
+        {
+          "name": "tool_run_command_post",
+          "description": "Run Command",
+          "disabled": false
+        },
+        {
+          "name": "tool_run_javascript_post",
+          "description": "Run Javascript",
+          "disabled": false
+        },
+        {
+          "name": "tool_set_comment_post",
+          "description": "Set Comment",
+          "disabled": false
+        },
+        {
+          "name": "tool_set_function_prototype_post",
+          "description": "Set Function Prototype",
+          "disabled": false
+        },
+        {
+          "name": "tool_show_function_details_post",
+          "description": "Show Function Details",
+          "disabled": false
+        },
+        {
+          "name": "tool_show_headers_post",
+          "description": "Show Headers",
+          "disabled": false
+        },
+        {
+          "name": "tool_use_decompiler_post",
+          "description": "Use Decompiler",
+          "disabled": false
+        },
+        {
+          "name": "tool_xrefs_to_post",
+          "description": "Xrefs To",
+          "disabled": false
+        }
+      ],
+      "last_discovered_at": "1776515979188",
+      "last_error": ""
+    },
+    {
+      "server_id": "x64dbg-local",
+      "tools": [
+        {
+          "name": "tool_AssemblerAssembleMem_post",
+          "description": "Assemblerassemblemem",
+          "disabled": false
+        },
+        {
+          "name": "tool_AssemblerAssemble_post",
+          "description": "Assemblerassemble",
+          "disabled": false
+        },
+        {
+          "name": "tool_CommentGet_post",
+          "description": "Commentget",
+          "disabled": false
+        },
+        {
+          "name": "tool_CommentSet_post",
+          "description": "Commentset",
+          "disabled": false
+        },
+        {
+          "name": "tool_DebugDeleteBreakpoint_post",
+          "description": "Debugdeletebreakpoint",
+          "disabled": false
+        },
+        {
+          "name": "tool_DebugPause_post",
+          "description": "Debugpause",
+          "disabled": false
+        },
+        {
+          "name": "tool_DebugRun_post",
+          "description": "Debugrun",
+          "disabled": false
+        },
+        {
+          "name": "tool_DebugSetBreakpoint_post",
+          "description": "Debugsetbreakpoint",
+          "disabled": false
+        },
+        {
+          "name": "tool_DebugStepIn_post",
+          "description": "Debugstepin",
+          "disabled": false
+        },
+        {
+          "name": "tool_DebugStepOut_post",
+          "description": "Debugstepout",
+          "disabled": false
+        },
+        {
+          "name": "tool_DebugStepOver_post",
+          "description": "Debugstepover",
+          "disabled": false
+        },
+        {
+          "name": "tool_DebugStop_post",
+          "description": "Debugstop",
+          "disabled": false
+        },
+        {
+          "name": "tool_DeleteHardwareBreakpoint_post",
+          "description": "Deletehardwarebreakpoint",
+          "disabled": false
+        },
+        {
+          "name": "tool_DisasmGetInstructionRange_post",
+          "description": "Disasmgetinstructionrange",
+          "disabled": false
+        },
+        {
+          "name": "tool_DisasmGetInstruction_post",
+          "description": "Disasmgetinstruction",
+          "disabled": false
+        },
+        {
+          "name": "tool_EnumHandles_post",
+          "description": "Enumhandles",
+          "disabled": false
+        },
+        {
+          "name": "tool_EnumTcpConnections_post",
+          "description": "Enumtcpconnections",
+          "disabled": false
+        },
+        {
+          "name": "tool_ExecCommand_post",
+          "description": "Execcommand",
+          "disabled": false
+        },
+        {
+          "name": "tool_FlagGet_post",
+          "description": "Flagget",
+          "disabled": false
+        },
+        {
+          "name": "tool_FlagSet_post",
+          "description": "Flagset",
+          "disabled": false
+        },
+        {
+          "name": "tool_GetBranchDestination_post",
+          "description": "Getbranchdestination",
+          "disabled": false
+        },
+        {
+          "name": "tool_GetBreakpointList_post",
+          "description": "Getbreakpointlist",
+          "disabled": false
+        },
+        {
+          "name": "tool_GetCallStack_post",
+          "description": "Getcallstack",
+          "disabled": false
+        },
+        {
+          "name": "tool_GetMemoryMap_post",
+          "description": "Getmemorymap",
+          "disabled": false
+        },
+        {
+          "name": "tool_GetModuleList_post",
+          "description": "Getmodulelist",
+          "disabled": false
+        },
+        {
+          "name": "tool_GetPatchAt_post",
+          "description": "Getpatchat",
+          "disabled": false
+        },
+        {
+          "name": "tool_GetPatchList_post",
+          "description": "Getpatchlist",
+          "disabled": false
+        },
+        {
+          "name": "tool_GetRegisterDump_post",
+          "description": "Getregisterdump",
+          "disabled": false
+        },
+        {
+          "name": "tool_GetTebAddress_post",
+          "description": "Gettebaddress",
+          "disabled": false
+        },
+        {
+          "name": "tool_GetThreadList_post",
+          "description": "Getthreadlist",
+          "disabled": false
+        },
+        {
+          "name": "tool_IsDebugActive_post",
+          "description": "Isdebugactive",
+          "disabled": false
+        },
+        {
+          "name": "tool_IsDebugging_post",
+          "description": "Isdebugging",
+          "disabled": false
+        },
+        {
+          "name": "tool_LabelGet_post",
+          "description": "Labelget",
+          "disabled": false
+        },
+        {
+          "name": "tool_LabelList_post",
+          "description": "Labellist",
+          "disabled": false
+        },
+        {
+          "name": "tool_LabelSet_post",
+          "description": "Labelset",
+          "disabled": false
+        },
+        {
+          "name": "tool_MemoryBase_post",
+          "description": "Memorybase",
+          "disabled": false
+        },
+        {
+          "name": "tool_MemoryGetProtect_post",
+          "description": "Memorygetprotect",
+          "disabled": false
+        },
+        {
+          "name": "tool_MemoryIsValidPtr_post",
+          "description": "Memoryisvalidptr",
+          "disabled": false
+        },
+        {
+          "name": "tool_MemoryRead_post",
+          "description": "Memoryread",
+          "disabled": false
+        },
+        {
+          "name": "tool_MemoryRemoteAlloc_post",
+          "description": "Memoryremotealloc",
+          "disabled": false
+        },
+        {
+          "name": "tool_MemoryRemoteFree_post",
+          "description": "Memoryremotefree",
+          "disabled": false
+        },
+        {
+          "name": "tool_MemoryWrite_post",
+          "description": "Memorywrite",
+          "disabled": false
+        },
+        {
+          "name": "tool_MiscParseExpression_post",
+          "description": "Miscparseexpression",
+          "disabled": false
+        },
+        {
+          "name": "tool_MiscRemoteGetProcAddress_post",
+          "description": "Miscremotegetprocaddress",
+          "disabled": false
+        },
+        {
+          "name": "tool_PatternFindMem_post",
+          "description": "Patternfindmem",
+          "disabled": false
+        },
+        {
+          "name": "tool_QuerySymbols_post",
+          "description": "Querysymbols",
+          "disabled": false
+        },
+        {
+          "name": "tool_RegisterGet_post",
+          "description": "Registerget",
+          "disabled": false
+        },
+        {
+          "name": "tool_RegisterSet_post",
+          "description": "Registerset",
+          "disabled": false
+        },
+        {
+          "name": "tool_SetHardwareBreakpoint_post",
+          "description": "Sethardwarebreakpoint",
+          "disabled": false
+        },
+        {
+          "name": "tool_SetPageRights_post",
+          "description": "Setpagerights",
+          "disabled": false
+        },
+        {
+          "name": "tool_SetRegister_post",
+          "description": "Setregister",
+          "disabled": false
+        },
+        {
+          "name": "tool_StackPeek_post",
+          "description": "Stackpeek",
+          "disabled": false
+        },
+        {
+          "name": "tool_StackPop_post",
+          "description": "Stackpop",
+          "disabled": false
+        },
+        {
+          "name": "tool_StackPush_post",
+          "description": "Stackpush",
+          "disabled": false
+        },
+        {
+          "name": "tool_StepInWithDisasm_post",
+          "description": "Stepinwithdisasm",
+          "disabled": false
+        },
+        {
+          "name": "tool_StringGetAt_post",
+          "description": "Stringgetat",
+          "disabled": false
+        },
+        {
+          "name": "tool_XrefCount_post",
+          "description": "Xrefcount",
+          "disabled": false
+        },
+        {
+          "name": "tool_XrefGet_post",
+          "description": "Xrefget",
+          "disabled": false
+        }
+      ],
+      "last_discovered_at": "1776515979130",
+      "last_error": ""
+    },
+    {
+      "server_id": "ida-9-1-bridge",
+      "tools": [
+        {
+          "name": "tool_ida_bridge_status_post",
+          "description": "Ida Bridge Status",
+          "disabled": false
+        },
+        {
+          "name": "tool_ida_close_active_session_post",
+          "description": "Ida Close Active Session",
+          "disabled": false
+        },
+        {
+          "name": "tool_ida_decompile_function_post",
+          "description": "Ida Decompile Function",
+          "disabled": false
+        },
+        {
+          "name": "tool_ida_disassemble_function_post",
+          "description": "Ida Disassemble Function",
+          "disabled": false
+        },
+        {
+          "name": "tool_ida_get_callees_post",
+          "description": "Ida Get Callees",
+          "disabled": false
+        },
+        {
+          "name": "tool_ida_get_callers_post",
+          "description": "Ida Get Callers",
+          "disabled": false
+        },
+        {
+          "name": "tool_ida_get_function_by_address_post",
+          "description": "Ida Get Function By Address",
+          "disabled": false
+        },
+        {
+          "name": "tool_ida_get_function_by_name_post",
+          "description": "Ida Get Function By Name",
+          "disabled": false
+        },
+        {
+          "name": "tool_ida_get_global_variable_value_at_address_post",
+          "description": "Ida Get Global Variable Value At Address",
+          "disabled": false
+        },
+        {
+          "name": "tool_ida_get_global_variable_value_by_name_post",
+          "description": "Ida Get Global Variable Value By Name",
+          "disabled": false
+        },
+        {
+          "name": "tool_ida_get_metadata_post",
+          "description": "Ida Get Metadata",
+          "disabled": false
+        },
+        {
+          "name": "tool_ida_get_xrefs_to_post",
+          "description": "Ida Get Xrefs To",
+          "disabled": false
+        },
+        {
+          "name": "tool_ida_list_functions_post",
+          "description": "Ida List Functions",
+          "disabled": false
+        },
+        {
+          "name": "tool_ida_list_rpc_methods_post",
+          "description": "Ida List Rpc Methods",
+          "disabled": false
+        },
+        {
+          "name": "tool_ida_list_strings_post",
+          "description": "Ida List Strings",
+          "disabled": false
+        },
+        {
+          "name": "tool_ida_open_file_post",
+          "description": "Ida Open File",
+          "disabled": false
+        },
+        {
+          "name": "tool_ida_read_byte_array_post",
+          "description": "Ida Read Byte Array",
+          "disabled": false
+        },
+        {
+          "name": "tool_ida_read_dword_array_post",
+          "description": "Ida Read Dword Array",
+          "disabled": false
+        },
+        {
+          "name": "tool_ida_read_memory_bytes_post",
+          "description": "Ida Read Memory Bytes",
+          "disabled": false
+        },
+        {
+          "name": "tool_ida_read_string_post",
+          "description": "Ida Read String",
+          "disabled": false
+        },
+        {
+          "name": "tool_ida_rpc_call_post",
+          "description": "Ida Rpc Call",
+          "disabled": false
+        }
+      ],
+      "last_discovered_at": "1776515979018",
+      "last_error": ""
     }
   ]
 }
